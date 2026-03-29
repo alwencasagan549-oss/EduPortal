@@ -1,0 +1,22 @@
+# EduPortal Security Mirror
+# Prevent Sensitive Files from Reaching GitHub
+
+# Config & Credentials (The Security Shield)
+config/credentials.php
+
+# Local Environment Junk
+.vscode/
+.idea/
+*.log
+tmp/
+node_modules/
+
+# Uploads (Private Student Data)
+uploads/assignments/
+uploads/submissions/
+
+# Local Dev Scripts
+sync_paths.php
+fix_paths.php
+setup_portal.php
+execute_database.php
