@@ -85,13 +85,16 @@ $conn->close();
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
+                <button class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="page-title">
                     <h1>Selective Assignments</h1>
                     <p>Academic materials for <strong><?php echo htmlspecialchars($student_grade . ' - ' . $student_section); ?></strong></p>
                 </div>
             </header>
 
-            <div class="assignment-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 2rem;">
+            <div class="assignment-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
                 <?php if (empty($assignments)): ?>
                     <div class="glass-card" style="grid-column: 1 / -1; padding: 5rem; text-align: center;">
                         <i class="fas fa-inbox" style="font-size: 4rem; color: var(--text-muted); opacity: 0.2; margin-bottom: 2rem;"></i>
@@ -136,6 +139,7 @@ $conn->close();
     </div>
 
     <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/responsive_ui.js"></script>
 </body>
 
 </html>

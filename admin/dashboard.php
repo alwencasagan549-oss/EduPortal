@@ -35,6 +35,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard | EduPortal LMS</title>
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="../assets/script.js" defer></script>
@@ -234,6 +235,9 @@ $conn->close();
                             <?php endif; ?>
                         </tbody>
                     </table>
+                </div>
+                <div class="mobile-hint" style="margin-top: 5px;">
+                    <i class="fas fa-hand-point-left"></i> Swipe left for more info...
                 </div>
             </div>
             <footer style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.85rem;">

@@ -28,6 +28,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard | EduPortal LMS</title>
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="../assets/script.js" defer></script>
@@ -77,6 +78,9 @@ $conn->close();
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
+                <button class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="page-title">
                     <h1>Student Hub</h1>
                     <p>Welcome back, <strong><?php echo htmlspecialchars($_SESSION['user_grade'] ?? 'Grade 11'); ?> | <?php echo htmlspecialchars($_SESSION['user_section'] ?? 'Unassigned'); ?></strong></p>
@@ -138,7 +142,7 @@ $conn->close();
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
+            <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
                 <!-- Submit Form -->
                 <div class="glass-card">
                     <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;"><i class="fas fa-cloud-arrow-up" style="color: var(--primary-color); margin-right: 10px;"></i> New Assignment</h2>
@@ -174,7 +178,7 @@ $conn->close();
                 </div>
 
                 <!-- History Table -->
-                <div class="table-container" style="margin-top: 0;">
+                <div class="table-container" style="margin-top: 0; flex: 1; min-width: 0;">
                     <div class="table-header">
                         <h2><i class="fas fa-history" style="margin-right: 10px; color: var(--primary-color)"></i> Recent Activity</h2>
                     </div>
@@ -237,11 +241,14 @@ $conn->close();
                             </tbody>
                         </table>
                     </div>
+                    <div class="mobile-hint">
+                        <i class="fas fa-hand-point-left"></i> Swipe left for more info...
+                    </div>
                 </div>
             </div>
             <footer style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.85rem;">
                 <p>&copy; <?php echo date('Y'); ?> EduPortal LMS. All rights reserved.</p>
-                <div style="display: flex; gap: 1.5rem; align-items: center;">
+                <div style="display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; justify-content: center;">
                     <span style="opacity: 0.7;">Web Developer: <strong id="_sys_v_auth"><a href="https://casagan.vercel.app/" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwen T. Casagan</a></strong></span>
                     <i class="fas fa-shield-halved" style="color: var(--success-color); opacity: 0.5;" title="EDU-Shield Certified"></i>
                 </div>
@@ -289,5 +296,6 @@ $conn->close();
     }
     </script>
     <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/responsive_ui.js"></script>
 </body>
 </html>

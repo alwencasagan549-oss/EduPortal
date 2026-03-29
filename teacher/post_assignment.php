@@ -86,6 +86,9 @@ $conn->close();
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
+                <button class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="page-title">
                     <h1>Broadcast Assignment</h1>
                     <p>Deliver study materials to selective student groups.</p>
@@ -96,7 +99,7 @@ $conn->close();
 
             <div class="glass-card animate-fade-up" style="max-width: 800px; margin: 0 auto; padding: 3rem;">
                 <form id="postAssignmentForm" enctype="multipart/form-data">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
                         <div>
                             <label class="premium-label" style="display: block; margin-bottom: 1rem;">Target Grade Level</label>
                             <select name="grade_level" required class="premium-input">
@@ -147,6 +150,7 @@ $conn->close();
     </div>
 
     <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/responsive_ui.js"></script>
     <script>
         // Dynamic Section Filtering
         document.querySelector('select[name="grade_level"]').addEventListener('change', function() {
