@@ -1,0 +1,33 @@
+# Basic security and routing
+Options -Indexes
+DirectoryIndex index.php
+
+# Block access to sensitive files
+<FilesMatch "\.(sql|bak|inc|cfg|config|log|env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block access to hidden files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Custom error pages (optional)
+# ErrorDocument 404 /assignment_portal/404.html
+# ErrorDocument 500 /assignment_portal/500.html
+
+# Basic rewrite rules
+RewriteEngine On
+
+# Remove trailing slashes
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)/$ /$1 [L,R=301]
+
+# Protect the config directory
+RewriteRule ^config/ - [F,L]
+
+# Redirect to HTTPS (if needed)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
