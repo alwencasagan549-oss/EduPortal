@@ -4,7 +4,7 @@
 # ----------------------------------------------------------------------
 
 # Disable Directory Listings
-Options -Indexes
+# Options -Indexes
 
 # Set Index Page
 DirectoryIndex index.php

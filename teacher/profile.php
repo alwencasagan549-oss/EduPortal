@@ -105,6 +105,8 @@ $conn->close();
     <title>Teacher Profile | EduPortal LMS</title>
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/responsive_ui.js"></script>
 </head>
 <body>
     <div class="layout-wrapper">
@@ -156,6 +158,9 @@ $conn->close();
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
+                <button class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="page-title">
                     <h1>Teacher Settings</h1>
                     <p>Manage your professional identity and security.</p>
@@ -178,7 +183,7 @@ $conn->close();
                 </div>
             <?php endif; ?>
 
-            <div style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;">
+            <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;">
                 <!-- Main Form -->
                 <div class="glass-card" style="padding: 2.5rem;">
                     <form method="POST">
@@ -186,7 +191,7 @@ $conn->close();
                             <i class="fas fa-id-card" style="color: var(--primary-color)"></i> General Information
                         </h3>
                         
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                        <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
                             <div>
                                 <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Full Name</label>
                                 <input type="text" name="name" value="<?php echo htmlspecialchars($teacher['name']); ?>" required class="premium-input">
@@ -211,7 +216,7 @@ $conn->close();
                             <input type="password" name="current_password" class="premium-input" placeholder="••••••••">
                         </div>
 
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2.5rem;">
+                        <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2.5rem;">
                             <div>
                                 <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">New Password</label>
                                 <input type="password" name="new_password" class="premium-input" placeholder="Min 6 characters">

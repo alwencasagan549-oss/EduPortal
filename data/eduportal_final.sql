@@ -1,14 +1,6 @@
--- =====================================================
--- EduPortal LMS – Final Production SQL Export
--- Optimized for Deployment on InfinityFree
--- Includes: Admin, Teachers, Students, Submissions,
---           Broadcast Assignments, and Job Queue.
--- =====================================================
-
--- Database Header
--- NOTE: If you are using InfinityFree, you define your database name in the Control Panel.
--- Ensure the USE statement matches your provided database name (e.g., epizy_12345678_eduportal)
--- USE `your_infinityfree_database_name`;
+-- EDU-PORTAL SQL EXPORT (PRODUCTION READY)
+-- Optimized for InfinityFree / MariaDB
+-- Date: 2026-03-29
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -109,23 +101,19 @@ CREATE TABLE IF NOT EXISTS `jobs` (
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- SEED DATA (with hashed passwords for instant use)
--- Password for all: admin123, teacher123, student123
--- =====================================================
+-- -----------------------------------------------------
+-- SEED DATA (Password for all: admin123, teacher123, student123)
+-- -----------------------------------------------------
 
--- Default Admin
 INSERT INTO `admin` (`username`, `password`) VALUES
 ('admin', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy')
 ON DUPLICATE KEY UPDATE `password` = VALUES(`password`);
 
--- Starter Teachers
 INSERT INTO `teachers` (`name`, `email`, `subject`, `password`) VALUES
 ('John Smith', 'john@example.com', 'Mathematics', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy'),
 ('Sarah Johnson', 'sarah@example.com', 'Physics', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy')
 ON DUPLICATE KEY UPDATE `password` = VALUES(`password`);
 
--- Sample Student Group
 INSERT INTO `students` (`lrn`, `name`, `email`, `grade_level`, `section`, `password`) VALUES
 ('123456789012', 'Alex Johnson', 'alex@example.com', 'Grade 12', 'ICT', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy'),
 ('987654321098', 'Maya Rivera', 'maya@example.com', 'Grade 11', 'STEM', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy')

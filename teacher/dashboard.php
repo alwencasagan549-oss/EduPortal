@@ -93,6 +93,7 @@ $pending_count = $total_submissions - $reviewed_count;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Dashboard | EduPortal LMS</title>
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="../assets/script.js" defer></script>
@@ -153,6 +154,9 @@ $pending_count = $total_submissions - $reviewed_count;
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
+                <button class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="page-title">
                     <h1>Teacher Portal</h1>
                     <p>Managing <strong><?php echo htmlspecialchars($teacher_subject); ?></strong> assignments.</p>
@@ -234,9 +238,9 @@ $pending_count = $total_submissions - $reviewed_count;
                     </div>
 
                     <!-- Filter Bar -->
-                    <form method="GET" class="glass-card" data-loader="true"
-                        style="padding: 1rem; display: flex; gap: 1rem; align-items: flex-end; border-radius: 16px; background: rgba(255,255,255,0.02);">
-                        <div style="flex: 1;">
+                    <form method="GET" class="glass-card responsive-grid-stack" data-loader="true"
+                        style="padding: 1rem; display: flex; gap: 1rem; align-items: flex-end; border-radius: 16px; background: rgba(255,255,255,0.02); flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
                             <label
                                 style="display: block; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">Grade
                                 Level</label>
@@ -256,13 +260,13 @@ $pending_count = $total_submissions - $reviewed_count;
                                     Grade 12</option>
                             </select>
                         </div>
-                        <div style="flex: 1;">
+                        <div style="flex: 1; min-width: 200px;">
                             <label
                                 style="display: block; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">Section</label>
                             <input type="text" name="section" value="<?php echo htmlspecialchars($filter_section); ?>"
                                 placeholder="e.g. STEM-A" class="premium-input" style="padding: 0.6rem 1rem;">
                         </div>
-                        <button type="submit" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1.5rem;">
+                        <button type="submit" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1.5rem; white-space: nowrap;">
                             <i class="fas fa-filter"></i> Apply
                         </button>
                         <a href="dashboard.php" class="premium-btn premium-btn-outline" style="padding: 0.6rem 1rem;">
@@ -367,6 +371,9 @@ $pending_count = $total_submissions - $reviewed_count;
                         </tbody>
                     </table>
                 </div>
+                <div class="mobile-hint" style="margin-top: 5px;">
+                    <i class="fas fa-hand-point-left"></i> Swipe left for more info...
+                </div>
             </div>
             <footer
                 style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.85rem;">
@@ -380,6 +387,7 @@ $pending_count = $total_submissions - $reviewed_count;
         </main>
     </div>
     <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/responsive_ui.js"></script>
 </body>
 
 </html>

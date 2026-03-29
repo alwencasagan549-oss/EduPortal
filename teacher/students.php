@@ -92,6 +92,9 @@ $conn->close();
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
+                <button class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="page-title">
                     <h1>Student Directory</h1>
                     <p>Managing students enrolled in <strong><?php echo htmlspecialchars($teacher_subject); ?></strong></p>
