@@ -1,0 +1,8 @@
+{
+    "name": "alwencasagan/eduportal",
+    "description": "EduPortal LMS - Advanced Learning Management System",
+    "type": "project",
+    "require": {
+        "php": ">=8.1"
+    }
+}
