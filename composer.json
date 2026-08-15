@@ -1,5 +1,5 @@
 {
-  "name": "eduportal",
+  "name": "eduportal/lms",
   "description": "EduPortal LMS",
   "require": {}
 }
