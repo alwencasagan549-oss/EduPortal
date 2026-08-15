@@ -1,0 +1,8 @@
+node_modules
+.git
+.htaccess
+uploads/*
+uploads/.*
+*.log
+.idea
+.vscode
