@@ -24,24 +24,18 @@ class QueueManager {
         $payload_json = json_encode($payload);
         
         $stmt = $conn->prepare("INSERT INTO jobs (type, payload, status) VALUES (?, ?, 'pending')");
-        $stmt->bind_param("ss", $type, $payload_json);
-        $result = $stmt->execute();
-        $job_id = $stmt->insert_id;
-        $stmt->close();
-        $conn->close();
-        
+        $stmt->execute([$type, $payload_json]);
+        $job_id = $conn->getPDO()->lastInsertId();
+
         return $job_id;
     }
 
     public static function getStatus($job_id) {
         $conn = getDBConnection();
         $stmt = $conn->prepare("SELECT status, error_message FROM jobs WHERE id = ?");
-        $stmt->bind_param("i", $job_id);
-        $stmt->execute();
+        $stmt->execute([$job_id]);
         $result = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        $conn->close();
-        
+
         return $result;
     }
 
@@ -52,18 +46,14 @@ class QueueManager {
         $stmt = $conn->prepare("SELECT id, type, payload FROM jobs WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1");
         $stmt->execute();
         $job = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
 
         if (!$job) {
-            $conn->close();
             return null;
         }
 
         // Set status to processing
         $stmt = $conn->prepare("UPDATE jobs SET status = 'processing' WHERE id = ?");
-        $stmt->bind_param("i", $job['id']);
-        $stmt->execute();
-        $stmt->close();
+        $stmt->execute([$job['id']]);
 
         $payload = json_decode($job['payload'], true);
         $result = false;
@@ -89,11 +79,8 @@ class QueueManager {
         // Finalize job status
         $status = $result ? 'completed' : 'failed';
         $stmt = $conn->prepare("UPDATE jobs SET status = ?, error_message = ? WHERE id = ?");
-        $stmt->bind_param("ssi", $status, $error, $job['id']);
-        $stmt->execute();
-        $stmt->close();
-        
-        $conn->close();
+        $stmt->execute([$status, $error, $job['id']]);
+
         return ['id' => $job['id'], 'status' => $status];
     }
 }

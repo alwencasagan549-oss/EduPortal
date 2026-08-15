@@ -53,51 +53,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (move_uploaded_file($file['tmp_name'], $file_path)) {
         $conn = getDBConnection();
         $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("isssssss", $teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $section);
-        
-        if ($stmt->execute()) {
-            // BULK NOTIFICATION LOGIC
-            // Fetch all students in the targeted group
-            $student_query = "SELECT email, name FROM students WHERE grade_level = ? AND section = ?";
-            $st_stmt = $conn->prepare($student_query);
-            $st_stmt = $conn->prepare("SELECT email, name FROM students WHERE grade_level = ? AND section = ?");
-            $st_stmt->bind_param("ss", $grade_level, $section);
-            $st_stmt->execute();
-            $students_res = $st_stmt->get_result();
-            
-            // Generate a notification email for each student
-            $student_count = 0;
-            while ($student = $students_res->fetch_assoc()) {
-                $email_subject = "[EduPortal] New Assignment: $title";
-                $email_body = "Hello " . $student['name'] . ",\n\n" .
-                             "Your teacher, $teacher_name, has posted a new assignment for $subject (Grade $grade_level - $section).\n\n" .
-                             "Title: $title\n\n" .
-                             "Log in to your dashboard to download the soft copy.\n\n" .
-                             "Regards,\nEduPortal System";
+        $stmt->execute([$teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $section]);
 
-                QueueManager::push('email', [
-                    'to' => $student['email'],
-                    'subject' => $email_subject,
-                    'message' => $email_body,
-                    'from_name' => PLATFORM_NAME,
-                    'from_email' => SMTP_USER,
-                    'smtp_user' => SMTP_USER,
-                    'smtp_pass' => SMTP_PASS
-                ]);
-                $student_count++;
-            }
-            $st_stmt->close();
-            
-            echo json_encode([
-                'success' => true, 
-                'total_notified' => $student_count,
-                'target_group' => "$grade_level - $section"
+        // BULK NOTIFICATION LOGIC
+        $st_stmt = $conn->prepare("SELECT email, name FROM students WHERE grade_level = ? AND section = ?");
+        $st_stmt->execute([$grade_level, $section]);
+        $students_res = $st_stmt->get_result();
+
+        $student_count = 0;
+        while ($student = $students_res->fetch_assoc()) {
+            $email_subject = "[EduPortal] New Assignment: $title";
+            $email_body = "Hello " . $student['name'] . ",\n\n" .
+                         "Your teacher, $teacher_name, has posted a new assignment for $subject (Grade $grade_level - $section).\n\n" .
+                         "Title: $title\n\n" .
+                         "Log in to your dashboard to download the soft copy.\n\n" .
+                         "Regards,\nEduPortal System";
+
+            QueueManager::push('email', [
+                'to' => $student['email'],
+                'subject' => $email_subject,
+                'message' => $email_body,
+                'from_name' => PLATFORM_NAME,
+                'from_email' => SMTP_USER,
+                'smtp_user' => SMTP_USER,
+                'smtp_pass' => SMTP_PASS
             ]);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Database error: ' . $conn->error]);
+            $student_count++;
         }
-        $stmt->close();
-        $conn->close();
+
+        echo json_encode([
+            'success' => true,
+            'total_notified' => $student_count,
+            'target_group' => "$grade_level - $section"
+        ]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Failed to move uploaded file.']);
     }

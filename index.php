@@ -12,7 +12,6 @@ $res2 = $conn->query("SELECT COUNT(*) as count FROM teachers");
 $total_teachers = $res2->fetch_assoc()['count'] ?? 0;
 $res3 = $conn->query("SELECT COUNT(*) as count FROM students");
 $total_students = $res3->fetch_assoc()['count'] ?? 0;
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">

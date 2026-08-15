@@ -1,26 +1,19 @@
 <?php
-/**
- * Migration: Row Level Security Hardening
- * Adds 'teacher_id' to submissions to ensure explicit ownership and accountability.
- */
-
-require_once __DIR__ . '/../config/database.php';
+// rls_migration.php - Row Level Security migration
+require_once 'config/database.php';
 
 $conn = getDBConnection();
 
-// Check if teacher_id column exists
-$check_column = $conn->query("SHOW COLUMNS FROM submissions LIKE 'teacher_id'");
-if ($check_column->num_rows === 0) {
+$check_column = $conn->query("SELECT column_name FROM information_schema.columns WHERE table_name = 'submissions' AND column_name = 'teacher_id'");
+
+if ($check_column->num_rows() === 0) {
     echo "Adding 'teacher_id' to submissions table...\n";
-    $sql = "ALTER TABLE submissions ADD COLUMN teacher_id INT(11) DEFAULT NULL AFTER student_id";
+    $sql = "ALTER TABLE submissions ADD COLUMN teacher_id INTEGER DEFAULT NULL";
     if ($conn->query($sql)) {
         echo "Success: Column added.\n";
     } else {
-        echo "Error: " . $conn->error . "\n";
+        echo "Error: " . $conn->getPDO()->errorInfo()[2] . "\n";
     }
 } else {
     echo "Column 'teacher_id' already exists.\n";
 }
-
-$conn->close();
-echo "Migration Complete.\n";

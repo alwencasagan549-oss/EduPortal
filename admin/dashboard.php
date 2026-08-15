@@ -11,10 +11,7 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
     $conn = getDBConnection();
     $stmt = $conn->prepare("UPDATE submissions SET marks = ?, remarks = ? WHERE id = ?");
-    $stmt->bind_param("ssi", $_POST['marks'], $_POST['remarks'], $_POST['id']);
-    $stmt->execute();
-    $stmt->close();
-    $conn->close();
+    $stmt->execute([$_POST['marks'], $_POST['remarks'], $_POST['id']]);
     
     header('Location: dashboard.php?updated=1');
     exit();
@@ -26,8 +23,7 @@ $result = $conn->query("SELECT s.*, st.grade_level, st.section
                        FROM submissions s 
                        LEFT JOIN students st ON s.student_id = st.id 
                        ORDER BY s.submitted_at DESC");
-$submissions = $result->fetch_all(MYSQLI_ASSOC);
-$conn->close();
+$submissions = $result->fetch_all();
 ?>
 <!DOCTYPE html>
 <html lang="en">

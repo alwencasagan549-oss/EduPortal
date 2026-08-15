@@ -23,11 +23,8 @@ $student_section = $_SESSION['user_section'];
 // Fetch assignments matching this student's group
 $conn = getDBConnection();
 $stmt = $conn->prepare("SELECT * FROM posted_assignments WHERE grade_level = ? AND section = ? ORDER BY created_at DESC");
-$stmt->bind_param("ss", $student_grade, $student_section);
-$stmt->execute();
-$assignments = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-$conn->close();
+$stmt->execute([$student_grade, $student_section]);
+$assignments = $stmt->get_result()->fetch_all();
 ?>
 <!DOCTYPE html>
 <html lang="en">

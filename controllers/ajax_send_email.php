@@ -15,11 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_once '../config/database.php';
     $conn = getDBConnection();
     $stmt = $conn->prepare("SELECT name, email FROM students WHERE id = ?");
-    $stmt->bind_param("i", $student_id);
-    $stmt->execute();
+    $stmt->execute([$student_id]);
     $student = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-    $conn->close();
 
     if (!$student || empty($subject) || empty($message)) {
         header('Content-Type: application/json');

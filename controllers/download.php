@@ -31,22 +31,19 @@ if ($user_role === 'teacher') {
     if (isset($_SESSION['user_subject'])) {
         $teacher_subject = $_SESSION['user_subject'];
         $stmt = $conn->prepare("SELECT file_path FROM submissions WHERE id = ? AND subject = ?");
-        $stmt->bind_param("is", $id, $teacher_subject);
+        $stmt->execute([$id, $teacher_subject]);
     } else {
-        // If no subject in session, allow download based on teacher_id
         $stmt = $conn->prepare("SELECT file_path FROM submissions WHERE id = ? AND teacher_id = ?");
-        $stmt->bind_param("ii", $id, $user_id);
+        $stmt->execute([$id, $user_id]);
     }
 } else {
-    // Student can only download their own submissions
     $stmt = $conn->prepare("SELECT file_path FROM submissions WHERE id = ? AND student_id = ?");
-    $stmt->bind_param("ii", $id, $user_id);
+    $stmt->execute([$id, $user_id]);
 }
 
-$stmt->execute();
 $result = $stmt->get_result();
 
-if ($result->num_rows === 0) {
+if ($result->num_rows() === 0) {
     die('File not found or you do not have permission to access this file');
 }
 
@@ -79,7 +76,5 @@ if (ob_get_level()) {
 
 readfile($file_path);
 
-$stmt->close();
-$conn->close();
 exit();
 ?>

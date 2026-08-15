@@ -22,33 +22,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $hashed_password = password_hash($password, PASSWORD_BCRYPT);
         
         $conn = getDBConnection();
-        // Check if LRN already exists (SQL Shield: Standardized Check)
+        // Check if LRN already exists
         $check = $conn->prepare("SELECT id FROM students WHERE lrn = ?");
-        $check->bind_param("s", $lrn);
-        $check->execute();
-        $check->store_result();
-        
-        if ($check->num_rows > 0) {
+        $check->execute([$lrn]);
+
+        if ($check->get_result()->num_rows() > 0) {
             $error = "This LRN is already registered (Verification: Duplicate #$lrn)";
         } else {
-            $check->close();
-            
             $stmt = $conn->prepare("INSERT INTO students (lrn, name, email, grade_level, section, password) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssss", $lrn, $name, $email, $grade_level, $section, $hashed_password);
-            
-            if ($stmt->execute()) {
+            $stmt->execute([$lrn, $name, $email, $grade_level, $section, $hashed_password]);
+
+            if ($stmt->rowCount() > 0) {
                 $success = "Registration successful! You can now login.";
             } else {
-                // If the check somehow missed a duplicate (Race Condition)
-                if ($conn->errno === 1062) {
-                    $error = "This LRN is already registered in our system.";
-                } else {
-                    $error = "Registration failed: " . $conn->error;
-                }
+                $error = "Registration failed";
             }
-            $stmt->close();
         }
-        $conn->close();
         // Skip re-closing $check or $stmt as they are closed inside logic
         $check_closed = true;
         $stmt_closed = true;

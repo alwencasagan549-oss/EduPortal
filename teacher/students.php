@@ -26,12 +26,9 @@ $query = "SELECT st.id, st.name, st.lrn, st.grade_level, st.section, st.email,
           ORDER BY latest_submission DESC";
 
 $stmt = $conn->prepare($query);
-$stmt->bind_param("s", $teacher_subject);
-$stmt->execute();
+$stmt->execute([$teacher_subject]);
 $result = $stmt->get_result();
-$students = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-$conn->close();
+$students = $result->fetch_all();
 ?>
 <!DOCTYPE html>
 <html lang="en">

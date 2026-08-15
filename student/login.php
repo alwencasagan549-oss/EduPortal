@@ -15,12 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $conn = getDBConnection();
         $stmt = $conn->prepare("SELECT * FROM students WHERE lrn = ?");
-        $stmt->bind_param("s", $lrn);
-        $stmt->execute();
+        $stmt->execute([$lrn]);
         $result = $stmt->get_result();
-        
+
         $login_success = false;
-        if ($result->num_rows === 1) {
+        if ($result->num_rows() === 1) {
             $student = $result->fetch_assoc();
             if (password_verify($password, $student['password'])) {
                 $login_success = true;
@@ -54,7 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Invalid LRN or Password."; // Generic Error
             }
         }
-        $conn->close();
     }
 }
 ?>

@@ -22,8 +22,7 @@ $teacher_subject = $_SESSION['user_subject'];
 // Get unique grades that have actual students
 $conn = getDBConnection();
 $grades_res = $conn->query("SELECT DISTINCT grade_level FROM students ORDER BY grade_level");
-$grades = $grades_res->fetch_all(MYSQLI_ASSOC);
-$conn->close();
+$grades = $grades_res->fetch_all();
 ?>
 <!DOCTYPE html>
 <html lang="en">

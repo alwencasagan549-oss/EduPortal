@@ -15,12 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $conn = getDBConnection();
         $stmt = $conn->prepare("SELECT * FROM admin WHERE username = ?");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
+        $stmt->execute([$username]);
         $result = $stmt->get_result();
-        
+
         $login_success = false;
-        if ($result->num_rows === 1) {
+        if ($result->num_rows() === 1) {
             $admin = $result->fetch_assoc();
             if (password_verify($password, $admin['password'])) {
                 $login_success = true;
@@ -51,7 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Invalid Username or Password."; // Generic Error
             }
         }
-        $conn->close();
     }
 }
 ?>
