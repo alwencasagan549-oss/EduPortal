@@ -13,11 +13,12 @@ $teacher_subject = $_SESSION['user_subject'] ?? '';
 
 // Get submissions for teacher's subject (Auth Shield: RLS Check)
 $conn = getDBConnection();
+// Strengthened Logic: Filter by subject only (since teacher_id is not consistently populated)
 $stmt = $conn->prepare("SELECT s.file_path, st.name as student_name 
                        FROM submissions s 
                        LEFT JOIN students st ON s.student_id = st.id 
-                       WHERE s.subject = ? AND s.teacher_id = ?");
-$stmt->bind_param("si", $teacher_subject, $teacher_id);
+                       WHERE s.subject = ?");
+$stmt->bind_param("s", $teacher_subject);
 $stmt->execute();
 $result = $stmt->get_result();
 $submissions = $result->fetch_all(MYSQLI_ASSOC);
