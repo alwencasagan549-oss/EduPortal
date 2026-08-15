@@ -13,16 +13,19 @@
  * ecosystem and is protected by academic and digital copyright laws.
  * --------------------------------------------------------------------------------
  */
-// Load Secure Credentials (local development) or use environment variables (Render/production)
-if (file_exists(__DIR__ . '/credentials.php')) {
+// Render/production: use environment variables if credentials.php is absent
+if (!file_exists(__DIR__ . '/credentials.php')) {
+    define('SECURE_DB_HOST', getenv('DB_HOST') ?: 'localhost');
+    define('SECURE_DB_USER', getenv('DB_USER') ?: 'root');
+    define('SECURE_DB_PASS', getenv('DB_PASS') ?: '');
+    define('SECURE_DB_NAME', getenv('DB_NAME') ?: 'edu_portal');
+    define('SMTP_HOST', getenv('SMTP_HOST') ?: 'ssl://smtp.gmail.com');
+    define('SMTP_PORT', getenv('SMTP_PORT') ?: 465);
+    define('SMTP_USER', getenv('SMTP_USER') ?: '');
+    define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
+} else {
     require_once __DIR__ . '/credentials.php';
 }
-
-// Database configuration (env vars for production, credentials.php for local)
-if (!defined('SECURE_DB_HOST')) define('SECURE_DB_HOST', getenv('DB_HOST') ?: 'localhost');
-if (!defined('SECURE_DB_USER')) define('SECURE_DB_USER', getenv('DB_USER') ?: 'root');
-if (!defined('SECURE_DB_PASS')) define('SECURE_DB_PASS', getenv('DB_PASS') ?: '');
-if (!defined('SECURE_DB_NAME')) define('SECURE_DB_NAME', getenv('DB_NAME') ?: 'edu_portal');
 
 define('DB_HOST', SECURE_DB_HOST);
 define('DB_USER', SECURE_DB_USER);
