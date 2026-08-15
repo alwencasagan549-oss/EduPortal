@@ -56,6 +56,10 @@ class EduPortalDB {
         return $stmt ? new EduPortalResult($stmt) : false;
     }
 
+    public function exec($sql) {
+        return $this->pdo->exec($sql);
+    }
+
     public function close() {
         $this->pdo = null;
     }
