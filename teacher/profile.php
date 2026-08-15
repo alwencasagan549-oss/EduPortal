@@ -18,11 +18,8 @@ $conn = getDBConnection();
 
 // Get teacher's current information
 $stmt = $conn->prepare("SELECT id, name, email, subject, created_at FROM teachers WHERE id = ?");
-$stmt->bind_param("i", $teacher_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$teacher = $result->fetch_assoc();
-$stmt->close();
+$stmt->execute([$teacher_id]);
+$teacher = $stmt->get_result()->fetch_assoc();
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
@@ -41,9 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     
     // Check email uniqueness but allow same email for different subject (per previous requirements)
     $stmt = $conn->prepare("SELECT id FROM teachers WHERE email = ? AND subject = ? AND id != ?");
-    $stmt->bind_param("ssi", $email, $subject, $teacher_id);
-    $stmt->execute();
-    if ($stmt->get_result()->num_rows > 0) {
+    $stmt->execute([$email, $subject, $teacher_id]);
+    if ($stmt->get_result()->num_rows() > 0) {
         $errors[] = "An account with this email for this subject already exists.";
     }
     $stmt->close();
@@ -53,10 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             $errors[] = "Current password is required to set a new one.";
         } else {
             $stmt = $conn->prepare("SELECT password FROM teachers WHERE id = ?");
-            $stmt->bind_param("i", $teacher_id);
-            $stmt->execute();
+            $stmt->execute([$teacher_id]);
             $stored_pass = $stmt->get_result()->fetch_assoc()['password'];
-            $stmt->close();
             
             if (!password_verify($current_password, $stored_pass)) {
                 $errors[] = "Current password verification failed.";
@@ -72,30 +66,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         if (!empty($new_password)) {
             $hashed = password_hash($new_password, PASSWORD_BCRYPT);
             $stmt = $conn->prepare("UPDATE teachers SET name = ?, email = ?, subject = ?, password = ? WHERE id = ?");
-            $stmt->bind_param("ssssi", $name, $email, $subject, $hashed, $teacher_id);
+            $stmt->execute([$name, $email, $subject, $hashed, $teacher_id]);
         } else {
             $stmt = $conn->prepare("UPDATE teachers SET name = ?, email = ?, subject = ? WHERE id = ?");
-            $stmt->bind_param("sssi", $name, $email, $subject, $teacher_id);
+            $stmt->execute([$name, $email, $subject, $teacher_id]);
         }
-        
-        if ($stmt->execute()) {
+
+        if ($stmt->rowCount() > 0) {
             $_SESSION['user_name'] = $name;
             $_SESSION['user_subject'] = $subject;
             $success_msg = "Account security and profile updated successfully.";
-            
-            // Refresh data
+
             $teacher['name'] = $name;
             $teacher['email'] = $email;
             $teacher['subject'] = $subject;
         } else {
-            $error_msg = "Update failed: " . $conn->error;
+            $error_msg = "Update failed";
         }
-        $stmt->close();
     } else {
         $error_msg = implode(" ", $errors);
     }
 }
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -19,12 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_grading'])) {
     $remarks = trim($_POST['remarks'] ?? '');
 
     $conn = getDBConnection();
-    // Strengthened RLS Check: Bind to teacher_id from session or subject
     $stmt = $conn->prepare("UPDATE submissions SET marks = ?, remarks = ? WHERE id = ? AND subject = ?");
-    $stmt->bind_param("ssis", $marks, $remarks, $submission_id, $teacher_subject);
-    $stmt->execute();
-    $stmt->close();
-    $conn->close();
+    $stmt->execute([$marks, $remarks, $submission_id, $teacher_subject]);
 
     header('Location: dashboard.php?updated=1');
     exit();
@@ -33,12 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_grading'])) {
 // Handle deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_submission'])) {
     $conn = getDBConnection();
-    // Strengthened RLS Check: Bind to subject (class ownership)
     $stmt = $conn->prepare("DELETE FROM submissions WHERE id = ? AND subject = ?");
-    $stmt->bind_param("is", $_POST['submission_id'], $teacher_subject);
-    $stmt->execute();
-    $stmt->close();
-    $conn->close();
+    $stmt->execute([$_POST['submission_id'], $teacher_subject]);
 
     header('Location: dashboard.php?deleted=1');
     exit();
@@ -51,35 +43,29 @@ $filter_section = trim($_GET['section'] ?? '');
 // Get submissions for this teacher's subject with student details
 $conn = getDBConnection();
 
-$query = "SELECT s.*, st.name as student_name, st.grade_level, st.section 
-          FROM submissions s 
-          LEFT JOIN students st ON s.student_id = st.id 
+$query = "SELECT s.*, st.name as student_name, st.grade_level, st.section
+          FROM submissions s
+          LEFT JOIN students st ON s.student_id = st.id
           WHERE s.subject = ?";
 
 $params = [$teacher_subject];
-$types = "s";
 
 if (!empty($filter_grade)) {
     $query .= " AND st.grade_level = ?";
     $params[] = $filter_grade;
-    $types .= "s";
 }
 
 if (!empty($filter_section)) {
     $query .= " AND st.section LIKE ?";
     $params[] = "%$filter_section%";
-    $types .= "s";
 }
 
 $query .= " ORDER BY s.submitted_at DESC";
 
 $stmt = $conn->prepare($query);
-$stmt->bind_param($types, ...$params);
-$stmt->execute();
+$stmt->execute($params);
 $result = $stmt->get_result();
-$submissions = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-$conn->close();
+$submissions = $result->fetch_all();
 
 // Statistics
 $total_submissions = count($submissions);

@@ -12,13 +12,10 @@ $conn = getDBConnection();
 $stmt = $conn->prepare("SELECT COUNT(*) as traffic_count FROM jobs WHERE status IN ('pending', 'processing')");
 $stmt->execute();
 $data = $stmt->get_result()->fetch_assoc();
-$stmt->close();
 
 header('Content-Type: application/json');
 echo json_encode([
     'has_traffic' => $data['traffic_count'] > 0,
     'count' => $data['traffic_count']
 ]);
-
-$conn->close();
 ?>

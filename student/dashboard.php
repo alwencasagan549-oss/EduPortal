@@ -15,12 +15,8 @@ $student_lrn = $_SESSION['user_lrn'];
 // Get student submissions
 $conn = getDBConnection();
 $stmt = $conn->prepare("SELECT * FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC");
-$stmt->bind_param("i", $student_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$submissions = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-$conn->close();
+$stmt->execute([$student_id]);
+$submissions = $stmt->get_result()->fetch_all();
 ?>
 <!DOCTYPE html>
 <html lang="en">

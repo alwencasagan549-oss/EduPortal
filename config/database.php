@@ -1,18 +1,10 @@
 <?php
 /**
  * --------------------------------------------------------------------------------
- * EDUPORTAL LMS - CORE DATABASE ENGINE
- * --------------------------------------------------------------------------------
- * @author    Alwen T. Casagan
- * @role      Web Developer / Systems Architect
- * @copyright 2026 Alwen T. Casagan. All rights reserved.
- * 
- * PROPRIETARY AND CONFIDENTIAL:
- * Unauthorized copying, modification, or distribution of this file, via any 
- * medium, is strictly prohibited. This code is unique to the EduPortal 
- * ecosystem and is protected by academic and digital copyright laws.
+ * EDUPORTAL LMS - CORE DATABASE ENGINE (PDO / PostgreSQL)
  * --------------------------------------------------------------------------------
  */
+
 // Render/production: use environment variables if credentials.php is absent
 if (!file_exists(__DIR__ . '/credentials.php')) {
     define('SECURE_DB_HOST', getenv('DB_HOST') ?: 'localhost');
@@ -32,64 +24,123 @@ define('DB_USER', SECURE_DB_USER);
 define('DB_PASS', SECURE_DB_PASS);
 define('DB_NAME', SECURE_DB_NAME);
 
-// SMTP constants (from credentials.php locally, env vars on Render)
-if (!defined('SMTP_HOST')) define('SMTP_HOST', getenv('SMTP_HOST') ?: 'ssl://smtp.gmail.com');
-if (!defined('SMTP_PORT')) define('SMTP_PORT', getenv('SMTP_PORT') ?: 465);
-if (!defined('SMTP_USER')) define('SMTP_USER', getenv('SMTP_USER') ?: '');
-if (!defined('SMTP_PASS')) define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
-
 // Harden Session Security (Auth Shield)
 if (session_status() === PHP_SESSION_NONE) {
-    // Only send cookies over HTTPS if reachable, but always set HttpOnly and SameSite
     session_set_cookie_params([
         'lifetime' => 0,
         'path' => '/',
         'domain' => '',
-        'secure' => isset($_SERVER['HTTPS']), 
+        'secure' => isset($_SERVER['HTTPS']),
         'httponly' => true,
         'samesite' => 'Strict'
     ]);
     session_start();
 }
 
-/**
- * Create database connection
- * @return mysqli Database connection object
- */
-function getDBConnection() {
-    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-    
-    // Check connection
-    if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
+class EduPortalDB {
+    private $pdo;
+
+    public function __construct($host, $user, $pass, $dbname) {
+        $dsn = "pgsql:host=$host;dbname=$dbname";
+        $this->pdo = new PDO($dsn, $user, $pass);
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     }
-    
-    // Set charset to UTF-8
-    $conn->set_charset("utf8mb4");
-    
+
+    public function prepare($sql) {
+        return new EduPortalStmt($this->pdo->prepare($sql));
+    }
+
+    public function query($sql) {
+        $stmt = $this->pdo->query($sql);
+        return $stmt ? new EduPortalResult($stmt) : false;
+    }
+
+    public function close() {
+        $this->pdo = null;
+    }
+
+    public function getPDO() {
+        return $this->pdo;
+    }
+}
+
+class EduPortalStmt {
+    private $stmt;
+
+    public function __construct($stmt) {
+        $this->stmt = $stmt;
+    }
+
+    public function execute($params = null) {
+        if ($params === null) return $this->stmt->execute();
+        if (is_string($params)) {
+            $params = array_slice(func_get_args(), 1);
+        }
+        return $this->stmt->execute($params);
+    }
+
+    public function get_result() {
+        return new EduPortalResult($this->stmt);
+    }
+
+    public function fetch_assoc() {
+        return $this->stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function fetch_all($style = PDO::FETCH_ASSOC) {
+        return $this->stmt->fetchAll($style);
+    }
+
+    public function rowCount() {
+        return $this->stmt->rowCount();
+    }
+
+    public function lastInsertId() {
+        return $this->pdo->lastInsertId();
+    }
+
+    public function bind_param() {
+        return true;
+    }
+}
+
+class EduPortalResult {
+    private $stmt;
+
+    public function __construct($stmt) {
+        $this->stmt = $stmt;
+    }
+
+    public function fetch_assoc() {
+        return $this->stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function fetch_all($style = PDO::FETCH_ASSOC) {
+        return $this->stmt->fetchAll($style);
+    }
+
+    public function num_rows() {
+        return $this->stmt->rowCount();
+    }
+}
+
+function getDBConnection() {
+    static $conn;
+    if ($conn === null) {
+        $conn = new EduPortalDB(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+    }
     return $conn;
 }
 
-/**
- * Check if user is logged in
- * @return bool True if logged in
- */
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
 
-/**
- * Check if admin is logged in (legacy support)
- * @return bool True if admin logged in
- */
 function isAdminLoggedIn() {
     return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
 }
 
-/**
- * Require user to be logged in
- * @return void Redirects to login if not logged in
- */
 function requireLogin() {
     if (!isLoggedIn() && !isAdminLoggedIn()) {
         header('Location: index.php');
@@ -97,10 +148,6 @@ function requireLogin() {
     }
 }
 
-/**
- * Get current user's role
- * @return string User role (admin, teacher, student)
- */
 function getUserRole() {
     if (isAdminLoggedIn()) {
         return "admin";
@@ -108,11 +155,6 @@ function getUserRole() {
     return $_SESSION['user_role'] ?? '';
 }
 
-/**
- * Sanitize input data
- * @param string $data Input to sanitize
- * @return string Sanitized input
- */
 function sanitize($data) {
     $data = trim($data);
     $data = stripslashes($data);

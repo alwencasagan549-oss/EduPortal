@@ -24,17 +24,13 @@ if (empty($grade_level)) {
 
 $conn = getDBConnection();
 $stmt = $conn->prepare("SELECT DISTINCT section FROM students WHERE grade_level = ? ORDER BY section");
-$stmt->bind_param("s", $grade_level);
-$stmt->execute();
+$stmt->execute([$grade_level]);
 $result = $stmt->get_result();
 
 $sections = [];
 while ($row = $result->fetch_assoc()) {
     $sections[] = $row['section'];
 }
-
-$stmt->close();
-$conn->close();
 
 echo json_encode($sections);
 ?>

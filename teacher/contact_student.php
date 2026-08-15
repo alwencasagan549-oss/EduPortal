@@ -17,11 +17,8 @@ $teacher_subject = $_SESSION['user_subject'];
 $student_id = intval($_GET['id'] ?? 0);
 $conn = getDBConnection();
 $stmt = $conn->prepare("SELECT name, email, lrn, grade_level, section FROM students WHERE id = ?");
-$stmt->bind_param("i", $student_id);
-$stmt->execute();
+$stmt->execute([$student_id]);
 $student = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-$conn->close();
 
 if (!$student) {
     header('Location: students.php');

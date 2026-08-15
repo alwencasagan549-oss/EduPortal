@@ -16,12 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $conn = getDBConnection();
         $stmt = $conn->prepare("SELECT * FROM teachers WHERE email = ? AND subject = ?");
-        $stmt->bind_param("ss", $email, $subject);
-        $stmt->execute();
+        $stmt->execute([$email, $subject]);
         $result = $stmt->get_result();
-        
+
         $login_success = false;
-        if ($result->num_rows === 1) {
+        if ($result->num_rows() === 1) {
             $teacher = $result->fetch_assoc();
             if (password_verify($password, $teacher['password'])) {
                 $login_success = true;
@@ -54,7 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Invalid Email or Password."; // Generic Error
             }
         }
-        $conn->close();
     }
 }
 ?>

@@ -20,23 +20,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn = getDBConnection();
         // Check if email + subject combination already exists
         $check = $conn->prepare("SELECT id FROM teachers WHERE email = ? AND subject = ?");
-        $check->bind_param("ss", $email, $subject);
-        $check->execute();
-        if ($check->get_result()->num_rows > 0) {
+        $check->execute([$email, $subject]);
+        if ($check->get_result()->num_rows() > 0) {
             $error = "You are already registered for this subject ($subject)";
         } else {
             $stmt = $conn->prepare("INSERT INTO teachers (name, email, subject, password) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("ssss", $name, $email, $subject, $hashed_password);
-            
-            if ($stmt->execute()) {
+            $stmt->execute([$name, $email, $subject, $hashed_password]);
+
+            if ($stmt->rowCount() > 0) {
                 $success = "Registration successful! You can now login.";
             } else {
-                $error = "Registration failed: " . $conn->error;
+                $error = "Registration failed";
             }
-            $stmt->close();
         }
-        $check->close();
-        $conn->close();
     }
 }
 ?>

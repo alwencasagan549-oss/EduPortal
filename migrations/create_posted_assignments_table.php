@@ -1,16 +1,14 @@
 <?php
 /**
  * Database Migration: Posted Assignments Table
- * This table stores assignments uploaded by teachers for specific grade/section groups.
  */
-
 require_once 'config/database.php';
 
 $conn = getDBConnection();
 
 $sql = "CREATE TABLE IF NOT EXISTS posted_assignments (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    teacher_id INT NOT NULL,
+    id SERIAL PRIMARY KEY,
+    teacher_id INTEGER NOT NULL,
     teacher_name VARCHAR(255) NOT NULL,
     subject VARCHAR(255) NOT NULL,
     title VARCHAR(255) NOT NULL,
@@ -21,11 +19,8 @@ $sql = "CREATE TABLE IF NOT EXISTS posted_assignments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )";
 
-if ($conn->query($sql) === TRUE) {
+if ($conn->query($sql)) {
     echo "Table 'posted_assignments' created successfully.\n";
 } else {
-    echo "Error creating table: " . $conn->error . "\n";
+    echo "Error creating table: " . $conn->getPDO()->errorInfo()[2];
 }
-
-$conn->close();
-?>
