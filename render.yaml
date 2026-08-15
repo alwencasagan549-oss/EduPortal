@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: eduportal
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DB_HOST
+        fromDatabase:
+          name: eduportal-db
+          property: host
+      - key: DB_USER
+        fromDatabase:
+          name: eduportal-db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: eduportal-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: eduportal-db
+          property: database
+      - key: SMTP_PASS
+        sync: false
+    disk:
+      name: uploads
+      mountPath: /var/www/html/uploads
+      sizeGB: 1
+
+databases:
+  - name: eduportal-db
+    databaseName: eduportal
+    user: eduportal_user
+    plan: free
