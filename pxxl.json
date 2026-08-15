@@ -1,0 +1,8 @@
+{
+  "language": "php",
+  "runtime": {
+    "type": "php"
+  },
+  "buildpack": "localhost/pxxl/buildpacks/php",
+  "startCommand": "php -S 0.0.0.0:$PORT -t ."
+}
