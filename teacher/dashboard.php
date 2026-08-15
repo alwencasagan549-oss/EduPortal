@@ -219,7 +219,7 @@ $pending_count = $total_submissions - $reviewed_count;
                     <div class="stat-item-premium">
                         <span class="stat-label" style="color: var(--primary-color);">Export Data</span>
                         <div style="margin-top: 10px;">
-                            <a href="download_all.php?teacher=<?php echo $teacher_id; ?>"
+                            <a href="../controllers/download_all.php?teacher=<?php echo $teacher_id; ?>"
                                 class="premium-btn premium-btn-primary" style="width: 100%;">
                                 <i class="fas fa-file-zipper"></i> Download ZIP
                             </a>
@@ -318,10 +318,10 @@ $pending_count = $total_submissions - $reviewed_count;
                                         </td>
                                         <td>
                                             <div style="display: flex; gap: 10px;">
-                                                <a href="../controllers/download_all.php"
+                                                <a href="../controllers/download.php?id=<?php echo $submission['id']; ?>"
                                                     class="premium-btn premium-btn-outline"
                                                     style="padding: 0.6rem 1.2rem; font-size: 0.85rem;">
-                                                    <i class="fas fa-download"></i> Download All
+                                                    <i class="fas fa-download"></i> Download
                                                 </a>
                                             </div>
                                         </td>
