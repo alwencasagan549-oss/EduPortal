@@ -13,18 +13,27 @@
  * ecosystem and is protected by academic and digital copyright laws.
  * --------------------------------------------------------------------------------
  */
-// Load Secure Credentials
+// Load Secure Credentials (local development) or use environment variables (Render/production)
 if (file_exists(__DIR__ . '/credentials.php')) {
     require_once __DIR__ . '/credentials.php';
-} else {
-    die("Security Error: 'config/credentials.php' is missing. Please create it from 'credentials.template.php'.");
 }
 
-// Database configuration
+// Database configuration (env vars for production, credentials.php for local)
+if (!defined('SECURE_DB_HOST')) define('SECURE_DB_HOST', getenv('DB_HOST') ?: 'localhost');
+if (!defined('SECURE_DB_USER')) define('SECURE_DB_USER', getenv('DB_USER') ?: 'root');
+if (!defined('SECURE_DB_PASS')) define('SECURE_DB_PASS', getenv('DB_PASS') ?: '');
+if (!defined('SECURE_DB_NAME')) define('SECURE_DB_NAME', getenv('DB_NAME') ?: 'edu_portal');
+
 define('DB_HOST', SECURE_DB_HOST);
 define('DB_USER', SECURE_DB_USER);
 define('DB_PASS', SECURE_DB_PASS);
 define('DB_NAME', SECURE_DB_NAME);
+
+// SMTP constants (from credentials.php locally, env vars on Render)
+if (!defined('SMTP_HOST')) define('SMTP_HOST', getenv('SMTP_HOST') ?: 'ssl://smtp.gmail.com');
+if (!defined('SMTP_PORT')) define('SMTP_PORT', getenv('SMTP_PORT') ?: 465);
+if (!defined('SMTP_USER')) define('SMTP_USER', getenv('SMTP_USER') ?: '');
+if (!defined('SMTP_PASS')) define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
 
 // Harden Session Security (Auth Shield)
 if (session_status() === PHP_SESSION_NONE) {
