@@ -15,6 +15,8 @@ if (!file_exists(__DIR__ . '/credentials.php')) {
     define('SMTP_PORT', getenv('SMTP_PORT') ?: 465);
     define('SMTP_USER', getenv('SMTP_USER') ?: '');
     define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
+    define('PLATFORM_NAME', getenv('PLATFORM_NAME') ?: 'EduPortal LMS');
+    define('SITE_URL', getenv('SITE_URL') ?: 'http://localhost/Eduportal');
 } else {
     require_once __DIR__ . '/credentials.php';
 }
