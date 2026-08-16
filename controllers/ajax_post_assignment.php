@@ -15,9 +15,10 @@ if (getUserRole() !== 'teacher') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $teacher_id = $_SESSION['user_id'];
-    $teacher_name = $_SESSION['user_name'];
-    $subject = $_SESSION['user_subject'];
+    try {
+    $teacher_id = $_SESSION['user_id'] ?? 0;
+    $teacher_name = $_SESSION['user_name'] ?? 'Teacher';
+    $subject = $_SESSION['user_subject'] ?? '';
     $teacher_email = $_SESSION['user_email'] ?? 'teacher@eduportal.com';
     
     $grade_level = $_POST['grade_level'] ?? '';
@@ -87,6 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Failed to move uploaded file.']);
+    }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
     }
 }
 ?>
