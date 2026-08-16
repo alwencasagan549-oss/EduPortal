@@ -1,6 +1,8 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/database.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Check if teacher is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'teacher') {

@@ -1,8 +1,10 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-session_start();
 require_once 'config/database.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Get some quick stats for the landing page
 $conn = getDBConnection();

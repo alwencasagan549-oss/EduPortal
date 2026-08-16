@@ -1,8 +1,7 @@
 <?php
-// logout.php - IMPROVED VERSION
+// logout.php
 ob_start();
-
-// Ensure session is started
+require_once __DIR__ . '/config/database.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
