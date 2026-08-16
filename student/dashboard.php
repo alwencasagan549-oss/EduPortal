@@ -19,6 +19,14 @@ $conn = getDBConnection();
 $stmt = $conn->prepare("SELECT * FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC");
 $stmt->execute([$student_id]);
 $submissions = $stmt->get_result()->fetch_all();
+
+// Get broadcasted assignments for this student's group
+$student_grade = $_SESSION['user_grade'] ?? '';
+$student_section = $_SESSION['user_section'] ?? '';
+$student_strand = $_SESSION['user_strand'] ?? 'Academic';
+$stmt2 = $conn->prepare("SELECT * FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
+$stmt2->execute([$student_grade, $student_section, $student_strand]);
+$broadcasted = $stmt2->get_result()->fetch_all();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -139,6 +147,36 @@ $submissions = $stmt->get_result()->fetch_all();
                     </div>
                 </div>
             </div>
+
+            <!-- Broadcasted Assignments -->
+            <?php if (!empty($broadcasted)): ?>
+            <div class="table-container">
+                <div class="table-header">
+                    <h2><i class="fas fa-bullhorn" style="margin-right: 10px; color: var(--primary-color)"></i> Teacher Broadcasts</h2>
+                    <span class="premium-badge badge-blue"><?php echo count($broadcasted); ?> New</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                    <?php foreach ($broadcasted as $a): ?>
+                    <div class="glass-card" style="padding: 1.5rem; border-left: 3px solid var(--primary-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                            <span class="premium-badge badge-blue"><?php echo htmlspecialchars($a['subject']); ?></span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);"><i class="fas fa-calendar"></i> <?php echo date('M d, Y', strtotime($a['created_at'])); ?></span>
+                        </div>
+                        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><?php echo htmlspecialchars($a['title']); ?></h3>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;">
+                            <?php echo nl2br(htmlspecialchars($a['description'])); ?>
+                        </p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--glass-border);">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);"><i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($a['teacher_name']); ?></span>
+                            <a href="<?php echo htmlspecialchars($a['file_path']); ?>" download class="premium-btn premium-btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
                 <!-- Submit Form -->

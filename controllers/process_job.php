@@ -11,9 +11,15 @@ $action = $_GET['action'] ?? '';
 if ($action === 'push') {
     // We already handle push in the main PHP scripts for reliability.
 } elseif ($action === 'process') {
-    $result = QueueManager::processNext();
+    $results = [];
+    while (($result = QueueManager::processNext()) !== null) {
+        $results[] = $result;
+    }
     header('Content-Type: application/json');
-    echo json_encode($result);
+    echo json_encode([
+        'processed' => count($results),
+        'results' => $results
+    ]);
 } elseif ($action === 'status') {
     $job_id = intval($_GET['job_id'] ?? 0);
     $status = QueueManager::getStatus($job_id);
