@@ -16,6 +16,9 @@ $teacher_subject = $_SESSION['user_subject'];
 
 // Handle updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_grading'])) {
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        die('Invalid security token.');
+    }
     $submission_id = intval($_POST['submission_id']);
     $marks = trim($_POST['marks'] ?? '');
     $remarks = trim($_POST['remarks'] ?? '');
@@ -30,6 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_grading'])) {
 
 // Handle deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_submission'])) {
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        die('Invalid security token.');
+    }
     $conn = getDBConnection();
     $stmt = $conn->prepare("DELETE FROM submissions WHERE id = ? AND subject = ?");
     $stmt->execute([$_POST['submission_id'], $teacher_subject]);
@@ -108,22 +114,22 @@ $pending_count = $total_submissions - $reviewed_count;
 
             <nav class="sidebar-menu">
                 <li class="menu-item">
-                    <a href="dashboard.php" class="menu-link active">
+                    <a href="dashboard.php" class="menu-link active" onclick="EduPortal.navigate('Dashboard', 'Loading dashboard...', this)">
                         <i class="fas fa-home"></i> Dashboard
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="post_assignment.php" class="menu-link">
+                    <a href="post_assignment.php" class="menu-link" onclick="EduPortal.navigate('Post Assignment', 'Preparing assignment portal...', this)">
                         <i class="fas fa-upload"></i> Post Assignment
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="profile.php" class="menu-link">
+                    <a href="profile.php" class="menu-link" onclick="EduPortal.navigate('Profile', 'Loading profile settings...', this)">
                         <i class="fas fa-user-circle"></i> Profile
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="students.php" class="menu-link">
+                    <a href="students.php" class="menu-link" onclick="EduPortal.navigate('My Students', 'Loading student directory...', this)">
                         <i class="fas fa-user-graduate"></i> <?php echo htmlspecialchars($teacher_subject); ?> Students
                     </a>
                 </li>
@@ -139,7 +145,7 @@ $pending_count = $total_submissions - $reviewed_count;
                         <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Online</div>
                     </div>
                 </div>
-                <a href="../logout.php" class="logout-link">
+                <a href="../logout.php" class="logout-link" onclick="return EduPortal.confirmLogout(this)">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
             </div>
@@ -338,6 +344,7 @@ $pending_count = $total_submissions - $reviewed_count;
                                         <td>
                                             <form method="POST" id="grade-form-<?php echo $submission['id']; ?>"
                                                 data-loader="true">
+                                                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                                 <input type="hidden" name="submission_id"
                                                     value="<?php echo $submission['id']; ?>">
                                                 <input type="text" name="marks"
@@ -358,6 +365,7 @@ $pending_count = $total_submissions - $reviewed_count;
                                                     <i class="fas fa-check"></i>
                                                 </button>
                                                 <form method="POST" onsubmit="return confirm('Delete this record?')" data-loader="true">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                                     <input type="hidden" name="submission_id"
                                                         value="<?php echo $submission['id']; ?>">
                                                     <button type="submit" name="delete_submission"

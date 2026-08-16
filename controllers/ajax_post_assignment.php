@@ -15,6 +15,10 @@ if (getUserRole() !== 'teacher') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
+        exit();
+    }
     try {
     $teacher_id = $_SESSION['user_id'] ?? 0;
     $teacher_name = $_SESSION['user_name'] ?? 'Teacher';

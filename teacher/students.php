@@ -56,17 +56,17 @@ $students = $result->fetch_all();
             
             <nav class="sidebar-menu">
                 <li class="menu-item">
-                    <a href="dashboard.php" class="menu-link">
+                    <a href="dashboard.php" class="menu-link" onclick="EduPortal.navigate('Dashboard', 'Loading dashboard...', this)">
                         <i class="fas fa-home"></i> Dashboard
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="post_assignment.php" class="menu-link">
+                    <a href="post_assignment.php" class="menu-link" onclick="EduPortal.navigate('Post Assignment', 'Preparing assignment portal...', this)">
                         <i class="fas fa-upload"></i> Post Assignment
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="students.php" class="menu-link active">
+                    <a href="students.php" class="menu-link active" onclick="EduPortal.navigate('My Students', 'Loading student directory...', this)">
                         <i class="fas fa-user-graduate"></i> <?php echo htmlspecialchars($teacher_subject); ?> Students
                     </a>
                 </li>
@@ -82,7 +82,7 @@ $students = $result->fetch_all();
                         <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Online</div>
                     </div>
                 </div>
-                <a href="../logout.php" class="logout-link">
+                <a href="../logout.php" class="logout-link" onclick="return EduPortal.confirmLogout(this)">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
                 <div style="padding: 8px 0 0; text-align: center; opacity: 0.4; font-size: 0.65rem; color: var(--text-muted);">

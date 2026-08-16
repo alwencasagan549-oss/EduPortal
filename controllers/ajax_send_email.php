@@ -6,6 +6,11 @@
 require_once '../libs/QueueManager.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Invalid security token.']);
+        exit;
+    }
     $student_id = intval($_POST['student_id'] ?? 0);
     $subject = trim($_POST['subject'] ?? '');
     $message = trim($_POST['message'] ?? '');

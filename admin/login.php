@@ -12,6 +12,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $wait = $_SESSION['login_timeout'] - time();
         $error = "Too many failed attempts. Please wait $wait seconds.";
     } else {
+        if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+            $error = 'Invalid security token.';
+        } else {
         $username = $_POST['username'];
         $password = $_POST['password'];
         
@@ -52,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Invalid Username or Password."; // Generic Error
             }
         }
+        }
     }
 }
 ?>
@@ -83,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="POST" data-loader="true">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <div style="margin-bottom: 1.5rem;">
                 <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
                     <i class="fas fa-user"></i> Username

@@ -8,6 +8,9 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        $error = 'Invalid security token.';
+    } else {
     $lrn = trim($_POST['lrn']);
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
@@ -40,10 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = "Registration failed";
             }
+            // Skip re-closing $check or $stmt as they are closed inside logic
+            $check_closed = true;
+            $stmt_closed = true;
         }
-        // Skip re-closing $check or $stmt as they are closed inside logic
-        $check_closed = true;
-        $stmt_closed = true;
     }
 }
 ?>
@@ -76,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="POST" data-loader="true">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                 <div>
                     <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">LRN (12 Digits)</label>

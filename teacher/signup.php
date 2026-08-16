@@ -14,7 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
     
-    if ($password !== $confirm_password) {
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        $error = 'Invalid security token.';
+    } elseif ($password !== $confirm_password) {
         $error = "Passwords do not match";
     } else {
         $hashed_password = password_hash($password, PASSWORD_BCRYPT);
@@ -67,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="POST" data-loader="true">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                 <div>
                     <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Full Name</label>
