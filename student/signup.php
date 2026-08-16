@@ -18,8 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $confirm_password = $_POST['confirm_password'];
 
         if ($password !== $confirm_password) {
-        $error = "Passwords do not match";
-    } elseif (strlen($lrn) !== 12) {
+            $error = "Passwords do not match";
+        } elseif (strlen($lrn) !== 12) {
         $error = "LRN must be exactly 12 digits";
     } else {
         $section = trim($_POST['section'] ?? '');
@@ -46,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Skip re-closing $check or $stmt as they are closed inside logic
             $check_closed = true;
             $stmt_closed = true;
+        }
         }
     }
 }
