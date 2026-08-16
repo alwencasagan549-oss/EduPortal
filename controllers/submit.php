@@ -10,6 +10,13 @@ if (!isLoggedIn() || $_SESSION['user_role'] !== 'student') {
     exit();
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        header('Location: ../student/dashboard.php?error=Invalid+security+token');
+        exit();
+    }
+}
+
 // Get form data - use session name instead of POST
 $student_name = $_SESSION['user_name'] ?? '';
 $subject = trim($_POST['subject'] ?? '');

@@ -25,6 +25,9 @@ $teacher = $stmt->get_result()->fetch_assoc();
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        $error_msg = 'Invalid security token.';
+    }
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
     $subject = trim($_POST['subject']);
@@ -116,17 +119,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             
             <nav class="sidebar-menu">
                 <li class="menu-item">
-                    <a href="dashboard.php" class="menu-link">
+                    <a href="dashboard.php" class="menu-link" onclick="EduPortal.navigate('Dashboard', 'Loading dashboard...', this)">
                         <i class="fas fa-home"></i> Dashboard
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="profile.php" class="menu-link active">
+                    <a href="profile.php" class="menu-link active" onclick="EduPortal.navigate('Profile', 'Loading profile settings...', this)">
                         <i class="fas fa-user-circle"></i> Profile
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="students.php" class="menu-link">
+                    <a href="students.php" class="menu-link" onclick="EduPortal.navigate('My Students', 'Loading student directory...', this)">
                         <i class="fas fa-user-graduate"></i> <?php echo htmlspecialchars($teacher_subject); ?> Students
                     </a>
                 </li>
@@ -142,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                         <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Online</div>
                     </div>
                 </div>
-                <a href="../logout.php" class="logout-link">
+                <a href="../logout.php" class="logout-link" onclick="return EduPortal.confirmLogout(this)">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
                 <div style="padding: 8px 0 0; text-align: center; opacity: 0.4; font-size: 0.65rem; color: var(--text-muted);">
@@ -183,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                 <!-- Main Form -->
                 <div class="glass-card" style="padding: 2.5rem;">
                     <form method="POST" data-loader="true">
+                        <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                         <h3 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px;">
                             <i class="fas fa-id-card" style="color: var(--primary-color)"></i> General Information
                         </h3>

@@ -101,6 +101,7 @@ $grades = $grades_res->fetch_all();
 
             <div class="glass-card animate-fade-up" style="max-width: 800px; margin: 0 auto; padding: 3rem;">
                 <form id="postAssignmentForm" enctype="multipart/form-data" data-loader="true">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                     <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
                         <div>
                             <label class="premium-label" style="display: block; margin-bottom: 1rem;">Target Grade Level</label>

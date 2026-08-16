@@ -46,12 +46,12 @@ $submissions = $stmt->get_result()->fetch_all();
             
             <nav class="sidebar-menu">
                 <li class="menu-item">
-                    <a href="dashboard.php" class="menu-link active">
+                    <a href="dashboard.php" class="menu-link active" onclick="EduPortal.navigate('Student Hub', 'Loading your dashboard...', this)">
                         <i class="fas fa-house"></i> Home
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="assignments.php" class="menu-link">
+                    <a href="assignments.php" class="menu-link" onclick="EduPortal.navigate('Assignments', 'Loading assignments...', this)">
                         <i class="fas fa-file-arrow-down"></i> New Assignments
                     </a>
                 </li>
@@ -67,7 +67,7 @@ $submissions = $stmt->get_result()->fetch_all();
                         <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Student</div>
                     </div>
                 </div>
-                <a href="../logout.php" class="logout-link">
+                <a href="../logout.php" class="logout-link" onclick="return EduPortal.confirmLogout(this)">
                     <i class="fas fa-right-from-bracket"></i> Logout
                 </a>
             </div>
@@ -146,6 +146,7 @@ $submissions = $stmt->get_result()->fetch_all();
                     <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;"><i class="fas fa-cloud-arrow-up" style="color: var(--primary-color); margin-right: 10px;"></i> New Assignment</h2>
                     
                     <form action="../controllers/submit.php" method="POST" enctype="multipart/form-data" onsubmit="return validateForm()" data-loader="true">
+                        <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                         <div style="margin-bottom: 1.5rem;">
                             <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Subject Name</label>
                             <input type="text" id="subject" name="subject" required 
