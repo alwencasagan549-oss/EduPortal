@@ -262,16 +262,31 @@ $grades = $stmt->get_result()->fetch_all();
             .then(data => {
                 EduPortal.hideLoader();
                 if (data.success) {
-                    EduPortal.showSuccessModal(
-                        "Assignment Published", 
-                        `Your materials have been broadcasted! ${data.total_notified} students in ${data.target_group} are being notified.`
-                    );
+                    EduPortal.showLoader("Sending Notifications", "Delivering assignment alerts to students...");
+
+                    fetch('../controllers/process_job.php?action=process')
+                        .then(r => r.json())
+                        .then(proc => {
+                            EduPortal.hideLoader();
+                            const processed = proc.processed || 0;
+                            const failed = (proc.results || []).filter(r => r.status === 'failed').length;
+                            let msg = `Assignment broadcasted to ${data.total_notified} students in ${data.target_group}.`;
+                            if (processed > 0 && failed === 0) {
+                                msg += ` All ${processed} notification emails sent successfully.`;
+                            } else if (failed > 0) {
+                                msg += ` ${processed} processed, ${failed} failed to send.`;
+                            }
+                            EduPortal.showSuccessModal("Assignment Published", msg);
+                        })
+                        .catch(() => {
+                            EduPortal.hideLoader();
+                            EduPortal.showSuccessModal("Assignment Published",
+                                `Your materials have been broadcasted! ${data.total_notified} students will be notified.`);
+                        });
+
                     this.reset();
                     document.getElementById('fileNameDisplay').style.display = 'none';
                     document.getElementById('uploadContent').style.display = 'block';
-
-                    // Trigger the background worker silently without showing the traffic loader yet
-                    fetch('../controllers/process_job.php?action=process');
                 } else {
                     const statusAlert = document.getElementById('statusAlert');
                     statusAlert.innerHTML = `
