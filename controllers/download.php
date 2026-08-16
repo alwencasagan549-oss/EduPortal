@@ -11,7 +11,7 @@ require_once __DIR__ . '/../config/database.php';
 
 // RLS: Only allow authenticated users
 if (!isLoggedIn() && !isAdminLoggedIn()) {
-    header('Location: ../index.php');
+    header('Location: ../session_expired.php');
     exit();
 }
 

@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 requireLogin();
 
 if (getUserRole() !== 'teacher') {
-    header('Location: index.php');
+    header('Location: session_expired.php');
     exit();
 }
 

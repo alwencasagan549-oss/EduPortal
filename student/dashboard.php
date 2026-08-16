@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Check if student is logged in
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'student') {
-    header('Location: login.php');
+    header('Location: session_expired.php');
     exit();
 }
 
