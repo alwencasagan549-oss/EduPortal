@@ -6,6 +6,12 @@
 require_once '../config/database.php';
 require_once '../libs/QueueManager.php';
 
+if (!isLoggedIn() && !isAdminLoggedIn()) {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Unauthorized']);
+    exit();
+}
+
 $action = $_GET['action'] ?? '';
 
 if ($action === 'push') {

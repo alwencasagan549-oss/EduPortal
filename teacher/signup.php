@@ -18,6 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Invalid security token.';
     } elseif ($password !== $confirm_password) {
         $error = "Passwords do not match";
+    } elseif (strlen($password) < 8) {
+        $error = "Password must be at least 8 characters long";
+    } elseif (!preg_match('/[A-Z]/', $password)) {
+        $error = "Password must contain at least one uppercase letter";
+    } elseif (!preg_match('/[0-9]/', $password)) {
+        $error = "Password must contain at least one number";
     } else {
         $hashed_password = password_hash($password, PASSWORD_BCRYPT);
         
@@ -61,11 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <?php if ($error): ?>
-            <div class="alert alert-danger"><i class="fas fa-circle-xmark"></i> <div><?php echo $error; ?></div></div>
+            <div class="alert alert-danger"><i class="fas fa-circle-xmark"></i> <div><?php echo htmlspecialchars($error); ?></div></div>
         <?php endif; ?>
-        
+
         <?php if ($success): ?>
-            <div class="alert alert-success"><i class="fas fa-circle-check"></i> <div><?php echo $success; ?></div></div>
+            <div class="alert alert-success"><i class="fas fa-circle-check"></i> <div><?php echo htmlspecialchars($success); ?></div></div>
         <?php endif; ?>
 
         <form method="POST" data-loader="true">

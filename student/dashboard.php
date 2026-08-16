@@ -16,7 +16,7 @@ $student_lrn = $_SESSION['user_lrn'];
 
 // Get student submissions
 $conn = getDBConnection();
-$stmt = $conn->prepare("SELECT * FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC");
+$stmt = $conn->prepare("SELECT id, subject, file_path, marks, remarks, submitted_at FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC");
 $stmt->execute([$student_id]);
 $submissions = $stmt->get_result()->fetch_all();
 
@@ -24,7 +24,7 @@ $submissions = $stmt->get_result()->fetch_all();
 $student_grade = $_SESSION['user_grade'] ?? '';
 $student_section = $_SESSION['user_section'] ?? '';
 $student_strand = $_SESSION['user_strand'] ?? 'Academic';
-$stmt2 = $conn->prepare("SELECT * FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
+$stmt2 = $conn->prepare("SELECT id, subject, title, description, file_path, teacher_name, created_at FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
 $stmt2->execute([$student_grade, $student_section, $student_strand]);
 $broadcasted = $stmt2->get_result()->fetch_all();
 ?>
@@ -246,7 +246,7 @@ $broadcasted = $stmt2->get_result()->fetch_all();
                                     <tr>
                                         <td><span class="premium-badge badge-yellow"><?php echo htmlspecialchars($submission['subject']); ?></span></td>
                                         <td>
-                                            <a href="../controllers/download.php?id=<?php echo $submission['id']; ?>" class="premium-btn premium-btn-outline" style="padding: 0.4rem 0.6rem; font-size: 0.75rem;">
+                                            <a href="../controllers/download.php?id=<?php echo htmlspecialchars($submission['id']); ?>" class="premium-btn premium-btn-outline" style="padding: 0.4rem 0.6rem; font-size: 0.75rem;">
                                                 <i class="fas fa-file-lines"></i> View
                                             </a>
                                         </td>

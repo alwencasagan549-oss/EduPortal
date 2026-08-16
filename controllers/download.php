@@ -50,14 +50,21 @@ if ($result->num_rows() === 0) {
 $submission = $result->fetch_assoc();
 $file_path = $submission['file_path'];
 
-if (!file_exists($file_path)) {
+$base_dir = realpath(__DIR__ . '/../uploads');
+$real_path = realpath($file_path);
+
+if ($real_path === false || strpos($real_path, $base_dir) !== 0) {
+    die('Access denied: invalid file path');
+}
+
+if (!file_exists($real_path)) {
     die('File not found on server: ' . htmlspecialchars($file_path));
 }
 
 // Get file info
-$filename = basename($file_path);
-$filetype = mime_content_type($file_path);
-$filesize = filesize($file_path);
+$filename = basename($real_path);
+$filetype = mime_content_type($real_path);
+$filesize = filesize($real_path);
 
 // Set headers for download
 header('Content-Description: File Transfer');
@@ -74,7 +81,7 @@ if (ob_get_level()) {
     ob_end_clean();
 }
 
-readfile($file_path);
+readfile($real_path);
 
 exit();
 ?>

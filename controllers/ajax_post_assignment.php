@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $file = $_FILES['assignment_file'];
     $upload_dir = 'uploads/assignments/';
     if (!is_dir($upload_dir)) {
-        mkdir($upload_dir, 0777, true);
+        mkdir($upload_dir, 0750, true);
     }
     
     $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));

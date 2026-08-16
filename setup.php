@@ -12,6 +12,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once 'config/database.php';
         $conn = getDBConnection();
 
+        // Guard: refuse to run if already set up
+        $guard = $conn->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'admin'");
+        $guard->execute();
+        $admin_exists = $guard->get_result()->fetch_assoc()['count'];
+        if ($admin_exists > 0) {
+            $error = "Setup has already been completed. Delete this file (setup.php) for security.";
+        }
+
         $post_step = $_POST['step'] ?? 1;
 
         if ($post_step == 1) {
@@ -82,8 +90,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $conn->exec("ALTER TABLE posted_assignments ADD COLUMN IF NOT EXISTS strand VARCHAR(50) NOT NULL DEFAULT 'Academic'");
 
+            // Add indexes for performance
+            $indexes = [
+                "CREATE INDEX IF NOT EXISTS idx_submissions_student_id ON submissions(student_id)",
+                "CREATE INDEX IF NOT EXISTS idx_submissions_teacher_id ON submissions(teacher_id)",
+                "CREATE INDEX IF NOT EXISTS idx_submissions_subject ON submissions(subject)",
+                "CREATE INDEX IF NOT EXISTS idx_submissions_submitted_at ON submissions(submitted_at)",
+                "CREATE INDEX IF NOT EXISTS idx_posted_assignments_teacher_id ON posted_assignments(teacher_id)",
+                "CREATE INDEX IF NOT EXISTS idx_posted_assignments_grade_section_strand ON posted_assignments(grade_level, section, strand)",
+                "CREATE INDEX IF NOT EXISTS idx_posted_assignments_created_at ON posted_assignments(created_at)",
+                "CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)"
+            ];
+            foreach ($indexes as $idx_sql) {
+                $conn->exec($idx_sql);
+            }
+
             // Verify tables exist
-            $verify = $conn->query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'submissions'");
+            $verify = $conn->prepare("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'submissions'");
+            $verify->execute();
             $result = $verify->fetch_all();
             if (count($result) > 0) {
                 $message = "Tables created successfully! Now seeding default accounts.";
@@ -145,12 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="step">
             <h3>Step 1: Create Database Tables</h3>
             <p>This will create all required tables in your PostgreSQL database.</p>
-            <p><strong>Credentials after setup:</strong></p>
-            <ul>
-                <li>Admin: <code>admin</code> / <code>admin123</code></li>
-                <li>Teacher: <code>john@example.com</code> / <code>teacher123</code></li>
-                <li>Student LRN: <code>123456789012</code> / <code>student123</code></li>
-            </ul>
+            <p><strong>Default accounts will be created.</strong> Change all passwords after first login.</p>
             <form method="POST" data-loader="true"><input type="hidden" name="step" value="1"><button type="submit">Create Tables</button></form>
         </div>
     <?php elseif ($step == 2): ?>

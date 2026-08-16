@@ -16,9 +16,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
         header('Location: dashboard.php?error=Invalid+security+token');
         exit();
     }
+    $marks = trim($_POST['marks'] ?? '');
+    $remarks = trim($_POST['remarks'] ?? '');
+
+    if ($marks !== '' && !is_numeric($marks)) {
+        header('Location: dashboard.php?error=Invalid+marks+value');
+        exit();
+    }
+    if (strlen($marks) > 10 || strlen($remarks) > 500) {
+        header('Location: dashboard.php?error=Input+too+long');
+        exit();
+    }
+
     $conn = getDBConnection();
     $stmt = $conn->prepare("UPDATE submissions SET marks = ?, remarks = ? WHERE id = ?");
-    $stmt->execute([$_POST['marks'], $_POST['remarks'], $_POST['id']]);
+    $stmt->execute([$marks, $remarks, $_POST['id']]);
     
     header('Location: dashboard.php?updated=1');
     exit();
@@ -26,11 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
 
 // Get all submissions with student details
 $conn = getDBConnection();
-$result = $conn->query("SELECT s.*, st.grade_level, st.section 
-                       FROM submissions s 
-                       LEFT JOIN students st ON s.student_id = st.id 
+$stmt = $conn->prepare("SELECT s.id, s.student_name, s.subject, s.submitted_at, s.marks, s.remarks, st.grade_level, st.section
+                       FROM submissions s
+                       LEFT JOIN students st ON s.student_id = st.id
                        ORDER BY s.submitted_at DESC");
-$submissions = $result->fetch_all();
+$stmt->execute();
+$submissions = $stmt->get_result()->fetch_all();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -226,12 +239,15 @@ $submissions = $result->fetch_all();
                                             <button type="submit" name="update" form="form-<?php echo $submission['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
                                                 <i class="fas fa-save"></i>
                                             </button>
-                                            <a href="delete.php?id=<?php echo $submission['id']; ?>" 
-                                               class="premium-btn premium-btn-outline"
-                                               style="padding: 0.5rem 1rem; font-size: 0.85rem; color: var(--danger-color); border-color: rgba(239, 68, 68, 0.2);"
-                                               onclick="return confirm('Are you sure you want to delete this submission?')">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
+                                            <form method="POST" action="../controllers/delete.php" data-loader="true" style="display: inline;"
+                                                  onsubmit="return confirm('Are you sure you want to delete this submission?')">
+                                                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                                <input type="hidden" name="id" value="<?php echo $submission['id']; ?>">
+                                                <button type="submit" class="premium-btn premium-btn-outline"
+                                                        style="padding: 0.5rem 1rem; font-size: 0.85rem; color: var(--danger-color); border-color: rgba(239, 68, 68, 0.2);">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

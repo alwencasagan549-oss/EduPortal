@@ -20,8 +20,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($password !== $confirm_password) {
             $error = "Passwords do not match";
         } elseif (strlen($lrn) !== 12) {
-        $error = "LRN must be exactly 12 digits";
-    } else {
+            $error = "LRN must be exactly 12 digits";
+        } elseif (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = "Please provide a valid email address";
+        } elseif (strlen($password) < 8) {
+            $error = "Password must be at least 8 characters long";
+        } elseif (!preg_match('/[A-Z]/', $password)) {
+            $error = "Password must contain at least one uppercase letter";
+        } elseif (!preg_match('/[0-9]/', $password)) {
+            $error = "Password must contain at least one number";
+        } else {
         $section = trim($_POST['section'] ?? '');
         $grade_level = trim($_POST['grade_level'] ?? 'Grade 11');
         $strand = trim($_POST['strand'] ?? 'Academic');
@@ -72,11 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <?php if ($error): ?>
-            <div class="alert alert-danger"><i class="fas fa-circle-xmark"></i> <div><?php echo $error; ?></div></div>
+            <div class="alert alert-danger"><i class="fas fa-circle-xmark"></i> <div><?php echo htmlspecialchars($error); ?></div></div>
         <?php endif; ?>
-        
+
         <?php if ($success): ?>
-            <div class="alert alert-success"><i class="fas fa-circle-check"></i> <div><?php echo $success; ?></div></div>
+            <div class="alert alert-success"><i class="fas fa-circle-check"></i> <div><?php echo htmlspecialchars($success); ?></div></div>
         <?php endif; ?>
 
         <form method="POST" data-loader="true">
@@ -121,8 +129,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div style="margin-bottom: 1.5rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Email Address (Optional)</label>
-                <input type="email" name="email" class="premium-input" placeholder="john@example.com">
+                <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Email Address</label>
+                <input type="email" name="email" required class="premium-input" placeholder="john@example.com">
             </div>
             
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">

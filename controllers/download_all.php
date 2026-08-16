@@ -38,12 +38,15 @@ if ($zip->open($temp_zip, ZipArchive::CREATE) !== TRUE) {
     die('Cannot create ZIP file');
 }
 
+$base_dir = realpath(__DIR__ . '/../uploads');
+
 foreach ($submissions as $submission) {
-    if (file_exists($submission['file_path'])) {
-        $file_name = basename($submission['file_path']);
+    $real_path = realpath($submission['file_path']);
+    if ($real_path !== false && strpos($real_path, $base_dir) === 0) {
+        $file_name = basename($real_path);
         $student_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $submission['student_name']);
         $new_name = $student_name . '_' . $file_name;
-        $zip->addFile($submission['file_path'], $new_name);
+        $zip->addFile($real_path, $new_name);
     }
 }
 

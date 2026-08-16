@@ -24,7 +24,7 @@ $student_strand = $_SESSION['user_strand'] ?? 'Academic';
 
 // Fetch assignments matching this student's group
 $conn = getDBConnection();
-$stmt = $conn->prepare("SELECT * FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
+$stmt = $conn->prepare("SELECT id, subject, title, description, file_path, teacher_name, created_at FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
 $stmt->execute([$student_grade, $student_section, $student_strand]);
 $assignments = $stmt->get_result()->fetch_all();
 ?>
