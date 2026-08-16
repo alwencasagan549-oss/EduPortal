@@ -27,6 +27,10 @@ services:
         value: eduportal.official.pvt@gmail.com
       - key: SMTP_PASS
         sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
       - key: SITE_URL
         value: https://reesnhs.l.cd
       - key: PLATFORM_NAME

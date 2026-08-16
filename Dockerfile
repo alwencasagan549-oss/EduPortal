@@ -28,7 +28,14 @@ RUN { \
 # Set document root
 ENV APACHE_DOCUMENT_ROOT /var/www/html
 
-# Copy project files
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Install PHP dependencies (after files are available)
+COPY composer.json composer.lock* ./
+RUN composer install --no-dev --no-interaction --optimize-autoloader
+
+# Copy remaining project files
 COPY . /var/www/html/
 
 # Set permissions
