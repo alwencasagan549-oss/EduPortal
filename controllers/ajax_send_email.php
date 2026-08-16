@@ -3,7 +3,6 @@
  * AJAX Handler: Push Email Job to Queue
  */
 
-session_start();
 require_once '../libs/QueueManager.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
