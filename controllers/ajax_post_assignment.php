@@ -5,8 +5,6 @@
  */
 
 require_once __DIR__ . '/../libs/QueueManager.php';
-// requireLogin() already handled by database.php, included through QueueManager.
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
 requireLogin();
 
 header('Content-Type: application/json');
