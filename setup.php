@@ -84,8 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Verify tables exist
             $verify = $conn->query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'submissions'");
-            $result = $verify->get_result();
-            if ($result->num_rows() > 0) {
+            $result = $verify->fetchAll();
+            if (count($result) > 0) {
                 $message = "Tables created successfully! Now seeding default accounts.";
                 $step = 2;
             } else {
