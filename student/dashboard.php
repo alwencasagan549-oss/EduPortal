@@ -79,7 +79,7 @@ $submissions = $stmt->get_result()->fetch_all();
                 </button>
                 <div class="page-title">
                     <h1>Student Hub</h1>
-                    <p>Welcome back, <strong><?php echo htmlspecialchars($_SESSION['user_grade'] ?? 'Grade 11'); ?> | <?php echo htmlspecialchars($_SESSION['user_section'] ?? 'Unassigned'); ?></strong></p>
+                    <p>Welcome back, <strong><?php echo htmlspecialchars($_SESSION['user_grade'] ?? 'Grade 11'); ?> - <?php echo htmlspecialchars($_SESSION['user_strand'] ?? 'Academic'); ?> | <?php echo htmlspecialchars($_SESSION['user_section'] ?? 'Unassigned'); ?></strong></p>
                     <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">LRN: <?php echo htmlspecialchars($_SESSION['user_lrn'] ?? ''); ?></p>
                 </div>
                 

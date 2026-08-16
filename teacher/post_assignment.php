@@ -104,7 +104,7 @@ $grades = $grades_res->fetch_all();
                     <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
                         <div>
                             <label class="premium-label" style="display: block; margin-bottom: 1rem;">Target Grade Level</label>
-                            <select name="grade_level" required class="premium-input">
+                            <select name="grade_level" required class="premium-input" id="gradeLevelSelect">
                                 <option value="">Select Grade</option>
                                 <?php foreach ($grades as $g): ?>
                                     <option value="<?php echo htmlspecialchars($g['grade_level']); ?>"><?php echo htmlspecialchars($g['grade_level']); ?></option>
@@ -112,9 +112,19 @@ $grades = $grades_res->fetch_all();
                             </select>
                         </div>
                         <div>
+                            <label class="premium-label" style="display: block; margin-bottom: 1rem;">Target Strand</label>
+                            <select name="strand" id="strandSelect" required class="premium-input">
+                                <option value="">Select Strand</option>
+                                <option value="Academic">Academic</option>
+                                <option value="Tech-pro">Tech-pro</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                        <div>
                             <label class="premium-label" style="display: block; margin-bottom: 1rem;">Target Section</label>
                             <select name="section" id="sectionSelect" required class="premium-input" disabled>
-                                <option value="">Select Grade First</option>
+                                <option value="">Select Grade & Strand First</option>
                             </select>
                         </div>
                     </div>
@@ -155,19 +165,55 @@ $grades = $grades_res->fetch_all();
     <script src="../assets/js/responsive_ui.js"></script>
     <script>
         // Dynamic Section Filtering
-        document.querySelector('select[name="grade_level"]').addEventListener('change', function() {
+        document.getElementById('gradeLevelSelect').addEventListener('change', function() {
             const grade = this.value;
+            const strand = document.getElementById('strandSelect').value;
             const sectionSelect = document.getElementById('sectionSelect');
-            
+
             sectionSelect.innerHTML = '<option value="">Loading Sections...</option>';
             sectionSelect.disabled = true;
 
-            if (!grade) {
-                sectionSelect.innerHTML = '<option value="">Select Grade First</option>';
+            if (!grade || !strand) {
+                sectionSelect.innerHTML = '<option value="">Select Grade & Strand First</option>';
                 return;
             }
 
-            fetch(`../controllers/ajax_get_sections_by_grade.php?grade_level=${encodeURIComponent(grade)}`)
+            fetch(`../controllers/ajax_get_sections_by_grade.php?grade_level=${encodeURIComponent(grade)}&strand=${encodeURIComponent(strand)}`)
+                .then(res => res.json())
+                .then(sections => {
+                    sectionSelect.innerHTML = '<option value="">Select Section</option>';
+                    if (sections.length > 0) {
+                        sections.forEach(s => {
+                            const opt = document.createElement('option');
+                            opt.value = s;
+                            opt.textContent = s;
+                            sectionSelect.appendChild(opt);
+                        });
+                        sectionSelect.disabled = false;
+                    } else {
+                        sectionSelect.innerHTML = '<option value="">No Sections Available</option>';
+                    }
+                })
+                .catch(err => {
+                    console.error("Section Fetch Error:", err);
+                    sectionSelect.innerHTML = '<option value="">Error loading sections</option>';
+                });
+        });
+
+        document.getElementById('strandSelect').addEventListener('change', function() {
+            const grade = document.getElementById('gradeLevelSelect').value;
+            const strand = this.value;
+            const sectionSelect = document.getElementById('sectionSelect');
+
+            sectionSelect.innerHTML = '<option value="">Loading Sections...</option>';
+            sectionSelect.disabled = true;
+
+            if (!grade || !strand) {
+                sectionSelect.innerHTML = '<option value="">Select Grade & Strand First</option>';
+                return;
+            }
+
+            fetch(`../controllers/ajax_get_sections_by_grade.php?grade_level=${encodeURIComponent(grade)}&strand=${encodeURIComponent(strand)}`)
                 .then(res => res.json())
                 .then(sections => {
                     sectionSelect.innerHTML = '<option value="">Select Section</option>';

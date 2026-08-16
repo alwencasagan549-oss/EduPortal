@@ -19,8 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $section = trim($_POST['section'] ?? '');
         $grade_level = trim($_POST['grade_level'] ?? 'Grade 11');
+        $strand = trim($_POST['strand'] ?? 'Academic');
         $hashed_password = password_hash($password, PASSWORD_BCRYPT);
-        
+
         $conn = getDBConnection();
         // Check if LRN already exists
         $check = $conn->prepare("SELECT id FROM students WHERE lrn = ?");
@@ -29,8 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($check->get_result()->num_rows() > 0) {
             $error = "This LRN is already registered (Verification: Duplicate #$lrn)";
         } else {
-            $stmt = $conn->prepare("INSERT INTO students (lrn, name, email, grade_level, section, password) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$lrn, $name, $email, $grade_level, $section, $hashed_password]);
+            $stmt = $conn->prepare("INSERT INTO students (lrn, name, email, grade_level, section, strand, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$lrn, $name, $email, $grade_level, $section, $strand, $hashed_password]);
 
             if ($stmt->rowCount() > 0) {
                 $success = "Registration successful! You can now login.";
@@ -102,6 +103,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div>
                     <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Section</label>
                     <input type="text" name="section" required class="premium-input" placeholder="e.g., HUMMS-A, STEM-B">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Strand</label>
+                    <select name="strand" required class="premium-input">
+                        <option value="Academic">Academic</option>
+                        <option value="Tech-pro">Tech-pro</option>
+                    </select>
                 </div>
             </div>
 

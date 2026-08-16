@@ -20,10 +20,12 @@ $student_name = $_SESSION['user_name'];
 $student_grade = $_SESSION['user_grade'];
 $student_section = $_SESSION['user_section'];
 
+$student_strand = $_SESSION['user_strand'] ?? 'Academic';
+
 // Fetch assignments matching this student's group
 $conn = getDBConnection();
-$stmt = $conn->prepare("SELECT * FROM posted_assignments WHERE grade_level = ? AND section = ? ORDER BY created_at DESC");
-$stmt->execute([$student_grade, $student_section]);
+$stmt = $conn->prepare("SELECT * FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
+$stmt->execute([$student_grade, $student_section, $student_strand]);
 $assignments = $stmt->get_result()->fetch_all();
 ?>
 <!DOCTYPE html>
@@ -90,7 +92,7 @@ $assignments = $stmt->get_result()->fetch_all();
                 </button>
                 <div class="page-title">
                     <h1>Selective Assignments</h1>
-                    <p>Academic materials for <strong><?php echo htmlspecialchars($student_grade . ' - ' . $student_section); ?></strong></p>
+                    <p>Academic materials for <strong><?php echo htmlspecialchars($student_grade . ' - ' . ($student_strand ?? 'Academic') . ' | ' . $student_section); ?></strong></p>
                 </div>
             </header>
 

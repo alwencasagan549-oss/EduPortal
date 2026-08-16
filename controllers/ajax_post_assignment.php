@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $teacher_email = $_SESSION['user_email'] ?? 'teacher@eduportal.com';
     
     $grade_level = $_POST['grade_level'] ?? '';
+    $strand = $_POST['strand'] ?? '';
     $section = $_POST['section'] ?? '';
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
@@ -52,12 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (move_uploaded_file($file['tmp_name'], $file_path)) {
         $conn = getDBConnection();
-        $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $section]);
+        $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, strand, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $strand, $section]);
 
         // BULK NOTIFICATION LOGIC
-        $st_stmt = $conn->prepare("SELECT email, name FROM students WHERE grade_level = ? AND section = ?");
-        $st_stmt->execute([$grade_level, $section]);
+        $st_stmt = $conn->prepare("SELECT email, name FROM students WHERE grade_level = ? AND strand = ? AND section = ?");
+        $st_stmt->execute([$grade_level, $strand, $section]);
         $students_res = $st_stmt->get_result();
 
         $student_count = 0;
@@ -84,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode([
             'success' => true,
             'total_notified' => $student_count,
-            'target_group' => "$grade_level - $section"
+            'target_group' => "$grade_level $strand - $section"
         ]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Failed to move uploaded file.']);
