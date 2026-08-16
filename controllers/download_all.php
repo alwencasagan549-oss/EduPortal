@@ -32,6 +32,7 @@ if (empty($submissions)) {
 $zip = new ZipArchive();
 $zip_filename = $teacher_subject . '_submissions_' . date('Y-m-d') . '.zip';
 $temp_zip = tempnam(sys_get_temp_dir(), 'zip');
+unlink($temp_zip);
 
 if ($zip->open($temp_zip, ZipArchive::CREATE) !== TRUE) {
     die('Cannot create ZIP file');
