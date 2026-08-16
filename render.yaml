@@ -24,13 +24,15 @@ services:
           name: eduportal-db
           property: database
       - key: EMAIL_PROVIDER
-        value: brevo
-      - key: BREVO_API_KEY
+        value: smtp
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        value: b5ac8c001@smtp-brevo.com
+      - key: SMTP_PASS
         sync: false
-      - key: SENDER_EMAIL
-        value: eduportal.official.pvt@gmail.com
-      - key: SENDER_NAME
-        value: EduPortal LMS
       - key: SITE_URL
         value: https://reesnhs.l.cd
       - key: PLATFORM_NAME
