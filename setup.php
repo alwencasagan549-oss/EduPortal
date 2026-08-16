@@ -148,13 +148,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <li>Teacher: <code>john@example.com</code> / <code>teacher123</code></li>
                 <li>Student LRN: <code>123456789012</code> / <code>student123</code></li>
             </ul>
-            <form method="POST"><input type="hidden" name="step" value="1"><button type="submit">Create Tables</button></form>
+            <form method="POST" data-loader="true"><input type="hidden" name="step" value="1"><button type="submit">Create Tables</button></form>
         </div>
     <?php elseif ($step == 2): ?>
         <div class="step">
             <h3>Step 2: Seed Default Data</h3>
             <p>Creating admin, teacher, and student accounts...</p>
-            <form method="POST"><input type="hidden" name="step" value="2"><button type="submit">Seed Data</button></form>
+            <form method="POST" data-loader="true"><input type="hidden" name="step" value="2"><button type="submit">Seed Data</button></form>
         </div>
     <?php elseif ($step == 3): ?>
         <div class="step">

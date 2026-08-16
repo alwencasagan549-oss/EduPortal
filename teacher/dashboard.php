@@ -340,7 +340,7 @@ $pending_count = $total_submissions - $reviewed_count;
                                                     style="padding: 0.5rem; font-size: 0.8rem;">
                                                     <i class="fas fa-check"></i>
                                                 </button>
-                                                <form method="POST" onsubmit="return confirm('Delete this record?')">
+                                                <form method="POST" onsubmit="return confirm('Delete this record?')" data-loader="true">
                                                     <input type="hidden" name="submission_id"
                                                         value="<?php echo $submission['id']; ?>">
                                                     <button type="submit" name="delete_submission"

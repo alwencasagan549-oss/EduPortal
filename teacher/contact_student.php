@@ -119,7 +119,7 @@ $default_subject = "[EduPortal] Academic Concern: " . $teacher_subject;
                         <i class="fas fa-pen-nib" style="color: var(--primary-color)"></i> Message Composer
                     </h3>
 
-                    <form id="contactForm" method="POST">
+                    <form id="contactForm" method="POST" data-loader="true">
                         <input type="hidden" name="student_id" value="<?php echo $student_id; ?>">
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
