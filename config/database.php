@@ -191,7 +191,7 @@ function isAdminLoggedIn() {
 
 function requireLogin() {
     if (!isLoggedIn() && !isAdminLoggedIn()) {
-        header('Location: index.php');
+        header('Location: session_expired.php');
         exit();
     }
 }
