@@ -251,7 +251,7 @@ $grades = $grades_res->fetch_all();
 
             EduPortal.showLoader("Publishing Content", "Uploading assignment and notifying students...");
 
-            fetch('../controllers/ajax_send_email.php', {
+            fetch('../controllers/ajax_post_assignment.php', {
                 method: 'POST',
                 body: formData
             })
