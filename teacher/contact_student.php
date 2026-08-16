@@ -83,6 +83,9 @@ $default_subject = "[EduPortal] Academic Concern: " . $teacher_subject;
                 <a href="../logout.php" class="logout-link">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
+                <div style="padding: 8px 0 0; text-align: center; opacity: 0.4; font-size: 0.65rem; color: var(--text-muted);">
+                    <span id="_sys_v_auth" style="display: none;">Alwen T. Casagan</span>
+                </div>
             </div>
         </aside>
 
