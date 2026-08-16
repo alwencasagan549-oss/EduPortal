@@ -11,13 +11,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid security token.';
     } else {
-    $lrn = trim($_POST['lrn']);
-    $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
-    
-    if ($password !== $confirm_password) {
+        $lrn = trim($_POST['lrn']);
+        $name = trim($_POST['name']);
+        $email = trim($_POST['email']);
+        $password = $_POST['password'];
+        $confirm_password = $_POST['confirm_password'];
+
+        if ($password !== $confirm_password) {
         $error = "Passwords do not match";
     } elseif (strlen($lrn) !== 12) {
         $error = "LRN must be exactly 12 digits";
