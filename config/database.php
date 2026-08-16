@@ -41,6 +41,31 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Bind session to IP + User-Agent to prevent hijacking
+if (empty($_SESSION['_ip_fingerprint']) && !empty($_SESSION['user_id'])) {
+    $_SESSION['_ip_fingerprint'] = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+}
+
+function verifySessionBinding() {
+    if (empty($_SESSION['_ip_fingerprint']) || empty($_SESSION['user_id'])) {
+        return true;
+    }
+    $current = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+    return hash_equals($_SESSION['_ip_fingerprint'], $current);
+}
+
+function bindSession() {
+    $_SESSION['_ip_fingerprint'] = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+}
+
+// Send HTTP security headers
+if (!headers_sent()) {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+}
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -58,9 +83,12 @@ class EduPortalDB {
 
     public function __construct($host, $user, $pass, $dbname) {
         $dsn = "pgsql:host=$host;dbname=$dbname";
-        $this->pdo = new PDO($dsn, $user, $pass);
-        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $this->pdo = new PDO($dsn, $user, $pass, [
+            PDO::ATTR_PERSISTENT => true,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
     }
 
     public function prepare($sql) {
@@ -154,11 +182,11 @@ function getDBConnection() {
 }
 
 function isLoggedIn() {
-    return isset($_SESSION['user_id']);
+    return isset($_SESSION['user_id']) && verifySessionBinding();
 }
 
 function isAdminLoggedIn() {
-    return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
+    return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true && verifySessionBinding();
 }
 
 function requireLogin() {

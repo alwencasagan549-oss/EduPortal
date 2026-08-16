@@ -4,7 +4,7 @@
 # ----------------------------------------------------------------------
 
 # Disable Directory Listings
-# Options -Indexes
+Options -Indexes
 
 # Set Index Page
 DirectoryIndex index.php
@@ -34,6 +34,14 @@ RewriteRule ^(.*)/$ /$1 [L,R=301]
 # Protect the config directory
 RewriteRule ^config/ - [F,L]
 
-# Redirect to HTTPS (if needed)
-# RewriteCond %{HTTPS} off
-# RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+# Redirect to HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+# Security Headers
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set Referrer-Policy strict-origin-when-cross-origin
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>

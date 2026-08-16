@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = $_POST['password'];
         
         $conn = getDBConnection();
-        $stmt = $conn->prepare("SELECT * FROM admin WHERE username = ?");
+        $stmt = $conn->prepare("SELECT id, username, password FROM admin WHERE username = ?");
         $stmt->execute([$username]);
         $result = $stmt->get_result();
 
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($error): ?>
             <div class="alert alert-danger">
                 <i class="fas fa-triangle-exclamation"></i>
-                <div><?php echo $error; ?></div>
+                <div><?php echo htmlspecialchars($error); ?></div>
             </div>
         <?php endif; ?>
 

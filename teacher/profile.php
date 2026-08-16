@@ -175,11 +175,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 
             <?php if ($success_msg): ?>
                 <div class="alert alert-success animate-fade-up">
-                    <i class="fas fa-circle-check"></i> <div><?php echo $success_msg; ?></div>
+                    <i class="fas fa-circle-check"></i> <div><?php echo htmlspecialchars($success_msg); ?></div>
                 </div>
             <?php elseif ($error_msg): ?>
                 <div class="alert alert-danger animate-fade-up">
-                    <i class="fas fa-circle-exclamation"></i> <div><?php echo $error_msg; ?></div>
+                    <i class="fas fa-circle-exclamation"></i> <div><?php echo htmlspecialchars($error_msg); ?></div>
                 </div>
             <?php endif; ?>
 

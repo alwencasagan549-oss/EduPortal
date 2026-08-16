@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 require_once 'config/database.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();

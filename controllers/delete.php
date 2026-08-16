@@ -10,12 +10,17 @@ if (!isAdminLoggedIn()) {
     exit();
 }
 
-if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !validate_csrf($_POST['csrf_token'] ?? '')) {
     header('Location: ../admin/dashboard.php');
     exit();
 }
 
-$id = intval($_GET['id']);
+if (!isset($_POST['id']) || !is_numeric($_POST['id'])) {
+    header('Location: ../admin/dashboard.php');
+    exit();
+}
+
+$id = intval($_POST['id']);
 $conn = getDBConnection();
 
 // Get file path first
@@ -25,9 +30,13 @@ $result = $stmt->get_result();
 
 if ($result->num_rows() === 1) {
     $submission = $result->fetch_assoc();
+    $file_path = $submission['file_path'];
 
-    if (file_exists($submission['file_path'])) {
-        unlink($submission['file_path']);
+    // Path traversal guard
+    $base_dir = realpath(__DIR__ . '/../uploads');
+    $real_path = realpath($file_path);
+    if ($real_path !== false && strpos($real_path, $base_dir) === 0 && file_exists($real_path)) {
+        unlink($real_path);
     }
 
     $stmt = $conn->prepare("DELETE FROM submissions WHERE id = ?");
