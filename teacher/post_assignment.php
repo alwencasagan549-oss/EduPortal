@@ -79,6 +79,9 @@ $grades = $grades_res->fetch_all();
                 <a href="../logout.php" class="logout-link">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
+                <div style="padding: 8px 0 0; text-align: center; opacity: 0.4; font-size: 0.65rem; color: var(--text-muted);">
+                    <span id="_sys_v_auth" style="display: none;">Alwen T. Casagan</span>
+                </div>
             </div>
         </aside>
 
@@ -97,7 +100,7 @@ $grades = $grades_res->fetch_all();
             <div id="statusAlert"></div>
 
             <div class="glass-card animate-fade-up" style="max-width: 800px; margin: 0 auto; padding: 3rem;">
-                <form id="postAssignmentForm" enctype="multipart/form-data">
+                <form id="postAssignmentForm" enctype="multipart/form-data" data-loader="true">
                     <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
                         <div>
                             <label class="premium-label" style="display: block; margin-bottom: 1rem;">Target Grade Level</label>

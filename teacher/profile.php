@@ -180,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;">
                 <!-- Main Form -->
                 <div class="glass-card" style="padding: 2.5rem;">
-                    <form method="POST">
+                    <form method="POST" data-loader="true">
                         <h3 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px;">
                             <i class="fas fa-id-card" style="color: var(--primary-color)"></i> General Information
                         </h3>

@@ -18,7 +18,7 @@ $conn = getDBConnection();
 $query = "SELECT st.id, st.name, st.lrn, st.grade_level, st.section, st.email,
           COUNT(s.id) as total_submissions,
           MAX(s.submitted_at) as latest_submission,
-          AVG(NULLIF(s.marks, '')) as avg_marks
+          AVG(NULLIF(CAST(s.marks AS NUMERIC), '')) as avg_marks
           FROM students st
           JOIN submissions s ON st.id = s.student_id
           WHERE s.subject = ?
@@ -83,6 +83,9 @@ $students = $result->fetch_all();
                 <a href="../logout.php" class="logout-link">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
+                <div style="padding: 8px 0 0; text-align: center; opacity: 0.4; font-size: 0.65rem; color: var(--text-muted);">
+                    <span id="_sys_v_auth" style="display: none;">Alwen T. Casagan</span>
+                </div>
             </div>
         </aside>
 
