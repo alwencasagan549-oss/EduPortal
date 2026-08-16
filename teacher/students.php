@@ -20,7 +20,7 @@ $conn = getDBConnection();
 $query = "SELECT st.id, st.name, st.lrn, st.grade_level, st.strand, st.section, st.email,
           COUNT(s.id) as total_submissions,
           MAX(s.submitted_at) as latest_submission,
-          AVG(NULLIF(CAST(s.marks AS NUMERIC), '')) as avg_marks
+          AVG(CAST(NULLIF(s.marks, '') AS NUMERIC)) as avg_marks
           FROM students st
           JOIN submissions s ON st.id = s.student_id
           WHERE s.subject = ?
