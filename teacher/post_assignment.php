@@ -282,7 +282,14 @@ $grades = $grades_res->fetch_all();
             })
             .catch(err => {
                 EduPortal.hideLoader();
-                console.error(err);
+                const statusAlert = document.getElementById('statusAlert');
+                statusAlert.innerHTML = `
+                    <div class="alert alert-danger animate-fade-up">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div><strong>Server Error</strong> — check console for details.</div>
+                    </div>
+                `;
+                console.error('Assignment publish failed:', err);
             });
         };
     </script>

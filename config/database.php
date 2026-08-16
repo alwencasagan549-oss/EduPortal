@@ -26,13 +26,15 @@ define('DB_NAME', SECURE_DB_NAME);
 
 // Harden Session Security (Auth Shield)
 if (session_status() === PHP_SESSION_NONE) {
+    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'
+            || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
     session_set_cookie_params([
         'lifetime' => 0,
         'path' => '/',
         'domain' => '',
-        'secure' => isset($_SERVER['HTTPS']),
+        'secure' => $isHttps,
         'httponly' => true,
-        'samesite' => 'Strict'
+        'samesite' => 'Lax'
     ]);
     session_start();
 }
