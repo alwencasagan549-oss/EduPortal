@@ -1,7 +1,7 @@
 FROM php:8.2-apache
 
 # Install PostgreSQL client libraries then PHP extensions
-RUN apt-get update && apt-get install -y libpq-dev && docker-php-ext-install pdo_pgsql pgsql
+RUN apt-get update && apt-get install -y libpq-dev libzip-dev && docker-php-ext-install pdo_pgsql pgsql zip
 
 # Enable Apache rewrite module
 RUN a2enmod rewrite
