@@ -23,8 +23,14 @@ services:
         fromDatabase:
           name: eduportal-db
           property: database
+      - key: SMTP_USER
+        value: eduportal.official.pvt@gmail.com
       - key: SMTP_PASS
         sync: false
+      - key: SITE_URL
+        value: https://reesnhs.l.cd
+      - key: PLATFORM_NAME
+        value: EduPortal LMS
     disk:
       name: uploads
       mountPath: /var/www/html/uploads
