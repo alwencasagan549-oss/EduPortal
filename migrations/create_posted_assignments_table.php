@@ -15,6 +15,7 @@ $sql = "CREATE TABLE IF NOT EXISTS posted_assignments (
     description TEXT,
     file_path VARCHAR(255) NOT NULL,
     grade_level VARCHAR(50) NOT NULL,
+    strand VARCHAR(50) NOT NULL,
     section VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )";

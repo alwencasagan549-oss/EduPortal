@@ -61,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     description TEXT,
                     file_path VARCHAR(255) NOT NULL,
                     grade_level VARCHAR(50) NOT NULL,
+                    strand VARCHAR(50) NOT NULL,
                     section VARCHAR(50) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )",
@@ -78,6 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($tables as $sql) {
                 $conn->exec($sql);
             }
+
+            $conn->exec("ALTER TABLE posted_assignments ADD COLUMN IF NOT EXISTS strand VARCHAR(50) NOT NULL DEFAULT 'Academic'");
 
             // Verify tables exist
             $verify = $conn->query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'submissions'");
