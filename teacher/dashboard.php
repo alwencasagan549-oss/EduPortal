@@ -39,11 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_submission']))
 // Filter parameters
 $filter_grade = $_GET['grade'] ?? '';
 $filter_section = trim($_GET['section'] ?? '');
+$filter_strand = $_GET['strand'] ?? '';
 
 // Get submissions for this teacher's subject with student details
 $conn = getDBConnection();
 
-$query = "SELECT s.*, st.name as student_name, st.grade_level, st.section
+$query = "SELECT s.*, st.name as student_name, st.grade_level, st.section, st.strand
           FROM submissions s
           LEFT JOIN students st ON s.student_id = st.id
           WHERE s.subject = ?";
@@ -53,6 +54,11 @@ $params = [$teacher_subject];
 if (!empty($filter_grade)) {
     $query .= " AND st.grade_level = ?";
     $params[] = $filter_grade;
+}
+
+if (!empty($filter_strand)) {
+    $query .= " AND st.strand = ?";
+    $params[] = $filter_strand;
 }
 
 if (!empty($filter_section)) {
@@ -251,6 +257,15 @@ $pending_count = $total_submissions - $reviewed_count;
                                 style="display: block; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">Section</label>
                             <input type="text" name="section" value="<?php echo htmlspecialchars($filter_section); ?>"
                                 placeholder="e.g. STEM-A" class="premium-input" style="padding: 0.6rem 1rem;">
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <label
+                                style="display: block; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">Strand</label>
+                            <select name="strand" class="premium-input" style="padding: 0.6rem 1rem;">
+                                <option value="">All Strands</option>
+                                <option value="Academic" <?php echo ($filter_strand == 'Academic') ? 'selected' : ''; ?>>Academic</option>
+                                <option value="Tech-pro" <?php echo ($filter_strand == 'Tech-pro') ? 'selected' : ''; ?>>Tech-pro</option>
+                            </select>
                         </div>
                         <button type="submit" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1.5rem; white-space: nowrap;">
                             <i class="fas fa-filter"></i> Apply

@@ -15,7 +15,7 @@ $teacher_subject = $_SESSION['user_subject'];
 // Get all unique students who have submitted to this teacher's subject
 $conn = getDBConnection();
 
-$query = "SELECT st.id, st.name, st.lrn, st.grade_level, st.section, st.email,
+$query = "SELECT st.id, st.name, st.lrn, st.grade_level, st.strand, st.section, st.email,
           COUNT(s.id) as total_submissions,
           MAX(s.submitted_at) as latest_submission,
           AVG(NULLIF(CAST(s.marks AS NUMERIC), '')) as avg_marks
@@ -165,6 +165,7 @@ $students = $result->fetch_all();
                                 </div>
                             </div>
                             <span class="premium-badge badge-blue"><?php echo htmlspecialchars($student['grade_level'] ?? 'N/A'); ?></span>
+                            <span class="premium-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;"><?php echo htmlspecialchars($student['strand'] ?? 'Academic'); ?></span>
                         </div>
 
                         <div style="background: rgba(0,0,0,0.2); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem;">

@@ -16,15 +16,16 @@ if (getUserRole() !== 'teacher') {
 }
 
 $grade_level = $_GET['grade_level'] ?? '';
+$strand = $_GET['strand'] ?? '';
 
-if (empty($grade_level)) {
+if (empty($grade_level) || empty($strand)) {
     echo json_encode([]);
     exit();
 }
 
 $conn = getDBConnection();
-$stmt = $conn->prepare("SELECT DISTINCT section FROM students WHERE grade_level = ? ORDER BY section");
-$stmt->execute([$grade_level]);
+$stmt = $conn->prepare("SELECT DISTINCT section FROM students WHERE grade_level = ? AND strand = ? ORDER BY section");
+$stmt->execute([$grade_level, $strand]);
 $result = $stmt->get_result();
 
 $sections = [];
