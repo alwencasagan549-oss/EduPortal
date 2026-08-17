@@ -52,6 +52,10 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
                 style="color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: color 0.2s;"
                 onmouseover="this.style.color='var(--text-main)'"
                 onmouseout="this.style.color='var(--text-muted)'">Login as Admin</a>
+            <a href="https://reesnhs.l.cd" target="_blank" title="EduPortal Guide"
+                style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(78, 115, 223, 0.1); color: var(--primary-color); text-decoration: none; font-size: 0.85rem; font-weight: 700; transition: all 0.2s;"
+                onmouseover="this.style.background='rgba(78, 115, 223, 0.25)'; this.style.transform='scale(1.1)'"
+                onmouseout="this.style.background='rgba(78, 115, 223, 0.1)'; this.style.transform='scale(1)'">?</a>
             <a href="teacher/login.php"
                 style="color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: color 0.2s;"
                 onmouseover="this.style.color='var(--text-main)'"
