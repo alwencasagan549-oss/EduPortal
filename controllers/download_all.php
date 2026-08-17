@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Check if teacher is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'teacher') {
-    header('Location: ../teacher/login.php');
+    header('Location: /teacher/login.php');
     exit();
 }
 
@@ -41,12 +41,12 @@ if ($zip->open($temp_zip, ZipArchive::CREATE) !== TRUE) {
 $base_dir = realpath(__DIR__ . '/../uploads');
 
 foreach ($submissions as $submission) {
-    $real_path = realpath($submission['file_path']);
-    if ($real_path !== false && strpos($real_path, $base_dir) === 0) {
-        $file_name = basename($real_path);
+    $resolved = realpath(__DIR__ . '/../' . ltrim($submission['file_path'], '/\\'));
+    if ($resolved !== false && strpos($resolved, $base_dir) === 0) {
+        $file_name = basename($resolved);
         $student_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $submission['student_name']);
         $new_name = $student_name . '_' . $file_name;
-        $zip->addFile($real_path, $new_name);
+        $zip->addFile($resolved, $new_name);
     }
 }
 
