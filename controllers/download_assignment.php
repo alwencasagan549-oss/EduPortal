@@ -31,10 +31,14 @@ $assignment = $result->fetch_assoc();
 $file_path = $assignment['file_path'];
 
 $base_dir = realpath(__DIR__ . '/../uploads');
-$real_path = realpath($file_path);
+$resolved = realpath(__DIR__ . '/../' . ltrim($file_path, '/\\'));
 
-if ($real_path === false || strpos($real_path, $base_dir) !== 0) {
+if ($resolved === false || strpos($resolved, $base_dir) !== 0) {
     die('Access denied: invalid file path');
+}
+
+if (!file_exists($resolved)) {
+    die('File not found on server');
 }
 
 if (!file_exists($real_path)) {

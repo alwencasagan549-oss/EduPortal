@@ -51,22 +51,20 @@ $submission = $result->fetch_assoc();
 $file_path = $submission['file_path'];
 
 $base_dir = realpath(__DIR__ . '/../uploads');
-$real_path = realpath($file_path);
+$resolved = realpath(__DIR__ . '/../' . ltrim($file_path, '/\\'));
 
-if ($real_path === false || strpos($real_path, $base_dir) !== 0) {
+if ($resolved === false || strpos($resolved, $base_dir) !== 0) {
     die('Access denied: invalid file path');
 }
 
-if (!file_exists($real_path)) {
-    die('File not found on server: ' . htmlspecialchars($file_path));
+if (!file_exists($resolved)) {
+    die('File not found on server');
 }
 
-// Get file info
-$filename = basename($real_path);
-$filetype = mime_content_type($real_path);
-$filesize = filesize($real_path);
+$filename = basename($resolved);
+$filetype = mime_content_type($resolved);
+$filesize = filesize($resolved);
 
-// Set headers for download
 header('Content-Description: File Transfer');
 header('Content-Type: ' . $filetype);
 header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -76,12 +74,11 @@ header('Cache-Control: must-revalidate');
 header('Pragma: public');
 header('Expires: 0');
 
-// Clear output buffer
 if (ob_get_level()) {
     ob_end_clean();
 }
 
-readfile($real_path);
+readfile($resolved);
 
 exit();
 ?>
