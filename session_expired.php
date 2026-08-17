@@ -135,16 +135,19 @@ if (session_status() === PHP_SESSION_NONE) {
             </div>
 
             <div class="expired-buttons">
-                <a href="login.php" class="premium-btn premium-btn-primary">
-                    <i class="fas fa-right-to-bracket"></i> Back to Login
+                <a href="student/login.php" class="premium-btn premium-btn-primary">
+                    <i class="fas fa-user-graduate"></i> Student Login
                 </a>
-                <a href="../index.php" class="premium-btn premium-btn-outline">
-                    <i class="fas fa-house"></i> Home Page
+                <a href="teacher/login.php" class="premium-btn premium-btn-primary" style="background: var(--accent-gradient);">
+                    <i class="fas fa-chalkboard-user"></i> Teacher Login
+                </a>
+                <a href="admin/login.php" class="premium-btn premium-btn-outline">
+                    <i class="fas fa-user-shield"></i> Admin Login
                 </a>
             </div>
 
             <div class="expired-footer">
-                <p>&copy; <?php echo date('Y'); ?> EduPortal LMS. <a href="../index.php">Return to portal</a></p>
+                <p>&copy; <?php echo date('Y'); ?> EduPortal LMS. <a href="index.php">Return to portal</a></p>
             </div>
         </div>
     </div>

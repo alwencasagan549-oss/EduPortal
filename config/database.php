@@ -189,9 +189,15 @@ function isAdminLoggedIn() {
     return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true && verifySessionBinding();
 }
 
+function base_path($path = '') {
+    $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+    $depth = substr_count($base, '\\') + substr_count($base, '/');
+    return str_repeat('../', max(0, $depth - 0)) . ltrim($path, '/');
+}
+
 function requireLogin() {
     if (!isLoggedIn() && !isAdminLoggedIn()) {
-        header('Location: session_expired.php');
+        header('Location: /session_expired.php');
         exit();
     }
 }

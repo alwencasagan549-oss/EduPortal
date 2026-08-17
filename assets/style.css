@@ -16,6 +16,8 @@
     --sidebar-width: 260px;
     --header-height: 80px;
     --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    --bg-body: var(--bg-dark);
+    --glass-bg: var(--bg-card);
 }
 
 * {
@@ -287,6 +289,26 @@ body {
 .glass-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow-lg);
+}
+
+.assignment-card {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.assignment-card .premium-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.3rem 0.75rem;
+    border-radius: 8px;
+}
+
+.assignment-card .premium-btn-primary {
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.2s ease;
 }
 
 .stat-item-premium {
