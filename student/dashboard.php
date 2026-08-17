@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Check if student is logged in
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'student') {
-    header('Location: session_expired.php');
+    header('Location: /session_expired.php');
     exit();
 }
 
@@ -163,35 +163,38 @@ $broadcasted = $stmt2->get_result()->fetch_all();
                         <p style="color: var(--text-muted);">Your teachers haven't posted any materials for your group yet.</p>
                     </div>
                 <?php else: ?>
-                <div class="assignment-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+                <div class="assignment-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem;">
                     <?php foreach ($broadcasted as $a): ?>
-                        <div class="glass-card animate-fade-up" style="padding: 2rem; display: flex; flex-direction: column; justify-content: space-between;">
-                            <div>
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                        <div class="glass-card animate-fade-up assignment-card">
+                            <div style="padding: 1.75rem 1.75rem 1.25rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
                                     <span class="premium-badge badge-blue"><?php echo htmlspecialchars($a['subject']); ?></span>
-                                    <span style="font-size: 0.75rem; color: var(--text-muted);"><i class="fas fa-calendar-alt"></i> <?php echo date('M d, Y', strtotime($a['created_at'])); ?></span>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        <?php echo date('M d, Y', strtotime($a['created_at'])); ?>
+                                    </span>
                                 </div>
-                                <h3 style="font-size: 1.25rem; margin-bottom: 1rem;"><?php echo htmlspecialchars($a['title']); ?></h3>
-                                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; line-height: 1.6;">
-                                    <?php echo nl2br(htmlspecialchars($a['description'])); ?>
-                                </p>
+                                <h3 style="font-size: 1.15rem; font-weight: 700; line-height: 1.4; margin-bottom: 0.75rem; color: var(--text-main);">
+                                    <?php echo htmlspecialchars($a['title']); ?>
+                                </h3>
+                                <?php if (!empty(trim($a['description']))): ?>
+                                    <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.7; margin: 0;">
+                                        <?php echo nl2br(htmlspecialchars($a['description'])); ?>
+                                    </p>
+                                <?php endif; ?>
                             </div>
-
-                            <div style="border-top: 1px solid var(--glass-border); padding-top: 1.5rem; margin-top: auto;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); display: flex; align-items: center; justify-content: center;">
-                                            <i class="fas fa-user-tie" style="font-size: 0.8rem; color: var(--primary-color);"></i>
-                                        </div>
-                                        <div style="font-size: 0.85rem;">
-                                            <span style="display: block; font-weight: 600;"><?php echo htmlspecialchars($a['teacher_name']); ?></span>
-                                            <span style="font-size: 0.75rem; color: var(--text-muted);">Faculty Member</span>
-                                        </div>
+                            <div style="padding: 1rem 1.75rem; border-top: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.01);">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, var(--primary-color), var(--accent-color)); display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-user-tie" style="font-size: 0.75rem; color: #fff;"></i>
                                     </div>
-                                    <a href="../controllers/download_assignment.php?id=<?php echo $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
-                                        <i class="fas fa-download"></i> Get Copy
-                                    </a>
+                                    <div>
+                                        <span style="display: block; font-weight: 600; font-size: 0.85rem;"><?php echo htmlspecialchars($a['teacher_name']); ?></span>
+                                        <span style="font-size: 0.7rem; color: var(--text-muted);">Faculty Member</span>
+                                    </div>
                                 </div>
+                                <a href="../controllers/download_assignment.php?id=<?php echo $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.55rem 1.1rem; font-size: 0.8rem; border-radius: 10px;">
+                                    <i class="fas fa-download" style="font-size: 0.7rem;"></i> Get Copy
+                                </a>
                             </div>
                         </div>
                     <?php endforeach; ?>
