@@ -148,35 +148,56 @@ $broadcasted = $stmt2->get_result()->fetch_all();
                 </div>
             </div>
 
-            <!-- Broadcasted Assignments -->
-            <?php if (!empty($broadcasted)): ?>
+            <!-- New Assignments (Teacher Broadcasts) -->
             <div class="table-container">
                 <div class="table-header">
-                    <h2><i class="fas fa-bullhorn" style="margin-right: 10px; color: var(--primary-color)"></i> Teacher Broadcasts</h2>
-                    <span class="premium-badge badge-blue"><?php echo count($broadcasted); ?> New</span>
+                    <h2><i class="fas fa-book-open" style="margin-right: 10px; color: var(--primary-color)"></i> New Assignments</h2>
+                    <?php if (!empty($broadcasted)): ?>
+                        <span class="premium-badge badge-blue"><?php echo count($broadcasted); ?> New</span>
+                    <?php endif; ?>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                    <?php foreach ($broadcasted as $a): ?>
-                    <div class="glass-card" style="padding: 1.5rem; border-left: 3px solid var(--primary-color);">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                            <span class="premium-badge badge-blue"><?php echo htmlspecialchars($a['subject']); ?></span>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);"><i class="fas fa-calendar"></i> <?php echo date('M d, Y', strtotime($a['created_at'])); ?></span>
-                        </div>
-                        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;"><?php echo htmlspecialchars($a['title']); ?></h3>
-                        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;">
-                            <?php echo nl2br(htmlspecialchars($a['description'])); ?>
-                        </p>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--glass-border);">
-                            <span style="font-size: 0.8rem; color: var(--text-muted);"><i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($a['teacher_name']); ?></span>
-                            <a href="<?php echo htmlspecialchars($a['file_path']); ?>" download class="premium-btn premium-btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
-                                <i class="fas fa-download"></i> Download
-                            </a>
-                        </div>
+                <?php if (empty($broadcasted)): ?>
+                    <div class="glass-card" style="padding: 5rem; text-align: center;">
+                        <i class="fas fa-inbox" style="font-size: 4rem; color: var(--text-muted); opacity: 0.2; margin-bottom: 2rem;"></i>
+                        <h2>No New Assignments</h2>
+                        <p style="color: var(--text-muted);">Your teachers haven't posted any materials for your group yet.</p>
                     </div>
+                <?php else: ?>
+                <div class="assignment-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+                    <?php foreach ($broadcasted as $a): ?>
+                        <div class="glass-card animate-fade-up" style="padding: 2rem; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                                    <span class="premium-badge badge-blue"><?php echo htmlspecialchars($a['subject']); ?></span>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);"><i class="fas fa-calendar-alt"></i> <?php echo date('M d, Y', strtotime($a['created_at'])); ?></span>
+                                </div>
+                                <h3 style="font-size: 1.25rem; margin-bottom: 1rem;"><?php echo htmlspecialchars($a['title']); ?></h3>
+                                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; line-height: 1.6;">
+                                    <?php echo nl2br(htmlspecialchars($a['description'])); ?>
+                                </p>
+                            </div>
+
+                            <div style="border-top: 1px solid var(--glass-border); padding-top: 1.5rem; margin-top: auto;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); display: flex; align-items: center; justify-content: center;">
+                                            <i class="fas fa-user-tie" style="font-size: 0.8rem; color: var(--primary-color);"></i>
+                                        </div>
+                                        <div style="font-size: 0.85rem;">
+                                            <span style="display: block; font-weight: 600;"><?php echo htmlspecialchars($a['teacher_name']); ?></span>
+                                            <span style="font-size: 0.75rem; color: var(--text-muted);">Faculty Member</span>
+                                        </div>
+                                    </div>
+                                    <a href="../controllers/download_assignment.php?id=<?php echo $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
+                                        <i class="fas fa-download"></i> Get Copy
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     <?php endforeach; ?>
                 </div>
+                <?php endif; ?>
             </div>
-            <?php endif; ?>
 
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
                 <!-- Submit Form -->

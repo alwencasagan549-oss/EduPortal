@@ -129,7 +129,7 @@ $assignments = $stmt->get_result()->fetch_all();
                                             <span style="font-size: 0.75rem; color: var(--text-muted);">Faculty Member</span>
                                         </div>
                                     </div>
-                                    <a href="<?php echo htmlspecialchars($a['file_path']); ?>" download class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
+                                    <a href="../controllers/download_assignment.php?id=<?php echo $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
                                         <i class="fas fa-download"></i> Get Copy
                                     </a>
                                 </div>
