@@ -116,7 +116,7 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
     <!-- Hero Section -->
     <section class="section-container" style="text-align: center; position: relative; padding-top: 4rem;">
         <div style="max-width: 1000px; margin: 0 auto;" class="animate-fade-up">
-            <span class="premium-badge badge-blue" style="margin-bottom: 2rem;">2024 Academic Edition</span>
+            <span class="premium-badge badge-blue" style="margin-bottom: 2rem;">Ruben E. Ecleo Sr. National High School Edition</span>
             <h1
                 style="font-size: clamp(2.2rem, 8vw, 4.5rem); font-weight: 800; line-height: 1.1; margin-bottom: 1.5rem; letter-spacing: -2px;">
                 The Smarter Way to <span class="gradient-text">Manage Learning</span>
