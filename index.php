@@ -48,14 +48,14 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
 
         <!-- Desktop Navigation -->
         <div class="nav-desktop" style="gap: 1.5rem; align-items: center;">
+            <a href="EDUPORTAL_TEACHER_STUDENT_GUIDE.html" target="_blank" title="EduPortal Guide"
+                style="color: var(--primary-color); text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;"
+                onmouseover="this.style.opacity='0.75'"
+                onmouseout="this.style.opacity='1'">Help</a>
             <a href="admin/login.php"
                 style="color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: color 0.2s;"
                 onmouseover="this.style.color='var(--text-main)'"
                 onmouseout="this.style.color='var(--text-muted)'">Login as Admin</a>
-            <a href="https://reesnhs.l.cd" target="_blank" title="EduPortal Guide"
-                style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(78, 115, 223, 0.1); color: var(--primary-color); text-decoration: none; font-size: 0.85rem; font-weight: 700; transition: all 0.2s;"
-                onmouseover="this.style.background='rgba(78, 115, 223, 0.25)'; this.style.transform='scale(1.1)'"
-                onmouseout="this.style.background='rgba(78, 115, 223, 0.1)'; this.style.transform='scale(1)'">?</a>
             <a href="teacher/login.php"
                 style="color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: color 0.2s;"
                 onmouseover="this.style.color='var(--text-main)'"
@@ -78,9 +78,20 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
         
         <nav class="sidebar-menu">
             <li class="menu-item">
+                <a href="EDUPORTAL_TEACHER_STUDENT_GUIDE.html" target="_blank" class="menu-link home-menu-link">
+                    <div class="home-icon-box" style="color: var(--primary-color); background: rgba(78, 115, 223, 0.1);">
+                        <i class="fas fa-circle-question"></i>
+                    </div>
+                    <div class="home-menu-text">
+                        <span class="home-link-title" style="color: var(--primary-color); font-weight: 600;">Help</span>
+                        <span class="home-link-subtitle">User Guide & Tutorials</span>
+                    </div>
+                </a>
+            </li>
+            <li class="menu-item">
                 <a href="admin/login.php" class="menu-link home-menu-link">
                     <div class="home-icon-box" style="color: var(--primary-color); background: rgba(78, 115, 223, 0.1);">
-                        <i class="fas fa-shield-halved"></i> 
+                        <i class="fas fa-shield-halved"></i>
                     </div>
                     <div class="home-menu-text">
                         <span class="home-link-title">Login as Admin</span>
