@@ -6,7 +6,7 @@
 
 require_once __DIR__ . '/../config/database.php';
 
-if (!isLoggedIn() && !isAdminLoggedIn()) {
+if (!isLoggedIn()) {
     header('Location: ../session_expired.php');
     exit();
 }

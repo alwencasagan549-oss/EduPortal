@@ -142,9 +142,6 @@ if (session_status() === PHP_SESSION_NONE) {
                 <a href="teacher/login.php" class="premium-btn premium-btn-primary" style="background: var(--accent-gradient);">
                     <i class="fas fa-chalkboard-user"></i> Teacher Login
                 </a>
-                <a href="admin/login.php" class="premium-btn premium-btn-outline">
-                    <i class="fas fa-user-shield"></i> Admin Login
-                </a>
             </div>
 
             <div class="expired-footer">

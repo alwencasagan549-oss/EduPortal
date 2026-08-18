@@ -6,7 +6,7 @@
 require_once '../config/database.php';
 require_once '../libs/QueueManager.php';
 
-if (!isLoggedIn() && !isAdminLoggedIn()) {
+if (!isLoggedIn()) {
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Unauthorized']);
     exit();
