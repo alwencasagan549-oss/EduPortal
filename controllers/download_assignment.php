@@ -50,6 +50,29 @@ if (!file_exists($resolved)) {
     die('File not found on server');
 }
 
+if (!empty($assignment['file_content'])) {
+    $file_data = base64_decode($assignment['file_content']);
+    $filename = basename($file_path);
+    $filetype = $assignment['file_type'] ?: 'application/octet-stream';
+    $filesize = strlen($file_data);
+
+    header('Content-Description: File Transfer');
+    header('Content-Type: ' . $filetype);
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Transfer-Encoding: binary');
+    header('Content-Length: ' . $filesize);
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+    header('Expires: 0');
+
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    echo $file_data;
+    exit();
+}
+
 $filename = basename($resolved);
 $filetype = mime_content_type($resolved);
 $filesize = filesize($resolved);
