@@ -31,9 +31,15 @@ $assignment = $result->fetch_assoc();
 $file_path = $assignment['file_path'];
 
 $base_dir = realpath(__DIR__ . '/../uploads');
-$resolved = realpath(__DIR__ . '/../' . ltrim($file_path, '/\\'));
 
-if ($resolved === false || strpos($resolved, $base_dir) !== 0) {
+if ($base_dir === false) {
+    die('Server configuration error: uploads directory not found');
+}
+
+$relative = ltrim($file_path, '/\\');
+$resolved = realpath($base_dir . DIRECTORY_SEPARATOR . $relative);
+
+if ($resolved === false || strpos($resolved . DIRECTORY_SEPARATOR, $base_dir . DIRECTORY_SEPARATOR) !== 0) {
     die('Access denied: invalid file path');
 }
 
@@ -41,13 +47,9 @@ if (!file_exists($resolved)) {
     die('File not found on server');
 }
 
-if (!file_exists($real_path)) {
-    die('File not found on server');
-}
-
-$filename = basename($real_path);
-$filetype = mime_content_type($real_path);
-$filesize = filesize($real_path);
+$filename = basename($resolved);
+$filetype = mime_content_type($resolved);
+$filesize = filesize($resolved);
 
 header('Content-Description: File Transfer');
 header('Content-Type: ' . $filetype);
@@ -62,5 +64,5 @@ if (ob_get_level()) {
     ob_end_clean();
 }
 
-readfile($real_path);
+readfile($resolved);
 exit();
