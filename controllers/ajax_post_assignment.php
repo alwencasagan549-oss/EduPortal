@@ -4,6 +4,8 @@
  * Handles file upload, record creation, and bulk queuing for student notifications.
  */
 
+ob_start();
+
 require_once __DIR__ . '/../libs/QueueManager.php';
 requireLogin();
 
@@ -11,11 +13,14 @@ header('Content-Type: application/json');
 
 if (getUserRole() !== 'teacher') {
     header('HTTP/1.1 403 Forbidden');
+    ob_clean();
+    echo json_encode(['success' => false, 'error' => 'Access denied']);
     exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        ob_clean();
         echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
         exit();
     }
@@ -33,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // File handling
     if (!isset($_FILES['assignment_file']) || $_FILES['assignment_file']['error'] !== 0) {
+        ob_clean();
         echo json_encode(['success' => false, 'error' => 'Please select a valid file.']);
         exit();
     }
@@ -47,6 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $allowed_exts = ['pdf', 'doc', 'docx', 'txt', 'zip', 'jpg', 'png'];
     
     if (!in_array($file_ext, $allowed_exts)) {
+        ob_clean();
         echo json_encode(['success' => false, 'error' => 'File type not allowed.']);
         exit();
     }
@@ -55,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $file_path = $upload_dir . $new_filename;
     
     if (move_uploaded_file($file['tmp_name'], $file_path)) {
+        ob_clean();
         $file_content = base64_encode(file_get_contents($file['tmp_name']));
         $file_type = mime_content_type($file['tmp_name']);
 
@@ -69,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conn->exec("ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL");
                 $conn->exec("ALTER TABLE posted_assignments ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
             }
-        } catch (Exception $e) {}
+        } catch (Throwable $e) {}
 
         $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, strand, section, file_content, file_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([$teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $strand, $section, $file_content, $file_type]);
@@ -100,16 +108,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $student_count++;
         }
 
+        ob_clean();
         echo json_encode([
             'success' => true,
             'total_notified' => $student_count,
             'target_group' => "$grade_level $strand - $section"
         ]);
     } else {
+        ob_clean();
         echo json_encode(['success' => false, 'error' => 'Failed to move uploaded file.']);
     }
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
+        ob_clean();
         echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
     }
 }
+ob_end_flush();
 ?>

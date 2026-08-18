@@ -82,7 +82,7 @@ try {
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-} catch (Exception $e) {}
+} catch (Throwable $e) {}
 
 $file_content = base64_encode(file_get_contents($upload_path));
 $file_type = mime_content_type($upload_path);
