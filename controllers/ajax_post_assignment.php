@@ -59,6 +59,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $file_type = mime_content_type($file['tmp_name']);
 
         $conn = getDBConnection();
+
+        // Auto-create columns if needed
+        try {
+            $conn->query("ALTER TABLE posted_assignments ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT NULL");
+            $conn->query("ALTER TABLE posted_assignments ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+        } catch (Exception $e) {}
+
         $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, strand, section, file_content, file_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([$teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $strand, $section, $file_content, $file_type]);
 

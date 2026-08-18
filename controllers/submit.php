@@ -72,6 +72,13 @@ if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
 $conn = getDBConnection();
 $current_date = date('Y-m-d');
 $student_id = $_SESSION['user_id'];
+
+// Auto-create columns if needed
+try {
+    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT NULL");
+    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+} catch (Exception $e) {}
+
 $file_content = base64_encode(file_get_contents($upload_path));
 $file_type = mime_content_type($upload_path);
 $stmt = $conn->prepare("INSERT INTO submissions (student_id, subject, file_path, submission_date, file_content, file_type) VALUES (?, ?, ?, ?, ?, ?)");
