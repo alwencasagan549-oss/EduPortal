@@ -3,7 +3,7 @@
  * Database Migration: Add file_content columns to assignments and submissions
  * Stores file data as base64 in DB so downloads work on Render (ephemeral filesystem)
  */
-require_once 'config/database.php';
+require_once __DIR__ . '/../config/database.php';
 $conn = getDBConnection();
 
 // Add columns to posted_assignments
