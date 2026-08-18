@@ -16,10 +16,13 @@ $teacher_subject = $_SESSION['user_subject'] ?? '';
 // Get submissions for teacher's subject (Auth Shield: RLS Check)
 $conn = getDBConnection();
 
-// Auto-create columns if needed
+// Auto-create columns if needed (PostgreSQL-compatible)
 try {
-    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT NULL");
-    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+    $check = $conn->query("SELECT column_name FROM information_schema.columns WHERE table_name = 'submissions' AND column_name = 'file_content'");
+    if ($check && $check->num_rows === 0) {
+        $conn->query("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
+        $conn->query("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+    }
 } catch (Exception $e) {}
 
 // Strengthened Logic: Filter by subject only (since teacher_id is not consistently populated)
