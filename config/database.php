@@ -185,10 +185,6 @@ function isLoggedIn() {
     return isset($_SESSION['user_id']) && verifySessionBinding();
 }
 
-function isAdminLoggedIn() {
-    return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true && verifySessionBinding();
-}
-
 function base_path($path = '') {
     $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
     $depth = substr_count($base, '\\') + substr_count($base, '/');
@@ -196,16 +192,13 @@ function base_path($path = '') {
 }
 
 function requireLogin() {
-    if (!isLoggedIn() && !isAdminLoggedIn()) {
+    if (!isLoggedIn()) {
         header('Location: /session_expired.php');
         exit();
     }
 }
 
 function getUserRole() {
-    if (isAdminLoggedIn()) {
-        return "admin";
-    }
     return $_SESSION['user_role'] ?? '';
 }
 

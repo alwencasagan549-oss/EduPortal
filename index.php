@@ -52,10 +52,6 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
                 style="color: var(--primary-color); text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;"
                 onmouseover="this.style.opacity='0.75'"
                 onmouseout="this.style.opacity='1'">Help</a>
-            <a href="admin/login.php"
-                style="color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: color 0.2s;"
-                onmouseover="this.style.color='var(--text-main)'"
-                onmouseout="this.style.color='var(--text-muted)'">Login as Admin</a>
             <a href="teacher/login.php"
                 style="color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: color 0.2s;"
                 onmouseover="this.style.color='var(--text-main)'"
@@ -85,17 +81,6 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
                     <div class="home-menu-text">
                         <span class="home-link-title" style="color: var(--primary-color); font-weight: 600;">Help</span>
                         <span class="home-link-subtitle">User Guide & Tutorials</span>
-                    </div>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a href="admin/login.php" class="menu-link home-menu-link">
-                    <div class="home-icon-box" style="color: var(--primary-color); background: rgba(78, 115, 223, 0.1);">
-                        <i class="fas fa-shield-halved"></i>
-                    </div>
-                    <div class="home-menu-text">
-                        <span class="home-link-title">Login as Admin</span>
-                        <span class="home-link-subtitle">Management & Controls</span>
                     </div>
                 </a>
             </li>
