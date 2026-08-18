@@ -28,7 +28,7 @@ try {
         $conn->exec("ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL");
         $conn->exec("ALTER TABLE posted_assignments ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     // Columns may already exist
 }
 

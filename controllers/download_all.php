@@ -25,7 +25,7 @@ try {
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-} catch (Exception $e) {}
+} catch (Throwable $e) {}
 
 // Strengthened Logic: Filter by subject only (since teacher_id is not consistently populated)
 $stmt = $conn->prepare("SELECT s.file_path, s.file_content, s.file_type, st.name as student_name
