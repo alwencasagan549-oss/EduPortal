@@ -1,5 +1,6 @@
 <?php
-require_once __DIR__ . '/../config/database.php';
+$db_path = file_exists(__DIR__ . '/../config/database.php') ? __DIR__ . '/../config/database.php' : __DIR__ . '/config/database.php';
+require_once $db_path;
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
