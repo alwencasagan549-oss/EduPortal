@@ -19,12 +19,14 @@ $id = intval($_GET['id']);
 $user_role = $_SESSION['user_role'] ?? '';
 $conn = getDBConnection();
 
-// Auto-create file_content columns if they don't exist (self-healing, PostgreSQL-compatible)
+// Auto-create file_content columns if they don't exist (self-healing, PostgreSQL + MySQL safe)
 try {
-    $check = $conn->query("SELECT column_name FROM information_schema.columns WHERE table_name = 'posted_assignments' AND column_name = 'file_content'");
-    if ($check && $check->num_rows === 0) {
-        $conn->query("ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL");
-        $conn->query("ALTER TABLE posted_assignments ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+    $check = $conn->prepare("SELECT column_name FROM information_schema.columns WHERE table_name = 'posted_assignments' AND column_name = 'file_content'");
+    $check->execute();
+    $exists = $check->fetchColumn();
+    if (!$exists) {
+        $conn->exec("ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL");
+        $conn->exec("ALTER TABLE posted_assignments ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
 } catch (Exception $e) {
     // Columns may already exist
