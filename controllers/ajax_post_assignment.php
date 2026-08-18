@@ -60,11 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     $new_filename = time() . "_" . preg_replace("/[^a-zA-Z0-9]/", "_", $teacher_name) . "_" . $file['name'];
     $file_path = $upload_dir . $new_filename;
-    
+    $file_content = base64_encode(file_get_contents($file['tmp_name']));
+    $file_type = mime_content_type($file['tmp_name']);
+
     if (move_uploaded_file($file['tmp_name'], $file_path)) {
         ob_clean();
-        $file_content = base64_encode(file_get_contents($file['tmp_name']));
-        $file_type = mime_content_type($file['tmp_name']);
 
         $conn = getDBConnection();
 

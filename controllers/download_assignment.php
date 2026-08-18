@@ -85,7 +85,7 @@ if (strpos($resolved_norm, $base_norm) !== 0) {
 }
 
 if (!file_exists($resolved)) {
-    die('File not found on server');
+    die('File not available. Please contact your teacher to re-upload the assignment.');
 }
 
 $filename = basename($resolved);
