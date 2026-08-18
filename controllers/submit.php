@@ -72,8 +72,10 @@ if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
 $conn = getDBConnection();
 $current_date = date('Y-m-d');
 $student_id = $_SESSION['user_id'];
-$stmt = $conn->prepare("INSERT INTO submissions (student_id, subject, file_path, submission_date) VALUES (?, ?, ?, ?)");
-$stmt->execute([$student_id, $subject, $upload_path, $current_date]);
+$file_content = base64_encode(file_get_contents($upload_path));
+$file_type = mime_content_type($upload_path);
+$stmt = $conn->prepare("INSERT INTO submissions (student_id, subject, file_path, submission_date, file_content, file_type) VALUES (?, ?, ?, ?, ?, ?)");
+$stmt->execute([$student_id, $subject, $upload_path, $current_date, $file_content, $file_type]);
 
 if ($stmt->rowCount() > 0) {
     header('Location: ../student/dashboard.php?success=1');

@@ -55,9 +55,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $file_path = $upload_dir . $new_filename;
     
     if (move_uploaded_file($file['tmp_name'], $file_path)) {
+        $file_content = base64_encode(file_get_contents($file['tmp_name']));
+        $file_type = mime_content_type($file['tmp_name']);
+
         $conn = getDBConnection();
-        $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, strand, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $strand, $section]);
+        $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, strand, section, file_content, file_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $strand, $section, $file_content, $file_type]);
 
         // BULK NOTIFICATION LOGIC
         $st_stmt = $conn->prepare("SELECT email, name FROM students WHERE grade_level = ? AND strand = ? AND section = ?");

@@ -16,13 +16,13 @@ $teacher_subject = $_SESSION['user_subject'] ?? '';
 // Get submissions for teacher's subject (Auth Shield: RLS Check)
 $conn = getDBConnection();
 // Strengthened Logic: Filter by subject only (since teacher_id is not consistently populated)
-$stmt = $conn->prepare("SELECT s.file_path, st.name as student_name
+$stmt = $conn->prepare("SELECT s.file_path, s.file_content, s.file_type, st.name as student_name
                        FROM submissions s
                        LEFT JOIN students st ON s.student_id = st.id
                        WHERE s.subject = ?");
 $stmt->execute([$teacher_subject]);
 $result = $stmt->get_result();
-$submissions = $result->fetch_all();
+$submissions = $result->fetch_all(MYSQLI_ASSOC);
 
 if (empty($submissions)) {
     die('No submissions found for subject: ' . htmlspecialchars($teacher_subject));
@@ -41,12 +41,20 @@ if ($zip->open($temp_zip, ZipArchive::CREATE) !== TRUE) {
 $base_dir = realpath(__DIR__ . '/../uploads');
 
 foreach ($submissions as $submission) {
-    $resolved = realpath(__DIR__ . '/../' . ltrim($submission['file_path'], '/\\'));
-    if ($resolved !== false && strpos($resolved, $base_dir) === 0) {
-        $file_name = basename($resolved);
-        $student_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $submission['student_name']);
-        $new_name = $student_name . '_' . $file_name;
-        $zip->addFile($resolved, $new_name);
+    $file_name = basename($submission['file_path']);
+    $student_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $submission['student_name']);
+    $new_name = $student_name . '_' . $file_name;
+
+    if (!empty($submission['file_content'])) {
+        // Serve from database (for Render compatibility)
+        $file_data = base64_decode($submission['file_content']);
+        $zip->addFromString($new_name, $file_data);
+    } else {
+        // Fallback: serve from filesystem
+        $resolved = realpath(__DIR__ . '/../' . ltrim($submission['file_path'], '/\\'));
+        if ($resolved !== false && $base_dir !== false && strpos($resolved, $base_dir) === 0) {
+            $zip->addFile($resolved, $new_name);
+        }
     }
 }
 
