@@ -397,7 +397,7 @@ $pending_count = $total_submissions - $reviewed_count;
             </footer>
         </main>
     </div>
-    <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/system_loader.js?v=20260818"></script>
     <script src="../assets/js/responsive_ui.js"></script>
 </body>
 

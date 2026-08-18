@@ -342,7 +342,7 @@ $broadcasted = $stmt2->get_result()->fetch_all();
         return true;
     }
     </script>
-    <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/system_loader.js?v=20260818"></script>
     <script src="../assets/js/responsive_ui.js"></script>
 </body>
 </html>
