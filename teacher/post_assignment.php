@@ -260,14 +260,12 @@ $grades = $stmt->get_result()->fetch_all();
             })
             .then(response => response.json())
             .then(data => {
-                EduPortal.hideLoader();
                 if (data.success) {
                     EduPortal.showLoader("Sending Notifications", "Delivering assignment alerts to students...");
 
                     fetch('../controllers/process_job.php?action=process')
                         .then(r => r.json())
                         .then(proc => {
-                            EduPortal.hideLoader();
                             const processed = proc.processed || 0;
                             const failed = (proc.results || []).filter(r => r.status === 'failed').length;
                             let msg = `Assignment broadcasted to ${data.total_notified} students in ${data.target_group}.`;
@@ -279,7 +277,6 @@ $grades = $stmt->get_result()->fetch_all();
                             EduPortal.showSuccessModal("Assignment Published", msg);
                         })
                         .catch(() => {
-                            EduPortal.hideLoader();
                             EduPortal.showSuccessModal("Assignment Published",
                                 `Your materials have been broadcasted! ${data.total_notified} students will be notified.`);
                         });
