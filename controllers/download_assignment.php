@@ -36,9 +36,13 @@ if ($base_dir === false) {
     die('Server configuration error: uploads directory not found');
 }
 
-$resolved = realpath(__DIR__ . '/../' . ltrim($file_path, '/\\'));
+$relative = ltrim($file_path, '/\\');
+$resolved = $base_dir . DIRECTORY_SEPARATOR . $relative;
 
-if ($resolved === false || strpos($resolved . DIRECTORY_SEPARATOR, $base_dir . DIRECTORY_SEPARATOR) !== 0) {
+$base_norm = rtrim(str_replace('\\', '/', $base_dir), '/') . '/';
+$resolved_norm = str_replace('\\', '/', $resolved);
+
+if (strpos($resolved_norm, $base_norm) !== 0) {
     die('Access denied: invalid file path');
 }
 
