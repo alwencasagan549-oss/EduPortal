@@ -60,10 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $conn = getDBConnection();
 
-        // Auto-create columns if needed
+        // Auto-create columns if needed (PostgreSQL-compatible)
         try {
-            $conn->query("ALTER TABLE posted_assignments ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT NULL");
-            $conn->query("ALTER TABLE posted_assignments ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+            $check = $conn->query("SELECT column_name FROM information_schema.columns WHERE table_name = 'posted_assignments' AND column_name = 'file_content'");
+            if ($check && $check->num_rows === 0) {
+                $conn->query("ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL");
+                $conn->query("ALTER TABLE posted_assignments ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+            }
         } catch (Exception $e) {}
 
         $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, strand, section, file_content, file_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");

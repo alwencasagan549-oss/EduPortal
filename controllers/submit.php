@@ -73,10 +73,13 @@ $conn = getDBConnection();
 $current_date = date('Y-m-d');
 $student_id = $_SESSION['user_id'];
 
-// Auto-create columns if needed
+// Auto-create columns if needed (PostgreSQL-compatible)
 try {
-    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT NULL");
-    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+    $check = $conn->query("SELECT column_name FROM information_schema.columns WHERE table_name = 'submissions' AND column_name = 'file_content'");
+    if ($check && $check->num_rows === 0) {
+        $conn->query("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
+        $conn->query("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+    }
 } catch (Exception $e) {}
 
 $file_content = base64_encode(file_get_contents($upload_path));
