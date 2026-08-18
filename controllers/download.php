@@ -51,9 +51,15 @@ $submission = $result->fetch_assoc();
 $file_path = $submission['file_path'];
 
 $base_dir = realpath(__DIR__ . '/../uploads');
-$resolved = realpath(__DIR__ . '/../' . ltrim($file_path, '/\\'));
 
-if ($resolved === false || strpos($resolved, $base_dir) !== 0) {
+if ($base_dir === false) {
+    die('Server configuration error: uploads directory not found');
+}
+
+$relative = ltrim($file_path, '/\\');
+$resolved = realpath($base_dir . DIRECTORY_SEPARATOR . $relative);
+
+if ($resolved === false || strpos($resolved . DIRECTORY_SEPARATOR, $base_dir . DIRECTORY_SEPARATOR) !== 0) {
     die('Access denied: invalid file path');
 }
 
