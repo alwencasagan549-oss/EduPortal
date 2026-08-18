@@ -165,7 +165,7 @@ $broadcasted = $stmt2->get_result()->fetch_all();
                 <?php else: ?>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.25rem;">
                     <?php foreach ($broadcasted as $a): ?>
-                        <div class="glass-card animate-fade-up" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; border-left: 3px solid var(--primary-color); transition: transform 0.25s ease, box-shadow 0.25s ease;" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 12px 35px rgba(78,115,223,0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <div class="glass-card animate-fade-up" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; border-left: 3px solid var(--primary-color); transition: transform 0.25s ease, box-shadow 0.25s ease; align-self: start;" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 12px 35px rgba(78,115,223,0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
                                 <div style="display: flex; align-items: flex-start; gap: 0.85rem; flex: 1; min-width: 0;">
                                     <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(78,115,223,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -186,7 +186,7 @@ $broadcasted = $stmt2->get_result()->fetch_all();
                                     <?php echo date('M d, Y', strtotime($a['created_at'])); ?>
                                 </span>
                             </div>
-                            <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.85rem; border-top: 1px solid var(--glass-border);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.6rem; border-top: 1px solid var(--glass-border);">
                                 <div style="display: flex; align-items: center; gap: 0.6rem;">
                                     <span class="premium-badge badge-blue" style="font-size: 0.62rem; font-weight: 700; padding: 0.22rem 0.6rem; border-radius: 5px;"><?php echo htmlspecialchars($a['subject']); ?></span>
                                     <span style="font-size: 0.78rem; color: var(--text-muted);">by <?php echo htmlspecialchars($a['teacher_name']); ?></span>
