@@ -19,7 +19,15 @@ $id = intval($_GET['id']);
 $user_role = $_SESSION['user_role'] ?? '';
 $conn = getDBConnection();
 
-$stmt = $conn->prepare("SELECT file_path, title, grade_level, strand, section FROM posted_assignments WHERE id = ?");
+// Auto-create file_content columns if they don't exist (self-healing)
+try {
+    $conn->query("ALTER TABLE posted_assignments ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT NULL");
+    $conn->query("ALTER TABLE posted_assignments ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+} catch (Exception $e) {
+    // Columns may already exist
+}
+
+$stmt = $conn->prepare("SELECT file_path, file_content, file_type FROM posted_assignments WHERE id = ?");
 $stmt->execute([$id]);
 $result = $stmt->get_result();
 
@@ -30,26 +38,7 @@ if ($result->num_rows() === 0) {
 $assignment = $result->fetch_assoc();
 $file_path = $assignment['file_path'];
 
-$base_dir = realpath(__DIR__ . '/../uploads');
-
-if ($base_dir === false) {
-    die('Server configuration error: uploads directory not found');
-}
-
-$relative = ltrim($file_path, '/\\');
-$resolved = $base_dir . DIRECTORY_SEPARATOR . $relative;
-
-$base_norm = rtrim(str_replace('\\', '/', $base_dir), '/') . '/';
-$resolved_norm = str_replace('\\', '/', $resolved);
-
-if (strpos($resolved_norm, $base_norm) !== 0) {
-    die('Access denied: invalid file path');
-}
-
-if (!file_exists($resolved)) {
-    die('File not found on server');
-}
-
+// Serve from database if content is stored there (Render compatibility)
 if (!empty($assignment['file_content'])) {
     $file_data = base64_decode($assignment['file_content']);
     $filename = basename($file_path);
@@ -71,6 +60,27 @@ if (!empty($assignment['file_content'])) {
 
     echo $file_data;
     exit();
+}
+
+// Fallback: serve from filesystem
+$base_dir = realpath(__DIR__ . '/../uploads');
+
+if ($base_dir === false) {
+    die('Server configuration error: uploads directory not found');
+}
+
+$relative = ltrim($file_path, '/\\');
+$resolved = $base_dir . DIRECTORY_SEPARATOR . $relative;
+
+$base_norm = rtrim(str_replace('\\', '/', $base_dir), '/') . '/';
+$resolved_norm = str_replace('\\', '/', $resolved);
+
+if (strpos($resolved_norm, $base_norm) !== 0) {
+    die('Access denied: invalid file path');
+}
+
+if (!file_exists($resolved)) {
+    die('File not found on server');
 }
 
 $filename = basename($resolved);

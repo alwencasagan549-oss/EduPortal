@@ -26,6 +26,14 @@ $user_role = $_SESSION['user_role'];
 
 $conn = getDBConnection();
 
+// Auto-create file_content columns if they don't exist (self-healing)
+try {
+    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT NULL");
+    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+} catch (Exception $e) {
+    // Columns may already exist
+}
+
 // Different queries based on user role
 if ($user_role === 'teacher') {
     if (isset($_SESSION['user_subject'])) {

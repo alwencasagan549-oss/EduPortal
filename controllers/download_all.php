@@ -15,6 +15,13 @@ $teacher_subject = $_SESSION['user_subject'] ?? '';
 
 // Get submissions for teacher's subject (Auth Shield: RLS Check)
 $conn = getDBConnection();
+
+// Auto-create columns if needed
+try {
+    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT NULL");
+    $conn->query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+} catch (Exception $e) {}
+
 // Strengthened Logic: Filter by subject only (since teacher_id is not consistently populated)
 $stmt = $conn->prepare("SELECT s.file_path, s.file_content, s.file_type, st.name as student_name
                        FROM submissions s
