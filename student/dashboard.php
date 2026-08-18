@@ -163,38 +163,25 @@ $broadcasted = $stmt2->get_result()->fetch_all();
                         <p style="color: var(--text-muted);">Your teachers haven't posted any materials for your group yet.</p>
                     </div>
                 <?php else: ?>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.25rem;">
+                <div style="display: flex; flex-direction: column; gap: 0.6rem;">
                     <?php foreach ($broadcasted as $a): ?>
-                        <div class="glass-card animate-fade-up" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; border-left: 3px solid var(--primary-color); transition: transform 0.25s ease, box-shadow 0.25s ease; align-self: start;" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 12px 35px rgba(78,115,223,0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
-                                <div style="display: flex; align-items: flex-start; gap: 0.85rem; flex: 1; min-width: 0;">
-                                    <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(78,115,223,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                        <i class="fas fa-file-lines" style="font-size: 1rem; color: var(--primary-color);"></i>
-                                    </div>
-                                    <div style="min-width: 0; flex: 1;">
-                                        <h3 style="font-size: 0.95rem; font-weight: 700; line-height: 1.4; color: var(--text-main); margin: 0 0 0.4rem; word-break: break-word;">
-                                            <?php echo htmlspecialchars($a['title']); ?>
-                                        </h3>
-                                        <?php if (!empty(trim($a['description']))): ?>
-                                            <p style="color: var(--text-muted); font-size: 0.8rem; line-height: 1.6; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-                                                <?php echo htmlspecialchars($a['description']); ?>
-                                            </p>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <span style="font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; padding-top: 3px; font-weight: 500;">
-                                    <?php echo date('M d, Y', strtotime($a['created_at'])); ?>
-                                </span>
+                        <div class="glass-card animate-fade-up" style="padding: 0.9rem 1.25rem; display: flex; align-items: center; gap: 1.25rem; border-left: 3px solid var(--primary-color); transition: background 0.2s ease;" onmouseover="this.style.background='rgba(78,115,223,0.04)'" onmouseout="this.style.background='var(--bg-card)'">
+                            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(78,115,223,0.1); border: 1px solid rgba(78,115,223,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <i class="fas fa-file-lines" style="font-size: 0.85rem; color: var(--primary-color);"></i>
                             </div>
-                            <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.6rem; border-top: 1px solid var(--glass-border);">
-                                <div style="display: flex; align-items: center; gap: 0.6rem;">
-                                    <span class="premium-badge badge-blue" style="font-size: 0.62rem; font-weight: 700; padding: 0.22rem 0.6rem; border-radius: 5px;"><?php echo htmlspecialchars($a['subject']); ?></span>
-                                    <span style="font-size: 0.78rem; color: var(--text-muted);">by <?php echo htmlspecialchars($a['teacher_name']); ?></span>
-                                </div>
-                                <a href="../controllers/download_assignment.php?id=<?php echo $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.5rem 1rem; font-size: 0.78rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;">
-                                    <i class="fas fa-download" style="font-size: 0.65rem;"></i> Get Copy
-                                </a>
+                            <div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.75rem;">
+                                <span class="premium-badge badge-blue" style="font-size: 0.6rem; font-weight: 700; padding: 0.18rem 0.5rem; border-radius: 4px; flex-shrink: 0;"><?php echo htmlspecialchars($a['subject']); ?></span>
+                                <h3 style="font-size: 0.88rem; font-weight: 600; color: var(--text-main); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo htmlspecialchars($a['title']); ?></h3>
                             </div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0;">
+                                <i class="fas fa-user-tie" style="margin-right: 4px; font-size: 0.6rem; opacity: 0.6;"></i><?php echo htmlspecialchars($a['teacher_name']); ?>
+                            </span>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; min-width: 70px; text-align: right;">
+                                <?php echo date('M d, Y', strtotime($a['created_at'])); ?>
+                            </span>
+                            <a href="../controllers/download_assignment.php?id=<?php echo $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.45rem 0.85rem; font-size: 0.75rem; border-radius: 7px; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                                <i class="fas fa-download" style="font-size: 0.6rem;"></i> Get Copy
+                            </a>
                         </div>
                     <?php endforeach; ?>
                 </div>
