@@ -34,8 +34,9 @@ RewriteRule ^(.*)/$ /$1 [L,R=301]
 # Protect the config directory
 RewriteRule ^config/ - [F,L]
 
-# Redirect to HTTPS
+# Redirect to HTTPS (proxy-aware: checks X-Forwarded-Proto for load balancers)
 RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
 
 # Security Headers
