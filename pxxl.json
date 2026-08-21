@@ -4,40 +4,5 @@
     "type": "php"
   },
   "buildpack": "localhost/pxxl/buildpacks/php",
-  "startCommand": "php -S 0.0.0.0:$PORT -t . router.php",
-  "env": {
-    "DB_HOST": {
-      "description": "PostgreSQL host (provided by SnapDeploy database addon)"
-    },
-    "DB_USER": {
-      "description": "PostgreSQL username"
-    },
-    "DB_PASS": {
-      "description": "PostgreSQL password"
-    },
-    "DB_NAME": {
-      "description": "PostgreSQL database name"
-    },
-    "SMTP_HOST": {
-      "description": "SMTP relay host",
-      "value": "smtp-relay.brevo.com"
-    },
-    "SMTP_PORT": {
-      "description": "SMTP port",
-      "value": "587"
-    },
-    "SMTP_USER": {
-      "description": "SMTP username"
-    },
-    "SMTP_PASS": {
-      "description": "SMTP password"
-    },
-    "SITE_URL": {
-      "description": "Public URL of your deployment"
-    },
-    "PLATFORM_NAME": {
-      "description": "Platform display name",
-      "value": "EduPortal LMS"
-    }
-  }
+  "startCommand": "php -S 0.0.0.0:$PORT -t ."
 }
