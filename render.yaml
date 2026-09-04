@@ -8,21 +8,17 @@ services:
       - key: PORT
         value: 10000
       - key: DB_HOST
-        fromDatabase:
-          name: eduportal-db
-          property: host
+        value: eduportal-db-alwencasagann-f17b.a.aivencloud.com
+      - key: DB_PORT
+        value: "17436"
       - key: DB_USER
-        fromDatabase:
-          name: eduportal-db
-          property: user
+        value: avnadmin
       - key: DB_PASS
-        fromDatabase:
-          name: eduportal-db
-          property: password
+        sync: false
       - key: DB_NAME
-        fromDatabase:
-          name: eduportal-db
-          property: database
+        value: defaultdb
+      - key: DB_SSL_MODE
+        value: require
       - key: EMAIL_PROVIDER
         value: smtp
       - key: SMTP_HOST
@@ -41,9 +37,3 @@ services:
       name: uploads
       mountPath: /var/www/html/uploads
       sizeGB: 1
-
-databases:
-  - name: eduportal-db
-    databaseName: eduportal
-    user: eduportal_user
-    plan: free

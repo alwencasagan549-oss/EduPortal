@@ -36,10 +36,10 @@ EduPortal is a **Learning Management System (LMS)** designed for schools to mana
 ## Getting Started
 
 ### Step 1: Access the Portal
-
 Open your web browser and go to:
+
 ```
-https://eduportal-xefr.onrender.com
+https://reesnhs.l.cd
 ```
 
 You will see the EduPortal landing page with options to **Sign In** or **Sign Up**.

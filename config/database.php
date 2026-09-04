@@ -11,6 +11,8 @@ if (!file_exists(__DIR__ . '/credentials.php')) {
     define('SECURE_DB_USER', getenv('DB_USER') ?: 'root');
     define('SECURE_DB_PASS', getenv('DB_PASS') ?: '');
     define('SECURE_DB_NAME', getenv('DB_NAME') ?: 'edu_portal');
+    define('SECURE_DB_PORT', getenv('DB_PORT') ?: '5432');
+    define('SECURE_DB_SSL_MODE', getenv('DB_SSL_MODE') ?: '');
     define('SMTP_HOST', getenv('SMTP_HOST') ?: 'ssl://smtp.gmail.com');
     define('SMTP_PORT', getenv('SMTP_PORT') ?: 465);
     define('SMTP_USER', getenv('SMTP_USER') ?: '');
@@ -25,6 +27,8 @@ define('DB_HOST', SECURE_DB_HOST);
 define('DB_USER', SECURE_DB_USER);
 define('DB_PASS', SECURE_DB_PASS);
 define('DB_NAME', SECURE_DB_NAME);
+define('DB_PORT', SECURE_DB_PORT);
+define('DB_SSL_MODE', SECURE_DB_SSL_MODE);
 
 // Harden Session Security (Auth Shield)
 if (session_status() === PHP_SESSION_NONE) {
@@ -81,8 +85,11 @@ function validate_csrf($token) {
 class EduPortalDB {
     private $pdo;
 
-    public function __construct($host, $user, $pass, $dbname) {
-        $dsn = "pgsql:host=$host;dbname=$dbname";
+    public function __construct($host, $user, $pass, $dbname, $port = '5432', $sslmode = '') {
+        $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+        if ($sslmode !== '') {
+            $dsn .= ";sslmode=$sslmode";
+        }
         $this->pdo = new PDO($dsn, $user, $pass, [
             PDO::ATTR_PERSISTENT => true,
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -176,7 +183,7 @@ class EduPortalResult {
 function getDBConnection() {
     static $conn;
     if ($conn === null) {
-        $conn = new EduPortalDB(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+        $conn = new EduPortalDB(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT, DB_SSL_MODE);
     }
     return $conn;
 }
