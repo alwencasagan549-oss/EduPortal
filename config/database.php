@@ -11,8 +11,8 @@ if (!file_exists(__DIR__ . '/credentials.php')) {
     define('SECURE_DB_USER', getenv('DB_USER') ?: 'root');
     define('SECURE_DB_PASS', getenv('DB_PASS') ?: '');
     define('SECURE_DB_NAME', getenv('DB_NAME') ?: 'edu_portal');
-    define('SECURE_DB_PORT', getenv('DB_PORT') ?: '5432');
-    define('SECURE_DB_SSL_MODE', getenv('DB_SSL_MODE') ?: '');
+    define('SECURE_DB_PORT', getenv('DB_PORT') ?: '17436');
+    define('SECURE_DB_SSL_MODE', getenv('DB_SSL_MODE') ?: 'require');
     define('SMTP_HOST', getenv('SMTP_HOST') ?: 'ssl://smtp.gmail.com');
     define('SMTP_PORT', getenv('SMTP_PORT') ?: 465);
     define('SMTP_USER', getenv('SMTP_USER') ?: '');
@@ -91,7 +91,7 @@ class EduPortalDB {
             $dsn .= ";sslmode=$sslmode";
         }
         $this->pdo = new PDO($dsn, $user, $pass, [
-            PDO::ATTR_PERSISTENT => true,
+            PDO::ATTR_PERSISTENT => false,
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
