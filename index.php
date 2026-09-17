@@ -21,10 +21,22 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EduPortal LMS | Modern Learning Management</title>
+    <meta name="description" content="reesnhs — EduPortal LMS for Ruben E. Ecleo Sr. National High School. Manage assignments, grading, and classroom workflows online.">
+    <title>reesnhs — EduPortal LMS | Ruben E. Ecleo Sr. National High School</title>
+    <link rel="canonical" href="https://reesnhs.l.cd/">
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Ruben E. Ecleo Sr. National High School",
+      "alternateName": "reesnhs",
+      "url": "https://reesnhs.l.cd/",
+      "logo": "https://reesnhs.l.cd/assets/favicon.ico"
+    }
+    </script>
 </head>
 
 <body style="overflow-x: hidden;">
@@ -345,7 +357,7 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
                     Edu<span>Portal</span>
                 </div>
                 <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Evolution of academic
-                    management with human-centric design.</p>
+                    management with human-centric design at reesnhs.</p>
                 <div style="display: flex; gap: 1.2rem; margin-top: 1.5rem;">
                     <a href="#" style="color: var(--text-muted); font-size: 1.1rem;"><i class="fab fa-twitter"></i></a>
                     <a href="#" style="color: var(--text-muted); font-size: 1.1rem;"><i class="fab fa-facebook"></i></a>
