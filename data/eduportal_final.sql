@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS `students` (
     `email` VARCHAR(100) DEFAULT NULL,
     `grade_level` VARCHAR(50) DEFAULT 'Grade 11',
     `section` VARCHAR(50) DEFAULT NULL,
+    `strand` VARCHAR(50) DEFAULT 'Academic',
     `password` VARCHAR(255) NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -82,6 +83,7 @@ CREATE TABLE IF NOT EXISTS `posted_assignments` (
     `file_path` VARCHAR(255) NOT NULL,
     `grade_level` VARCHAR(50) NOT NULL,
     `section` VARCHAR(50) NOT NULL,
+    `strand` VARCHAR(50) DEFAULT 'Academic',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `teacher_id` (`teacher_id`)
@@ -114,9 +116,9 @@ INSERT INTO `teachers` (`name`, `email`, `subject`, `password`) VALUES
 ('Sarah Johnson', 'sarah@example.com', 'Physics', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy')
 ON DUPLICATE KEY UPDATE `password` = VALUES(`password`);
 
-INSERT INTO `students` (`lrn`, `name`, `email`, `grade_level`, `section`, `password`) VALUES
-('123456789012', 'Alex Johnson', 'alex@example.com', 'Grade 12', 'ICT', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy'),
-('987654321098', 'Maya Rivera', 'maya@example.com', 'Grade 11', 'STEM', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy')
+INSERT INTO `students` (`lrn`, `name`, `email`, `grade_level`, `section`, `strand`, `password`) VALUES
+('123456789012', 'Alex Johnson', 'alex@example.com', 'Grade 12', 'ICT', 'Academic', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy'),
+('987654321098', 'Maya Rivera', 'maya@example.com', 'Grade 11', 'STEM', 'Academic', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy')
 ON DUPLICATE KEY UPDATE `password` = VALUES(`password`);
 
 COMMIT;
