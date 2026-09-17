@@ -9,8 +9,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
         header('Content-Type: application/json');
         echo json_encode(['error' => 'Invalid security token.']);
-        exit;
+        exit();
     }
+    rotate_csrf();
     $student_id = intval($_POST['student_id'] ?? 0);
     $subject = trim($_POST['subject'] ?? '');
     $message = trim($_POST['message'] ?? '');
@@ -33,9 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'subject' => $subject,
         'message' => $message,
         'from_name' => $_SESSION['user_name'],
-        'from_email' => $_SESSION['user_email'],
-        'smtp_user' => SMTP_USER,
-        'smtp_pass' => SMTP_PASS
+        'from_email' => $_SESSION['user_email']
     ];
 
     $job_id = QueueManager::push('email', $payload);

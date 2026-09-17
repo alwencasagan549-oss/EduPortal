@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Auth Shield: Regenerate Session for Security
                 session_regenerate_id(true);
+                bindSession();
                 
                 $_SESSION['user_id'] = $student['id'];
                 $_SESSION['user_name'] = $student['name'];

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://reesnhs.l.cd/sitemap.xml

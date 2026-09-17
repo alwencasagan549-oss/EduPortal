@@ -25,7 +25,9 @@ try {
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-} catch (Throwable $e) {}
+    } catch (Throwable $e) {
+        error_log('EduPortal schema migration error in download_all.php: ' . $e->getMessage());
+    }
 
 // Strengthened Logic: Filter by subject only (since teacher_id is not consistently populated)
 $stmt = $conn->prepare("SELECT s.file_path, s.file_content, s.file_type, st.name as student_name
@@ -34,7 +36,7 @@ $stmt = $conn->prepare("SELECT s.file_path, s.file_content, s.file_type, st.name
                        WHERE s.subject = ?");
 $stmt->execute([$teacher_subject]);
 $result = $stmt->get_result();
-$submissions = $result->fetch_all(MYSQLI_ASSOC);
+$submissions = $result->fetch_all(PDO::FETCH_ASSOC);
 
 if (empty($submissions)) {
     die('No submissions found for subject: ' . htmlspecialchars($teacher_subject));

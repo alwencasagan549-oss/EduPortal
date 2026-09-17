@@ -62,14 +62,16 @@ class QueueManager {
         try {
             if ($job['type'] === 'email') {
                 require_once __DIR__ . '/SMTPMailer.php';
+                $smtp_user = getenv('SMTP_USER') ?: SMTP_USER;
+                $smtp_pass = getenv('SMTP_PASS') ?: SMTP_PASS;
                 $result = SMTPMailer::send(
                     $payload['to'],
                     $payload['subject'],
                     $payload['message'],
                     $payload['from_name'],
                     $payload['from_email'],
-                    $payload['smtp_user'],
-                    $payload['smtp_pass']
+                    $smtp_user,
+                    $smtp_pass
                 );
                 if (!$result) {
                     $error = "SMTP delivery failed to {$payload['to']}. Check SMTP credentials and outbound port access.";

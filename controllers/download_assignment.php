@@ -28,19 +28,17 @@ try {
         $conn->exec("ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL");
         $conn->exec("ALTER TABLE posted_assignments ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-} catch (Throwable $e) {
-    // Columns may already exist
-}
+    } catch (Throwable $e) {
+        error_log('EduPortal schema migration error in download_assignment.php: ' . $e->getMessage());
+    }
 
 $stmt = $conn->prepare("SELECT file_path, file_content, file_type FROM posted_assignments WHERE id = ?");
 $stmt->execute([$id]);
-$result = $stmt->get_result();
+    $assignment = $stmt->get_result()->fetch_assoc();
 
-if ($result->num_rows() === 0) {
-    die('Assignment not found');
-}
-
-$assignment = $result->fetch_assoc();
+    if (!$assignment) {
+        die('Assignment not found');
+    }
 $file_path = $assignment['file_path'];
 
 // Serve from database if content is stored there (Render compatibility)
