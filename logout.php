@@ -1,9 +1,13 @@
 <?php
 // logout.php
-ob_start();
 require_once __DIR__ . '/config/database.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !validate_csrf($_POST['csrf_token'] ?? '')) {
+    header('Location: index.php');
+    exit();
 }
 
 // Unset all session variables

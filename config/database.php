@@ -46,7 +46,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Bind session to IP + User-Agent to prevent hijacking
-if (empty($_SESSION['_ip_fingerprint']) && !empty($_SESSION['user_id'])) {
+if (!empty($_SESSION['user_id'])) {
     $_SESSION['_ip_fingerprint'] = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
 }
 
@@ -68,10 +68,12 @@ if (!headers_sent()) {
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';");
 }
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    $_SESSION['csrf_token_prev'] = '';
 }
 
 function csrf_token() {
@@ -79,7 +81,17 @@ function csrf_token() {
 }
 
 function validate_csrf($token) {
-    return hash_equals($_SESSION['csrf_token'] ?? '', $token);
+    $current = $_SESSION['csrf_token'] ?? '';
+    $previous = $_SESSION['csrf_token_prev'] ?? '';
+    if (hash_equals($current, $token) || ($previous !== '' && hash_equals($previous, $token))) {
+        return true;
+    }
+    return false;
+}
+
+function rotate_csrf() {
+    $_SESSION['csrf_token_prev'] = $_SESSION['csrf_token'] ?? '';
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 class EduPortalDB {
@@ -150,33 +162,36 @@ class EduPortalStmt {
     public function rowCount() {
         return $this->stmt->rowCount();
     }
-
-    public function lastInsertId() {
-        return $this->pdo->lastInsertId();
-    }
-
-    public function bind_param() {
-        return true;
-    }
 }
 
 class EduPortalResult {
     private $stmt;
+    private $cached_rows = null;
 
     public function __construct($stmt) {
         $this->stmt = $stmt;
     }
 
     public function fetch_assoc() {
+        if ($this->cached_rows !== null) {
+            $row = array_shift($this->cached_rows);
+            return $row === null ? false : $row;
+        }
         return $this->stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     public function fetch_all($style = PDO::FETCH_ASSOC) {
+        if ($this->cached_rows !== null) {
+            return $this->cached_rows;
+        }
         return $this->stmt->fetchAll($style);
     }
 
     public function num_rows() {
-        return $this->stmt->rowCount();
+        if ($this->cached_rows === null) {
+            $this->cached_rows = $this->stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        return count($this->cached_rows);
     }
 }
 
@@ -193,8 +208,8 @@ function isLoggedIn() {
 }
 
 function base_path($path = '') {
-    $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
-    $depth = substr_count($base, '\\') + substr_count($base, '/');
+    $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+    $depth = substr_count($base, '/');
     return str_repeat('../', max(0, $depth - 0)) . ltrim($path, '/');
 }
 

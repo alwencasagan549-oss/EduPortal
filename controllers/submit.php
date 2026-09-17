@@ -23,13 +23,13 @@ $subject = trim($_POST['subject'] ?? '');
 
 // Validate inputs
 if (empty($student_name) || empty($subject)) {
-    header('Location: student_dashboard.php?error=All+fields+are+required');
+    header('Location: ../student/dashboard.php?error=All+fields+are+required');
     exit();
 }
 
 // Validate file upload
 if (!isset($_FILES['assignment']) || $_FILES['assignment']['error'] !== UPLOAD_ERR_OK) {
-    header('Location: student_dashboard.php?error=Please+select+a+file');
+    header('Location: ../student/dashboard.php?error=Please+select+a+file');
     exit();
 }
 
@@ -42,13 +42,13 @@ $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
 // Check file extension
 if (!in_array($file_ext, $allowed_ext)) {
-    header('Location: student_dashboard.php?error=Only+PDF,+DOC,+and+DOCX+files+are+allowed');
+    header('Location: ../student/dashboard.php?error=Only+PDF,+DOC,+and+DOCX+files+are+allowed');
     exit();
 }
 
 // Check file size
 if ($file['size'] > $max_size) {
-    header('Location: student_dashboard.php?error=File+size+exceeds+10MB+limit');
+    header('Location: ../student/dashboard.php?error=File+size+exceeds+10MB+limit');
     exit();
 }
 
@@ -64,7 +64,7 @@ if (!is_dir('uploads')) {
 
 // Move uploaded file
 if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
-    header('Location: student_dashboard.php?error=Failed+to+save+file');
+    header('Location: ../student/dashboard.php?error=Failed+to+save+file');
     exit();
 }
 
@@ -82,10 +82,30 @@ try {
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-} catch (Throwable $e) {}
+    } catch (Throwable $e) {
+        error_log('EduPortal Submission Error: ' . $e->getMessage());
+    }
 
-$file_content = base64_encode(file_get_contents($upload_path));
-$file_type = mime_content_type($upload_path);
+    $file_content = base64_encode(file_get_contents($upload_path));
+    $file_type = mime_content_type($upload_path);
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $verified_mime = finfo_file($finfo, $upload_path);
+    finfo_close($finfo);
+
+    $allowed_mimes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    if (!in_array($verified_mime, $allowed_mimes, true)) {
+        unlink($upload_path);
+        header('Location: ../student/dashboard.php?error=Invalid+file+type.+Please+upload+a+PDF+or+Word+document.');
+        exit();
+    }
+
+    $file_type = $verified_mime;
 $stmt = $conn->prepare("INSERT INTO submissions (student_id, subject, file_path, submission_date, file_content, file_type) VALUES (?, ?, ?, ?, ?, ?)");
 $stmt->execute([$student_id, $subject, $upload_path, $current_date, $file_content, $file_type]);
 
@@ -93,7 +113,7 @@ if ($stmt->rowCount() > 0) {
     header('Location: ../student/dashboard.php?success=1');
 } else {
     unlink($upload_path);
-    header('Location: student_dashboard.php?error=Database+error.+Please+try+again.');
+    header('Location: ../student/dashboard.php?error=Database+error.+Please+try+again.');
 }
 exit();
 ?>

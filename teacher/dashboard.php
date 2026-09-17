@@ -145,9 +145,12 @@ $pending_count = $total_submissions - $reviewed_count;
                         <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Online</div>
                     </div>
                 </div>
-                <a href="../logout.php" class="logout-link" onclick="return EduPortal.confirmLogout(this)">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
+                <form method="POST" action="../logout.php" style="display:inline;" onsubmit="return EduPortal.confirmLogout(this)">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                    <button type="submit" class="logout-link">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </form>
             </div>
         </aside>
 

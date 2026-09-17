@@ -101,9 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'subject' => $email_subject,
                 'message' => $email_body,
                 'from_name' => PLATFORM_NAME,
-                'from_email' => SMTP_USER,
-                'smtp_user' => SMTP_USER,
-                'smtp_pass' => SMTP_PASS
+                'from_email' => SMTP_USER
             ]);
             $student_count++;
         }
@@ -119,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => false, 'error' => 'Failed to move uploaded file.']);
     }
     } catch (Throwable $e) {
+        error_log('EduPortal schema migration error in ajax_post_assignment.php: ' . $e->getMessage());
         ob_clean();
         echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
     }

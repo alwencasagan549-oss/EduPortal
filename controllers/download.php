@@ -35,9 +35,9 @@ try {
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-} catch (Throwable $e) {
-    // Columns may already exist
-}
+    } catch (Throwable $e) {
+        error_log('EduPortal schema migration error in download.php: ' . $e->getMessage());
+    }
 
 // Different queries based on user role
 if ($user_role === 'teacher') {
@@ -54,13 +54,11 @@ if ($user_role === 'teacher') {
     $stmt->execute([$id, $user_id]);
 }
 
-$result = $stmt->get_result();
+    $submission = $stmt->get_result()->fetch_assoc();
 
-if ($result->num_rows() === 0) {
-    die('File not found or you do not have permission to access this file');
-}
-
-$submission = $result->fetch_assoc();
+    if (!$submission) {
+        die('File not found or you do not have permission to access this file');
+    }
 $file_path = $submission['file_path'];
 
 // Serve from database if content is stored there (Render compatibility)
