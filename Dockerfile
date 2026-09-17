@@ -38,9 +38,13 @@ RUN composer install --no-dev --no-interaction --optimize-autoloader
 # Copy remaining project files
 COPY . /var/www/html/
 
+# Copy entrypoint script and make executable
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/
 
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+CMD ["entrypoint.sh"]
