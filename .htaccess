@@ -9,6 +9,11 @@ Options -Indexes
 # Set Index Page
 DirectoryIndex index.php
 
+# Allow Let's Encrypt SSL challenge files
+<LocationMatch "^/\.well-known/acme-challenge/.*">
+    Require all granted
+</LocationMatch>
+
 # Block access to sensitive and hidden files
 <FilesMatch "(\.(sql|bak|inc|cfg|config|log|env|php\..*|.*~$|.*\.swp|.*\.bak|.*\.old)|^\.)">
     <IfModule mod_authz_core.c>
