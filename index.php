@@ -30,6 +30,14 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "EduPortal",
+      "url": "https://reesnhs.l.cd/"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
       "@type": "Organization",
       "name": "Ruben E. Ecleo Sr. National High School",
       "alternateName": "reesnhs",
@@ -37,6 +45,7 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
       "logo": "https://reesnhs.l.cd/assets/favicon.ico"
     }
     </script>
+    <meta property="og:site_name" content="EduPortal" />
 </head>
 
 <body style="overflow-x: hidden;">
