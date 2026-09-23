@@ -90,7 +90,7 @@ $default_subject = "[EduPortal] Academic Concern: " . $teacher_subject;
                     </button>
                 </form>
                 <div style="padding: 8px 0 0; text-align: center; opacity: 0.4; font-size: 0.65rem; color: var(--text-muted);">
-                    <span id="_sys_v_auth" style="display: none;">Alwen T. Casagan</span>
+                    <span id="_sys_v_auth" style="display: none;">Alwin T. Casagan</span>
                 </div>
             </div>
         </aside>

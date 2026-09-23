@@ -394,10 +394,10 @@ $total_students = $res3->fetch_assoc()['count'] ?? 0;
             <p style="color: var(--text-muted); font-size: 0.85rem;">&copy; <?php echo date('Y'); ?> EduPortal.
                 Developed by <a href="https://casagan.vercel.app/" target="_blank"
                     style="color: inherit; text-decoration: none; font-weight: 600; transition: color 0.2s;"
-                    onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwen T.
+                    onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwin T.
                     Casagan</a>.</p>
             <div style="display: flex; gap: 2rem; color: var(--text-muted); font-size: 0.85rem;">
-                <span style="opacity: 0.8;"><i class="fas fa-code" style="margin-right: 8px;"></i> Web Developer: <a href="https://casagan.vercel.app/" target="_blank" id="_sys_v_auth" style="color: inherit; text-decoration: none; font-weight: 700; transition: color 0.2s;" onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwen T. Casagan</a></span>
+                <span style="opacity: 0.8;"><i class="fas fa-code" style="margin-right: 8px;"></i> Web Developer: <a href="https://casagan.vercel.app/" target="_blank" id="_sys_v_auth" style="color: inherit; text-decoration: none; font-weight: 700; transition: color 0.2s;" onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwin T. Casagan</a></span>
                 <span>System Status: <span
                         style="color: var(--success-color); font-weight: 600;">Operational</span></span>
             </div>

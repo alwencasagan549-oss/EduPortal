@@ -393,7 +393,7 @@ $pending_count = $total_submissions - $reviewed_count;
                 style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.85rem;">
                 <p>&copy; <?php echo date('Y'); ?> EduPortal LMS. All rights reserved.</p>
                 <div style="display: flex; gap: 1.5rem; align-items: center;">
-                    <span style="opacity: 0.7;">Web Developer: <strong id="_sys_v_auth"><a href="https://casagan.vercel.app/" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwen T. Casagan</a></strong></span>
+                    <span style="opacity: 0.7;">Web Developer: <strong id="_sys_v_auth"><a href="https://casagan.vercel.app/" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwin T. Casagan</a></strong></span>
                     <i class="fas fa-shield-halved" style="color: var(--success-color); opacity: 0.5;"
                         title="EDU-Shield Certified"></i>
                 </div>

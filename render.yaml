@@ -37,3 +37,4 @@ services:
       name: uploads
       mountPath: /var/www/html/uploads
       sizeGB: 1
+
