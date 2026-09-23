@@ -23,3 +23,7 @@ execute_database.php
 
 # Composer dependencies
 /vendor/
+
+# Kilo agent state
+.kilo/
+kilo.json
