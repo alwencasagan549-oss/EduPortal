@@ -51,7 +51,7 @@ class ObjectStorageService
 
             return $result['UploadId'];
         } catch (AwsException $e) {
-            throw new RuntimeException('Failed to initiate multipart upload: ' . $e->getMessage());
+            throw new \RuntimeException('Failed to initiate multipart upload: ' . $e->getMessage());
         }
     }
 
@@ -74,7 +74,7 @@ class ObjectStorageService
 
             return $presignedUrl;
         } catch (AwsException $e) {
-            throw new RuntimeException('Failed to generate presigned URL: ' . $e->getMessage());
+            throw new \RuntimeException('Failed to generate presigned URL: ' . $e->getMessage());
         }
     }
 
@@ -102,7 +102,7 @@ class ObjectStorageService
             ];
         } catch (AwsException $e) {
             $this->abortMultipartUpload($objectKey, $uploadId);
-            throw new RuntimeException('Failed to complete multipart upload: ' . $e->getMessage());
+            throw new \RuntimeException('Failed to complete multipart upload: ' . $e->getMessage());
         }
     }
 
@@ -150,7 +150,7 @@ class ObjectStorageService
         ];
 
         if (empty($config['access_key']) || empty($config['secret_key'])) {
-            throw new RuntimeException(
+            throw new \RuntimeException(
                 'Object storage credentials not configured. Set S3_ACCESS_KEY and S3_SECRET_KEY environment variables.'
             );
         }
