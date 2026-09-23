@@ -21,8 +21,8 @@ $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="reesnhs — EduPortal LMS for Ruben E. Ecleo Sr. National High School. Manage assignments, grading, and classroom workflows online.">
-    <title>reesnhs — EduPortal LMS | Ruben E. Ecleo Sr. National High School</title>
+    <meta name="description" content="EduPortal LMS for Ruben E. Ecleo Sr. National High School. Manage assignments, grading, and classroom workflows online.">
+    <title>EduPortal LMS | Ruben E. Ecleo Sr. National High School</title>
     <link rel="canonical" href="https://reesnhs.l.cd/">
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="assets/style.css">
