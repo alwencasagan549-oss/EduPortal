@@ -13,10 +13,6 @@ if (!file_exists(__DIR__ . '/credentials.php')) {
     define('SECURE_DB_NAME', getenv('DB_NAME') ?: 'edu_portal');
     define('SECURE_DB_PORT', getenv('DB_PORT') ?: '17436');
     define('SECURE_DB_SSL_MODE', getenv('DB_SSL_MODE') ?: 'require');
-    define('SMTP_HOST', getenv('SMTP_HOST') ?: 'ssl://smtp.gmail.com');
-    define('SMTP_PORT', getenv('SMTP_PORT') ?: 465);
-    define('SMTP_USER', getenv('SMTP_USER') ?: '');
-    define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
     define('PLATFORM_NAME', getenv('PLATFORM_NAME') ?: 'EduPortal LMS');
     define('SITE_URL', getenv('SITE_URL') ?: 'http://localhost/Eduportal');
 } else {

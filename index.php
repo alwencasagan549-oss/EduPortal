@@ -9,11 +9,11 @@ if (session_status() === PHP_SESSION_NONE) {
 // Get some quick stats for the landing page
 $conn = getDBConnection();
 $res1 = $conn->query("SELECT COUNT(*) as count FROM submissions");
-$total_submissions = $res1->fetch_assoc()['count'] ?? 0;
+$total_submissions = $res1 ? ($res1->fetch_assoc()['count'] ?? 0) : 0;
 $res2 = $conn->query("SELECT COUNT(*) as count FROM teachers");
-$total_teachers = $res2->fetch_assoc()['count'] ?? 0;
+$total_teachers = $res2 ? ($res2->fetch_assoc()['count'] ?? 0) : 0;
 $res3 = $conn->query("SELECT COUNT(*) as count FROM students");
-$total_students = $res3->fetch_assoc()['count'] ?? 0;
+$total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">

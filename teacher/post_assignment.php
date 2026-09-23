@@ -257,37 +257,18 @@ $grades = $stmt->get_result()->fetch_all();
 
             EduPortal.showLoader("Publishing Content", "Uploading assignment and notifying students...");
 
-            fetch('../controllers/ajax_post_assignment.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    EduPortal.showLoader("Sending Notifications", "Delivering assignment alerts to students...");
-
-                    fetch('../controllers/process_job.php?action=process')
-                        .then(r => r.json())
-                        .then(proc => {
-                            const processed = proc.processed || 0;
-                            const failed = (proc.results || []).filter(r => r.status === 'failed').length;
-                            let msg = `Assignment broadcasted to ${data.total_notified} students in ${data.target_group}.`;
-                            if (processed > 0 && failed === 0) {
-                                msg += ` All ${processed} notification emails sent successfully.`;
-                            } else if (failed > 0) {
-                                msg += ` ${processed} processed, ${failed} failed to send.`;
-                            }
-                            EduPortal.showSuccessModal("Assignment Published", msg);
-                        })
-                        .catch(() => {
-                            EduPortal.showSuccessModal("Assignment Published",
-                                `Your materials have been broadcasted! ${data.total_notified} students will be notified.`);
-                        });
-
-                    this.reset();
-                    document.getElementById('fileNameDisplay').style.display = 'none';
-                    document.getElementById('uploadContent').style.display = 'block';
-                } else {
+                    fetch('../controllers/ajax_post_assignment.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            EduPortal.showSuccessModal("Assignment Published", `${data.total_notified} students have been notified.`);
+                            this.reset();
+                            document.getElementById('fileNameDisplay').style.display = 'none';
+                            document.getElementById('uploadContent').style.display = 'block';
+                        } else {
                     const statusAlert = document.getElementById('statusAlert');
                     statusAlert.innerHTML = `
                         <div class="alert alert-danger animate-fade-up">
