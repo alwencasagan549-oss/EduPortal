@@ -30,7 +30,9 @@ if (ini_get("session.use_cookies")) {
 session_destroy();
 
 // Clear buffer and redirect
-ob_end_clean();
+if (ob_get_level()) {
+    ob_end_clean();
+}
 header('Location: index.php');
 exit();
 ?>
