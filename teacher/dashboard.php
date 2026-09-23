@@ -97,6 +97,40 @@ $pending_count = $total_submissions - $reviewed_count;
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="../assets/script.js" defer></script>
+    <style>
+        .notification-item {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--glass-border);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .notification-item:hover {
+            background: rgba(78,115,223,0.04);
+        }
+        .notification-item.unread {
+            border-left: 3px solid var(--primary-color);
+        }
+        .notification-item.read {
+            opacity: 0.65;
+        }
+        .notification-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            margin-bottom: 2px;
+        }
+        .notification-message {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+        .notification-time {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+    </style>
 </head>
 
 <body>
@@ -170,9 +204,21 @@ $pending_count = $total_submissions - $reviewed_count;
                         <i class="fas fa-search"></i>
                         <input type="text" placeholder="Search student files...">
                     </div>
-                    <button class="icon-button">
-                        <i class="fas fa-bell"></i>
-                    </button>
+                    <div style="position: relative;">
+                        <button class="icon-button" id="notificationBell" style="position: relative;">
+                            <i class="fas fa-bell"></i>
+                            <span id="notificationBadge" style="display: none; position: absolute; top: -4px; right: -4px; background: var(--danger-color); color: white; font-size: 0.65rem; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">0</span>
+                        </button>
+                        <div id="notificationPanel" style="display: none; position: absolute; top: 48px; right: 0; width: 360px; max-height: 480px; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); z-index: 1000; overflow: hidden;">
+                            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+                                <h4 style="margin: 0; font-size: 1rem;">Notifications</h4>
+                                <button id="markAllRead" style="background: none; border: none; color: var(--primary-color); font-size: 0.8rem; cursor: pointer; font-weight: 600;">Mark all read</button>
+                            </div>
+                            <div id="notificationList" style="max-height: 400px; overflow-y: auto; padding: 0.5rem;">
+                                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -402,6 +448,87 @@ $pending_count = $total_submissions - $reviewed_count;
     </div>
     <script src="../assets/js/system_loader.js?v=20260818"></script>
     <script src="../assets/js/responsive_ui.js"></script>
+    <script>
+        const notificationBell = document.getElementById('notificationBell');
+        const notificationPanel = document.getElementById('notificationPanel');
+        const notificationBadge = document.getElementById('notificationBadge');
+        const notificationList = document.getElementById('notificationList');
+        const markAllReadBtn = document.getElementById('markAllRead');
+
+        function loadNotifications() {
+            fetch('../controllers/ajax_get_notifications.php?action=list')
+                .then(r => r.json())
+                .then(data => {
+                    const notifications = data.notifications || [];
+                    notificationList.innerHTML = '';
+                    if (notifications.length === 0) {
+                        notificationList.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No notifications yet</div>';
+                        notificationBadge.style.display = 'none';
+                        return;
+                    }
+                    let unread = 0;
+                    notifications.forEach(n => {
+                        if (!n.is_read) unread++;
+                        const item = document.createElement('div');
+                        item.className = 'notification-item ' + (n.is_read ? 'read' : 'unread');
+                        item.innerHTML = '<div class="notification-title">' + escapeHtml(n.title) + '</div>' +
+                            '<div class="notification-message">' + escapeHtml(n.message || '') + '</div>' +
+                            '<div class="notification-time">' + formatDate(n.created_at) + '</div>';
+                        item.addEventListener('click', () => {
+                            fetch('../controllers/ajax_get_notifications.php?action=mark_read', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: 'notification_id=' + n.id
+                            }).then(() => loadNotifications());
+                        });
+                        notificationList.appendChild(item);
+                    });
+                    if (unread > 0) {
+                        notificationBadge.textContent = unread > 99 ? '99+' : unread;
+                        notificationBadge.style.display = 'flex';
+                    } else {
+                        notificationBadge.style.display = 'none';
+                    }
+                });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        if (notificationBell) {
+            notificationBell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                notificationPanel.style.display = notificationPanel.style.display === 'none' ? 'block' : 'none';
+                if (notificationPanel.style.display === 'block') {
+                    loadNotifications();
+                }
+            });
+        }
+
+        if (markAllReadBtn) {
+            markAllReadBtn.addEventListener('click', () => {
+                fetch('../controllers/ajax_get_notifications.php?action=mark_all_read', { method: 'POST' })
+                    .then(() => loadNotifications());
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            if (notificationPanel && !notificationPanel.contains(e.target) && e.target !== notificationBell) {
+                notificationPanel.style.display = 'none';
+            }
+        });
+
+        loadNotifications();
+        setInterval(loadNotifications, 30000);
+    </script>
 </body>
 
 </html>

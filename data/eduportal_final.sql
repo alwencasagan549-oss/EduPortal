@@ -121,4 +121,21 @@ INSERT INTO `students` (`lrn`, `name`, `email`, `grade_level`, `section`, `stran
 ('987654321098', 'Maya Rivera', 'maya@example.com', 'Grade 11', 'STEM', 'Academic', '$2y$10$CMOcgV0.HISHsoDWTeLnQeJ0Ys9BMWoEF1pEcDEnP0M5RpFBPiBKy')
 ON DUPLICATE KEY UPDATE `password` = VALUES(`password`);
 
+-- -----------------------------------------------------
+-- Table: notifications
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `notifications` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `user_id` INT(11) NOT NULL,
+    `type` VARCHAR(50) NOT NULL,
+    `title` VARCHAR(255) NOT NULL,
+    `message` TEXT DEFAULT NULL,
+    `data` JSON DEFAULT NULL,
+    `is_read` TINYINT(1) DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `user_id` (`user_id`),
+    KEY `is_read` (`is_read`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 COMMIT;

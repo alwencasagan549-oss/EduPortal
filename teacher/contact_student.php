@@ -237,12 +237,9 @@ $default_subject = "[EduPortal] Academic Concern: " . $teacher_subject;
             .then(data => {
                 if (data.success) {
                     EduPortal.showSuccessModal(
-                        "Message Dispatched", 
-                        "Your email has been queued and is being delivered in the background."
+                        "Message Sent", 
+                        "Your message has been delivered as an internal notification."
                     );
-                    
-                    // Trigger the background worker silently without showing the traffic loader yet
-                    fetch('../controllers/process_job.php?action=process');
                 } else {
                     EduPortal.hideLoader();
                     const statusAlert = document.getElementById('statusAlert');

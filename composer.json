@@ -1,7 +1,5 @@
 {
   "name": "eduportal/lms",
   "description": "EduPortal LMS",
-  "require": {
-    "phpmailer/phpmailer": "^6.9"
-  }
+  "require": {}
 }

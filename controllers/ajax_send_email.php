@@ -1,12 +1,14 @@
 <?php
 /**
- * AJAX Handler: Push Email Job to Queue
+ * AJAX Handler: Create internal notification for a student
+ * Replaces email-based contact with in-app notification.
  */
 
-require_once '../libs/QueueManager.php';
+require_once __DIR__ . '/../libs/NotificationManager.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        rotate_csrf();
         header('Content-Type: application/json');
         echo json_encode(['error' => 'Invalid security token.']);
         exit();
@@ -16,31 +18,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $subject = trim($_POST['subject'] ?? '');
     $message = trim($_POST['message'] ?? '');
     
-    // Get student/teacher details for the job payload
-    require_once '../config/database.php';
-    $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT name, email FROM students WHERE id = ?");
-    $stmt->execute([$student_id]);
-    $student = $stmt->get_result()->fetch_assoc();
-
-    if (!$student || empty($subject) || empty($message)) {
+    if (!$student_id || empty($subject) || empty($message)) {
         header('Content-Type: application/json');
         echo json_encode(['error' => 'Invalid data']);
         exit;
     }
 
-    $payload = [
-        'to' => $student['email'],
-        'subject' => $subject,
-        'message' => $message,
-        'from_name' => $_SESSION['user_name'],
-        'from_email' => $_SESSION['user_email']
-    ];
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("SELECT name FROM students WHERE id = ?");
+    $stmt->execute([$student_id]);
+    $student = $stmt->get_result()->fetch_assoc();
 
-    $job_id = QueueManager::push('email', $payload);
+    if (!$student) {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Student not found']);
+        exit;
+    }
+
+    $sender_name = $_SESSION['user_name'] ?? 'Teacher';
+
+    $notification_id = NotificationManager::push($student_id, 'message', $subject, $message, [
+        'sender_name' => $sender_name,
+        'sender_id' => $_SESSION['user_id'] ?? 0
+    ]);
 
     header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'job_id' => $job_id]);
+    echo json_encode(['success' => true, 'notification_id' => $notification_id]);
     exit;
 }
-?>

@@ -20,3 +20,6 @@ sync_paths.php
 fix_paths.php
 setup_portal.php
 execute_database.php
+
+# Composer dependencies
+/vendor/
