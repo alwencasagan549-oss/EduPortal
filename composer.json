@@ -8,5 +8,10 @@
     "psr-4": {
       "EduPortal\\": "src/"
     }
+  },
+  "config": {
+    "platform": {
+      "php": "8.2.0"
+    }
   }
 }
