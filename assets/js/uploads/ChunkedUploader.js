@@ -198,23 +198,24 @@ export class ChunkedUploader {
 
   async #uploadChunks(upload) {
     const { id, file, chunkSize, presignedUrls, abortController, totalChunks } = upload;
-    const startChunk = upload.completedChunks.length;
+    const completedCount = upload.completedChunks.length;
 
-    if (startChunk >= totalChunks) {
+    if (completedCount >= totalChunks) {
       await this.#finalizeUpload(upload);
       return;
     }
 
-    const remainingPresignedUrls = presignedUrls.slice(startChunk);
+    const remainingPresignedUrls = presignedUrls;
+    const startChunkNumber = completedCount + 1;
 
     for (let i = 0; i < remainingPresignedUrls.length; i++) {
       if (abortController.signal.aborted) {
         throw new DOMException('Upload aborted', 'AbortError');
       }
 
-      const chunkIndex = startChunk + i;
+      const chunkNumber = startChunkNumber + i;
       const presignedUrl = remainingPresignedUrls[i];
-      const start = chunkIndex * chunkSize;
+      const start = (chunkNumber - 1) * chunkSize;
       const end = Math.min(start + chunkSize, file.size);
       const chunkBlob = file.slice(start, end);
 
@@ -224,7 +225,7 @@ export class ChunkedUploader {
           (error) => error.name === 'NetworkError' || error.status >= 500
         );
 
-        upload.completedChunks.push(chunkIndex + 1);
+        upload.completedChunks.push(chunkNumber);
         upload.loadedBytes = end;
         upload.progress = Math.round((upload.loadedBytes / file.size) * 100);
 
@@ -233,12 +234,12 @@ export class ChunkedUploader {
           progress: upload.progress,
           loadedBytes: upload.loadedBytes,
           totalBytes: file.size,
-          chunkIndex: chunkIndex + 1,
+          chunkIndex: chunkNumber,
           totalChunks,
           uploadedChunks: upload.completedChunks.length
         });
       } catch (error) {
-        upload.error = `Chunk ${chunkIndex + 1} failed: ${error.message}`;
+        upload.error = `Chunk ${chunkNumber} failed: ${error.message}`;
         upload.state = 'failed';
         upload.retryCount++;
         this.#emit('onStateChange', upload);

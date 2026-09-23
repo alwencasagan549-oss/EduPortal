@@ -145,7 +145,7 @@ $grades = $stmt->get_result()->fetch_all();
 
                     <div style="margin-bottom: 3rem;">
                         <label class="premium-label">Assignment Soft Copy (PDF, Word, etc.)</label>
-                        <div class="upload-zone" id="dropZone" style="margin-top: 1rem; position: relative;">
+                        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" style="margin-top: 1rem; position: relative;">
                             <input type="file" id="fileInput" name="assignment_file" style="display: none;" accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png,.mp4,.txt">
                             <div id="uploadEmptyState" class="upload-empty-state">
                                 <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem; opacity: 0.6;"></i>
