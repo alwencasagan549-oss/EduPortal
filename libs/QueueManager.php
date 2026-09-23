@@ -3,9 +3,9 @@
  * --------------------------------------------------------------------------------
  * EDUPORTAL LMS - ASYNCHRONOUS MAIL ENGINE
  * --------------------------------------------------------------------------------
- * @author    Alwen T. Casagan
+ * @author    Alwin T. Casagan
  * @role      Web Developer / Systems Architect
- * @copyright 2026 Alwen T. Casagan. All rights reserved.
+ * @copyright 2026 Alwin T. Casagan. All rights reserved.
  * 
  * PROPRIETARY AND CONFIDENTIAL:
  * Unauthorized copying, modification, or distribution is prohibited.
@@ -90,3 +90,4 @@ class QueueManager {
     }
 }
 ?>
+

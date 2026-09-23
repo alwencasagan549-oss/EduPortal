@@ -1,6 +1,6 @@
 # EduPortal LMS - Advanced Learning Management System
 
-**Developed by: [Alwen T. Casagan](https://casagan.vercel.app/)** | Web Developer
+**Developed by: [Alwin T. Casagan](https://casagan.vercel.app/)** | Web Developer
 
 EduPortal is a premium, production-ready Assignment Portal and Learning Management System (LMS) designed for modern educational institutions. It provides a clean, fast, and secure environment for academic collaboration between students and faculty.
 
@@ -71,6 +71,6 @@ Eduportal/
 
 ## 📜 Intellectual Property & Disclaimer
 
-This software is developed and maintained by **Alwen T. Casagan**. It is intended for educational purposes and institutional management.
+This software is developed and maintained by **Alwin T. Casagan**. It is intended for educational purposes and institutional management.
 
-© 2026 EduPortal LMS. All rights reserved. Developed by [Alwen T. Casagan](https://casagan.vercel.app/).
+© 2026 EduPortal LMS. All rights reserved. Developed by [Alwin T. Casagan](https://casagan.vercel.app/).
