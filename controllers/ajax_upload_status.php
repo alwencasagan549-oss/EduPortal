@@ -67,7 +67,7 @@ try {
     echo json_encode([
         'success' => true,
         'uploadId' => $session['upload_id'],
-        's3UploadId' => $session['object_key'],
+        's3UploadId' => $session['s3_upload_id'],
         'objectKey' => $session['object_key'],
         'chunkSize' => (int)$session['chunk_size'],
         'totalChunks' => (int)$session['total_chunks'],
