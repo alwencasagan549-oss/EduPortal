@@ -3,8 +3,7 @@
  * EduPortal Object Storage Service
  * Abstraction layer for S3-compatible object storage (AWS S3, MinIO, Aiven Object Storage, etc.)
  */
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../config/database.php';
+namespace EduPortal;
 
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;

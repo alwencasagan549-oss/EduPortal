@@ -4,9 +4,15 @@
  * Returns presigned URLs for each chunk.
  */
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../src/ObjectStorageService.php';
 
-use EduPortal\ObjectStorageService;
+if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Server configuration error: object storage SDK not installed. Run composer install.']);
+    exit();
+}
+
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../src/ObjectStorageService.php';
 
 requireLogin();
 header('Content-Type: application/json');
