@@ -1,7 +1,7 @@
 <?php
 /**
  * Teacher Portal: Post Selective Assignment
- * Allows teachers to upload files and target specific Grade/Section groups.
+ * Enhanced with modern chunked upload system.
  */
 
 require_once '../config/database.php';
@@ -19,7 +19,6 @@ $teacher_id = $_SESSION['user_id'];
 $teacher_name = $_SESSION['user_name'];
 $teacher_subject = $_SESSION['user_subject'];
 
-// Get unique grades that have actual students
 $conn = getDBConnection();
 $stmt = $conn->prepare("SELECT DISTINCT grade_level FROM students ORDER BY grade_level");
 $stmt->execute();
@@ -35,11 +34,11 @@ $grades = $stmt->get_result()->fetch_all();
     <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="csrf-token" content="<?php echo csrf_token(); ?>">
 </head>
 
 <body>
     <div class="layout-wrapper">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
@@ -90,7 +89,6 @@ $grades = $stmt->get_result()->fetch_all();
             </div>
         </aside>
 
-        <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
                 <button class="menu-toggle">
@@ -105,7 +103,7 @@ $grades = $stmt->get_result()->fetch_all();
             <div id="statusAlert"></div>
 
             <div class="glass-card animate-fade-up" style="max-width: 800px; margin: 0 auto; padding: 3rem;">
-                <form id="postAssignmentForm" enctype="multipart/form-data" data-loader="true">
+                <form id="postAssignmentForm" data-loader="true">
                     <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                     <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
                         <div>
@@ -145,17 +143,16 @@ $grades = $stmt->get_result()->fetch_all();
                         <textarea name="description" rows="6" class="premium-input" style="resize: none;" placeholder="Provide context and deadlines..."></textarea>
                     </div>
 
-                    <!-- File Upload Zone -->
                     <div style="margin-bottom: 3rem;">
                         <label class="premium-label">Assignment Soft Copy (PDF, Word, etc.)</label>
-                        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" style="margin-top: 1rem;">
-                            <input type="file" id="fileInput" name="assignment_file" style="display: none;" required onchange="updateFileName(this)">
-                            <div id="uploadContent">
-                                <i class="fas fa-plus" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem; opacity: 0.5;"></i>
-                                <p style="font-weight: 500;">Click or drag to upload assignment</p>
-                                <p style="font-size: 0.8rem; color: var(--text-muted);">Maximum size: 10MB</p>
+                        <div class="upload-zone" id="dropZone" style="margin-top: 1rem; position: relative;">
+                            <input type="file" id="fileInput" name="assignment_file" style="display: none;" accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png,.mp4,.txt">
+                            <div id="uploadEmptyState" class="upload-empty-state">
+                                <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem; opacity: 0.6;"></i>
+                                <p style="font-weight: 500; margin-bottom: 0.5rem;">Click or drag to upload assignment</p>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">PDF, DOC, DOCX, ZIP, Images, MP4 — max 500MB</p>
                             </div>
-                            <div id="fileNameDisplay" style="display: none; font-weight: 600; color: var(--primary-color);"></div>
+                            <div id="uploadQueue" class="upload-queue"></div>
                         </div>
                     </div>
 
@@ -169,8 +166,80 @@ $grades = $stmt->get_result()->fetch_all();
 
     <script src="../assets/js/system_loader.js"></script>
     <script src="../assets/js/responsive_ui.js"></script>
+    <script type="module">
+        import { UploadManager } from '../assets/js/uploads/index.js';
+
+        const uploadManager = new UploadManager(document.body, {
+            dropZoneSelector: '#dropZone',
+            queueSelector: '#uploadQueue',
+            emptyStateSelector: '#uploadEmptyState',
+            maxSize: 500 * 1024 * 1024
+        });
+
+        window.uploadManager = uploadManager;
+
+        document.getElementById('postAssignmentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const queue = uploadManager.getQueue();
+            const completed = queue.filter(u => u.state === 'completed');
+
+            if (completed.length === 0) {
+                const statusAlert = document.getElementById('statusAlert');
+                statusAlert.innerHTML = `
+                    <div class="alert alert-danger animate-fade-up">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>Please upload and complete at least one file before publishing.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const formData = new FormData(this);
+            const upload = completed[0];
+
+            formData.set('assignment_file', upload.file);
+
+            EduPortal.showLoader("Publishing Content", "Uploading assignment and notifying students...");
+
+            try {
+                const response = await fetch('../controllers/ajax_post_assignment.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    EduPortal.showSuccessModal("Assignment Published", `${data.total_notified} students have been notified.`);
+                    this.reset();
+                    document.getElementById('uploadQueue').innerHTML = '';
+                    document.getElementById('uploadEmptyState').style.display = 'block';
+                } else {
+                    EduPortal.hideLoader();
+                    const statusAlert = document.getElementById('statusAlert');
+                    statusAlert.innerHTML = `
+                        <div class="alert alert-danger animate-fade-up">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div>${data.error || "Failed to publish assignment."}</div>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                EduPortal.hideLoader();
+                const statusAlert = document.getElementById('statusAlert');
+                statusAlert.innerHTML = `
+                    <div class="alert alert-danger animate-fade-up">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div><strong>Server Error</strong> — check console for details.</div>
+                    </div>
+                `;
+                console.error('Assignment publish failed:', err);
+            }
+        });
+    </script>
+
     <script>
-        // Dynamic Section Filtering
         document.getElementById('gradeLevelSelect').addEventListener('change', function() {
             const grade = this.value;
             const strand = document.getElementById('strandSelect').value;
@@ -240,59 +309,7 @@ $grades = $stmt->get_result()->fetch_all();
                     sectionSelect.innerHTML = '<option value="">Error loading sections</option>';
                 });
         });
-
-        function updateFileName(input) {
-            const display = document.getElementById('fileNameDisplay');
-            const content = document.getElementById('uploadContent');
-            if (input.files.length > 0) {
-                display.innerText = "Selected: " + input.files[0].name;
-                display.style.display = 'block';
-                content.style.display = 'none';
-            }
-        }
-
-        document.getElementById('postAssignmentForm').onsubmit = function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-
-            EduPortal.showLoader("Publishing Content", "Uploading assignment and notifying students...");
-
-                    fetch('../controllers/ajax_post_assignment.php', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            EduPortal.showSuccessModal("Assignment Published", `${data.total_notified} students have been notified.`);
-                            this.reset();
-                            document.getElementById('fileNameDisplay').style.display = 'none';
-                            document.getElementById('uploadContent').style.display = 'block';
-                        } else {
-                    const statusAlert = document.getElementById('statusAlert');
-                    statusAlert.innerHTML = `
-                        <div class="alert alert-danger animate-fade-up">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <div id="errorMessage"></div>
-                        </div>
-                    `;
-                    document.getElementById('errorMessage').textContent = data.error || "Failed to publish assignment.";
-                }
-            })
-            .catch(err => {
-                EduPortal.hideLoader();
-                const statusAlert = document.getElementById('statusAlert');
-                statusAlert.innerHTML = `
-                    <div class="alert alert-danger animate-fade-up">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <div><strong>Server Error</strong> — check console for details.</div>
-                    </div>
-                `;
-                console.error('Assignment publish failed:', err);
-            });
-        };
     </script>
 </body>
 
 </html>
-

@@ -1,5 +1,12 @@
 {
   "name": "eduportal/lms",
   "description": "EduPortal LMS",
-  "require": {}
+  "require": {
+    "aws/aws-sdk-php": "^3.309"
+  },
+  "autoload": {
+    "psr-4": {
+      "EduPortal\\": "src/"
+    }
+  }
 }
