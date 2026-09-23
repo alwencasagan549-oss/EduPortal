@@ -70,9 +70,7 @@ class ObjectStorageService
                 'ContentLength' => $chunkSize,
             ]);
 
-            $presignedUrl = (string)$this->s3->createPresignedRequest($command, '+' . $this->presignedUrlExpiry . ' seconds');
-
-            return $presignedUrl;
+            return (string)$this->s3->createPresignedRequest($command, '+' . $this->presignedUrlExpiry . ' seconds');
         } catch (AwsException $e) {
             throw new \RuntimeException('Failed to generate presigned URL: ' . $e->getMessage());
         }
@@ -121,8 +119,7 @@ class ObjectStorageService
 
     public function getObjectUrl(string $objectKey): string
     {
-        $url = $this->s3->getObjectUrl($this->bucket, ltrim($objectKey, '/'));
-        return $url;
+        return $this->s3->getObjectUrl($this->bucket, ltrim($objectKey, '/'));
     }
 
     public function getBucket(): string
