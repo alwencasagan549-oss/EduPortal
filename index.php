@@ -2,28 +2,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 require_once 'config/database.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
-$total_submissions = 0;
-$total_teachers = 0;
-$total_students = 0;
-$stats_available = true;
-try {
-    $conn = getDBConnection();
-    $stats = $conn->query(
-        'SELECT (SELECT COUNT(*) FROM submissions) AS submissions,
-                (SELECT COUNT(*) FROM teachers) AS teachers,
-                (SELECT COUNT(*) FROM students) AS students'
-    );
-    $statsRow = $stats ? $stats->fetch_assoc() : [];
-    $total_submissions = (int) ($statsRow['submissions'] ?? 0);
-    $total_teachers = (int) ($statsRow['teachers'] ?? 0);
-    $total_students = (int) ($statsRow['students'] ?? 0);
-} catch (Throwable $e) {
-    $stats_available = false;
-}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,9 +21,80 @@ try {
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="assets/style.min.css?v=20260924">
+    <style id="critical-css">
+        :root {
+            color-scheme: dark;
+            --primary-color: #4e73df;
+            --primary-gradient: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+            --bg-dark: #0a0b10;
+            --glass-border: rgba(255, 255, 255, .08);
+            --text-main: #f0f2f5;
+            --text-muted: #94a3b8;
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.6;
+        }
+        a { color: inherit; text-decoration: none; }
+        .skip-link {
+            position: fixed;
+            top: .75rem;
+            left: .75rem;
+            z-index: 11000;
+            padding: .65rem .9rem;
+            border-radius: 8px;
+            background: var(--primary-color);
+            color: #fff;
+            transform: translateY(-150%);
+        }
+        .skip-link:focus { transform: translateY(0); }
+        .section-container { width: 100%; padding: 6rem 5%; }
+        .premium-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .55rem;
+            min-height: 44px;
+            padding: .8rem 1.2rem;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform .2s, box-shadow .2s, background .2s;
+        }
+        .premium-btn-primary { background: var(--primary-gradient); color: #fff; box-shadow: 0 10px 25px rgba(78, 115, 223, .3); }
+        .premium-btn-outline { background: transparent; border-color: var(--glass-border); color: var(--text-main); }
+        .premium-btn:hover { transform: translateY(-2px); }
+        .premium-badge { display: inline-flex; align-items: center; padding: .4rem .7rem; border-radius: 999px; font-size: .75rem; font-weight: 700; }
+        .badge-blue { background: rgba(78, 115, 223, .15); color: #91a8ff; border: 1px solid rgba(78, 115, 223, .25); }
+        .gradient-text { background: linear-gradient(135deg, #91a8ff, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .blob-container { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+        .floating-blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .18; }
+        .blob-1 { width: 420px; height: 420px; top: -150px; right: -120px; background: #4e73df; }
+        .blob-2 { width: 360px; height: 360px; bottom: -180px; left: -120px; background: #a259ff; }
+        .nav-desktop { display: flex; align-items: center; }
+        .menu-toggle { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--glass-border); border-radius: 10px; background: transparent; color: var(--text-main); cursor: pointer; }
+        .glass-card, .glass-card-premium { border: 1px solid var(--glass-border); background: rgba(20, 22, 30, .7); backdrop-filter: blur(18px); }
+        .loader-overlay { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(10, 11, 16, .92); }
+        .loader-container { color: #fff; text-align: center; }
+        @media (max-width: 768px) {
+            .nav-desktop { display: none; }
+            .menu-toggle { display: inline-flex; }
+            .section-container { padding: 4rem 1.25rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+        }
+    </style>
+    <link rel="preload" as="style" href="assets/style.min.css?v=20260924" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="assets/style.min.css?v=20260924"></noscript>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <script src="assets/js/trusted_types.js"></script>
@@ -210,9 +261,17 @@ try {
 
                 <div
                     style="position: relative; border-radius: 16px; overflow: hidden; aspect-ratio: 16 / 10; min-height: 300px; max-height: 580px; background: #000; box-shadow: inset 0 0 100px rgba(78, 115, 223, 0.1);">
-                     <img src="assets/dashboard_modern.png?v=1.1" width="1024" height="1024" sizes="(max-width: 1050px) 100vw, 1050px" alt="EduPortal Premium Dashboard"
-                         loading="lazy" decoding="async"
-                         style="width: 100%; height: 100%; object-fit: cover; opacity: 0.95;">
+                    <picture style="display: block; width: 100%; height: 100%;">
+                        <source type="image/avif"
+                            srcset="assets/dashboard_modern-320.avif 320w, assets/dashboard_modern-640.avif 640w, assets/dashboard_modern-1024.avif 1024w"
+                            sizes="(max-width: 1050px) 100vw, 1050px">
+                        <source type="image/webp"
+                            srcset="assets/dashboard_modern-320.webp 320w, assets/dashboard_modern-640.webp 640w, assets/dashboard_modern-1024.webp 1024w"
+                            sizes="(max-width: 1050px) 100vw, 1050px">
+                        <img src="assets/dashboard_modern.png?v=1.1" width="1024" height="1024" sizes="(max-width: 1050px) 100vw, 1050px" alt="EduPortal Premium Dashboard"
+                            loading="lazy" decoding="async"
+                            style="width: 100%; height: 100%; object-fit: cover; opacity: 0.95;">
+                    </picture>
                     <div
                         style="position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 60%, rgba(10, 11, 16, 0.8));">
                     </div>
@@ -313,25 +372,19 @@ try {
         <div
             style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 3rem;">
             <div style="text-align: center; flex: 1; min-width: 200px;">
-                <h3 style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: var(--primary-color); margin-bottom: 0.5rem;">
-                    <?php echo $stats_available ? number_format($total_submissions) . '+' : '—'; ?>
-                </h3>
+                <h3 id="stat-submissions" data-stat="submissions" style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: var(--primary-color); margin-bottom: 0.5rem;">—</h3>
                 <p
                     style="color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem;">
                     Global Submissions</p>
             </div>
             <div style="text-align: center; flex: 1; min-width: 200px;">
-                <h3 style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: var(--success-color); margin-bottom: 0.5rem;">
-                    <?php echo $stats_available ? number_format($total_students) . '+' : '—'; ?>
-                </h3>
+                <h3 id="stat-students" data-stat="students" style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: var(--success-color); margin-bottom: 0.5rem;">—</h3>
                 <p
                     style="color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem;">
                     Active Students</p>
             </div>
             <div style="text-align: center; flex: 1; min-width: 200px;">
-                <h3 style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: #a259ff; margin-bottom: 0.5rem;">
-                    <?php echo $stats_available ? number_format($total_teachers) . '+' : '—'; ?>
-                </h3>
+                <h3 id="stat-teachers" data-stat="teachers" style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: #a259ff; margin-bottom: 0.5rem;">—</h3>
                 <p
                     style="color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem;">
                     Expert Educators</p>
@@ -422,6 +475,29 @@ try {
             </div>
         </div>
     </footer>
+    <script>
+        (() => {
+            const loadStats = () => {
+                fetch('controllers/public_stats.php', { headers: { Accept: 'application/json' } })
+                    .then(response => response.ok ? response.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        document.querySelectorAll('[data-stat]').forEach(element => {
+                            const value = Number(data[element.dataset.stat]);
+                            if (Number.isFinite(value)) {
+                                element.textContent = value.toLocaleString() + '+';
+                            }
+                        });
+                    })
+                    .catch(() => {});
+            };
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(loadStats, { timeout: 2000 });
+            } else {
+                window.setTimeout(loadStats, 0);
+            }
+        })();
+    </script>
     <script src="assets/js/system_loader.js?v=20260924-loader3" defer></script>
     <script src="assets/js/responsive_ui.js" defer></script>
     <script src="assets/js/pwa.js" defer></script>

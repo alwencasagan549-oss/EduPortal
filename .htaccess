@@ -46,6 +46,8 @@ RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
 
 # Security Headers
+AddType image/avif .avif
+
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options nosniff
     Header always set X-Frame-Options DENY
@@ -62,7 +64,7 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
     <Files "sw.js">
         Header set Cache-Control "no-cache, no-store, must-revalidate"
     </Files>
-    <FilesMatch "\.(css|js|svg|woff2|png|jpg|jpeg|gif|webp|ico)$">
+    <FilesMatch "\.(css|js|svg|woff2|png|jpg|jpeg|gif|webp|avif|ico)$">
         Header set Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
     </FilesMatch>
     <Files "sw.js">
