@@ -27,6 +27,27 @@ $stmt = $conn->prepare("SELECT id, subject, title, description, file_path, teach
 $stmt->execute([$student_grade, $student_section, $student_strand]);
 $assignments = $stmt->get_result()->fetch_all();
 
+$submittedAssignmentIds = [];
+try {
+    $submittedStmt = $conn->prepare(
+        'SELECT assignment_id
+         FROM submissions
+         WHERE student_id = ? AND assignment_id IS NOT NULL'
+    );
+    $submittedStmt->execute([$student_id]);
+    $submittedAssignments = $submittedStmt->get_result()->fetch_all();
+    if (is_array($submittedAssignments)) {
+        foreach ($submittedAssignments as $submittedAssignment) {
+            $submittedAssignmentId = (int) ($submittedAssignment['assignment_id'] ?? 0);
+            if ($submittedAssignmentId > 0) {
+                $submittedAssignmentIds[$submittedAssignmentId] = true;
+            }
+        }
+    }
+} catch (Throwable $exception) {
+    error_log('EduPortal submitted assignment lookup failed: ' . $exception->getMessage());
+}
+
 require_once __DIR__ . '/nav.php';
 ?>
 <!DOCTYPE html>
@@ -73,6 +94,10 @@ require_once __DIR__ . '/nav.php';
                     </div>
                 <?php else: ?>
                     <?php foreach ($assignments as $a): ?>
+                        <?php
+                        $assignmentId = (int) ($a['id'] ?? 0);
+                        $isSubmitted = isset($submittedAssignmentIds[$assignmentId]);
+                        ?>
                         <div class="glass-card animate-fade-up" style="padding: 2rem; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
                                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
@@ -100,9 +125,16 @@ require_once __DIR__ . '/nav.php';
                                         <a href="../controllers/download_assignment.php?id=<?php echo (int) $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
                                             <i class="fas fa-download"></i> Get Copy
                                         </a>
-                                        <a href="dashboard.php?assignment_id=<?php echo (int) $a['id']; ?>&amp;subject=<?php echo rawurlencode((string) $a['subject']); ?>#submissionModal" class="premium-btn premium-btn-outline" style="padding: 0.6rem 1rem; font-size: 0.85rem;" aria-label="Submit work for <?php echo htmlspecialchars((string) $a['title'], ENT_QUOTES, 'UTF-8'); ?>">
-                                            <i class="fas fa-paper-plane"></i> Submit
-                                        </a>
+                                        <?php if ($isSubmitted): ?>
+                                            <span class="premium-badge badge-green" style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.6rem 0.8rem;" role="status" aria-label="Submitted">
+                                                <span aria-hidden="true" style="width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);"></span>
+                                                Submitted
+                                            </span>
+                                        <?php else: ?>
+                                            <a href="dashboard.php?assignment_id=<?php echo $assignmentId; ?>&amp;subject=<?php echo rawurlencode((string) $a['subject']); ?>#submissionModal" class="premium-btn premium-btn-outline" style="padding: 0.6rem 1rem; font-size: 0.85rem;" aria-label="Submit work for <?php echo htmlspecialchars((string) $a['title'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                <i class="fas fa-paper-plane"></i> Submit
+                                            </a>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
