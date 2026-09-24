@@ -114,6 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div style="margin-bottom: 1.5rem;">
                 <label for="subject" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Specialization / Subject</label>
                 <input type="text" id="subject" name="subject" autocomplete="organization-title" required class="premium-input" placeholder="Mathematics, Science, etc.">
+                <small style="display: block; margin-top: 0.45rem; color: var(--text-muted); font-size: 0.78rem;">Please enter only one primary subject you will be teaching.</small>
             </div>
             
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
