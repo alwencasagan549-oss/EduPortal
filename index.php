@@ -6,14 +6,21 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Get some quick stats for the landing page
-$conn = getDBConnection();
-$res1 = $conn->query("SELECT COUNT(*) as count FROM submissions");
-$total_submissions = $res1 ? ($res1->fetch_assoc()['count'] ?? 0) : 0;
-$res2 = $conn->query("SELECT COUNT(*) as count FROM teachers");
-$total_teachers = $res2 ? ($res2->fetch_assoc()['count'] ?? 0) : 0;
-$res3 = $conn->query("SELECT COUNT(*) as count FROM students");
-$total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
+$total_submissions = 0;
+$total_teachers = 0;
+$total_students = 0;
+$stats_available = true;
+try {
+    $conn = getDBConnection();
+    $res1 = $conn->query("SELECT COUNT(*) as count FROM submissions");
+    $total_submissions = $res1 ? ($res1->fetch_assoc()['count'] ?? 0) : 0;
+    $res2 = $conn->query("SELECT COUNT(*) as count FROM teachers");
+    $total_teachers = $res2 ? ($res2->fetch_assoc()['count'] ?? 0) : 0;
+    $res3 = $conn->query("SELECT COUNT(*) as count FROM students");
+    $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
+} catch (Throwable $e) {
+    $stats_available = false;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -56,20 +63,20 @@ $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
     </div>
 
     <!-- Navigation -->
-    <nav
-        style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 5%; min-height: var(--header-height); position: relative; z-index: 100; flex-wrap: wrap; gap: 1.5rem;">
+    <nav aria-label="Public navigation"
+         style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 5%; min-height: var(--header-height); position: relative; z-index: 100; flex-wrap: wrap; gap: 1.5rem;">
         <div class="sidebar-brand" style="font-size: 1.5rem;">
             <i class="fas fa-graduation-cap" style="color: var(--primary-color)"></i> Edu<span>Portal</span>
         </div>
         
         <!-- Mobile Menu Toggle -->
-        <button class="menu-toggle">
-            <i class="fas fa-bars"></i>
+        <button class="menu-toggle" type="button" aria-label="Open navigation" aria-controls="home-sidebar" aria-expanded="false">
+            <i class="fas fa-bars" aria-hidden="true"></i>
         </button>
 
         <!-- Desktop Navigation -->
         <div class="nav-desktop" style="gap: 1.5rem; align-items: center;">
-            <a href="EDUPORTAL_TEACHER_STUDENT_GUIDE.html" target="_blank" title="EduPortal Guide"
+            <a href="EDUPORTAL_TEACHER_STUDENT_GUIDE.html" target="_blank" rel="noopener" title="EduPortal Guide"
                 style="color: var(--primary-color); text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;"
                 onmouseover="this.style.opacity='0.75'"
                 onmouseout="this.style.opacity='1'">Help</a>
@@ -83,9 +90,9 @@ $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
     </nav>
 
     <!-- Mobile Navigation Sidebar -->
-    <aside class="sidebar home-sidebar">
+    <aside class="sidebar home-sidebar" id="home-sidebar" aria-label="Public navigation">
         <div class="sidebar-header">
-            <div class="sidebar-logo">
+            <div class="sidebar-logo" aria-hidden="true">
                 <i class="fas fa-graduation-cap"></i>
             </div>
             <div class="sidebar-brand">
@@ -93,40 +100,42 @@ $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
             </div>
         </div>
         
-        <nav class="sidebar-menu">
-            <li class="menu-item">
-                <a href="EDUPORTAL_TEACHER_STUDENT_GUIDE.html" target="_blank" class="menu-link home-menu-link">
-                    <div class="home-icon-box" style="color: var(--primary-color); background: rgba(78, 115, 223, 0.1);">
-                        <i class="fas fa-circle-question"></i>
-                    </div>
-                    <div class="home-menu-text">
-                        <span class="home-link-title" style="color: var(--primary-color); font-weight: 600;">Help</span>
-                        <span class="home-link-subtitle">User Guide & Tutorials</span>
-                    </div>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a href="teacher/login.php" class="menu-link home-menu-link">
-                    <div class="home-icon-box" style="color: #a259ff; background: rgba(162, 89, 255, 0.1);">
-                        <i class="fas fa-chalkboard-user"></i>
-                    </div>
-                    <div class="home-menu-text">
-                        <span class="home-link-title">Login as Teacher</span>
-                        <span class="home-link-subtitle">Teaching & Grading Portal</span>
-                    </div>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a href="student/login.php" class="menu-link home-menu-link">
-                    <div class="home-icon-box" style="color: var(--success-color); background: rgba(16, 185, 129, 0.1);">
-                        <i class="fas fa-user-graduate"></i>
-                    </div>
-                    <div class="home-menu-text">
-                        <span class="home-link-title" style="color: var(--primary-color); font-weight: 700;">Login as Student</span>
-                        <span class="home-link-subtitle">Learning & Submissions</span>
-                    </div>
-                </a>
-            </li>
+        <nav class="sidebar-menu" aria-label="Public mobile navigation">
+            <ul>
+                <li class="menu-item">
+                    <a href="EDUPORTAL_TEACHER_STUDENT_GUIDE.html" target="_blank" rel="noopener" class="menu-link home-menu-link">
+                        <div class="home-icon-box" style="color: var(--primary-color); background: rgba(78, 115, 223, 0.1);" aria-hidden="true">
+                            <i class="fas fa-circle-question"></i>
+                        </div>
+                        <div class="home-menu-text">
+                            <span class="home-link-title" style="color: var(--primary-color); font-weight: 600;">Help</span>
+                            <span class="home-link-subtitle">User Guide & Tutorials</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a href="teacher/login.php" class="menu-link home-menu-link">
+                        <div class="home-icon-box" style="color: #a259ff; background: rgba(162, 89, 255, 0.1);" aria-hidden="true">
+                            <i class="fas fa-chalkboard-user"></i>
+                        </div>
+                        <div class="home-menu-text">
+                            <span class="home-link-title">Login as Teacher</span>
+                            <span class="home-link-subtitle">Teaching & Grading Portal</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a href="student/login.php" class="menu-link home-menu-link">
+                        <div class="home-icon-box" style="color: var(--success-color); background: rgba(16, 185, 129, 0.1);" aria-hidden="true">
+                            <i class="fas fa-user-graduate"></i>
+                        </div>
+                        <div class="home-menu-text">
+                            <span class="home-link-title" style="color: var(--primary-color); font-weight: 700;">Login as Student</span>
+                            <span class="home-link-subtitle">Learning & Submissions</span>
+                        </div>
+                    </a>
+                </li>
+            </ul>
         </nav>
 
         <div class="sidebar-footer" style="padding: 2rem; border-top: 1px solid var(--glass-border);">
@@ -289,7 +298,7 @@ $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
             style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 3rem;">
             <div style="text-align: center; flex: 1; min-width: 200px;">
                 <h3 style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: var(--primary-color); margin-bottom: 0.5rem;">
-                    <?php echo number_format($total_submissions); ?>+
+                    <?php echo $stats_available ? number_format($total_submissions) . '+' : '—'; ?>
                 </h3>
                 <p
                     style="color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem;">
@@ -297,7 +306,7 @@ $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
             </div>
             <div style="text-align: center; flex: 1; min-width: 200px;">
                 <h3 style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: var(--success-color); margin-bottom: 0.5rem;">
-                    <?php echo number_format($total_students); ?>+
+                    <?php echo $stats_available ? number_format($total_students) . '+' : '—'; ?>
                 </h3>
                 <p
                     style="color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem;">
@@ -305,7 +314,7 @@ $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
             </div>
             <div style="text-align: center; flex: 1; min-width: 200px;">
                 <h3 style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: #a259ff; margin-bottom: 0.5rem;">
-                    <?php echo number_format($total_teachers); ?>+
+                    <?php echo $stats_available ? number_format($total_teachers) . '+' : '—'; ?>
                 </h3>
                 <p
                     style="color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem;">
@@ -367,13 +376,6 @@ $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
                 </div>
                 <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Evolution of academic
                     management with human-centric design at reesnhs.</p>
-                <div style="display: flex; gap: 1.2rem; margin-top: 1.5rem;">
-                    <a href="#" style="color: var(--text-muted); font-size: 1.1rem;"><i class="fab fa-twitter"></i></a>
-                    <a href="#" style="color: var(--text-muted); font-size: 1.1rem;"><i class="fab fa-facebook"></i></a>
-                    <a href="#" style="color: var(--text-muted); font-size: 1.1rem;"><i class="fab fa-linkedin"></i></a>
-                    <a href="#" style="color: var(--text-muted); font-size: 1.1rem;"><i
-                            class="fab fa-instagram"></i></a>
-                </div>
             </div>
             <div>
                 <h4 style="margin-bottom: 1.2rem; font-weight: 700; font-size: 1rem;">Core Framework</h4>

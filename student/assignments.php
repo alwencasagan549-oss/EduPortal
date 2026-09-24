@@ -16,7 +16,6 @@ if (getUserRole() !== 'student') {
 }
 
 $student_id = $_SESSION['user_id'];
-$student_name = $_SESSION['user_name'];
 $student_grade = $_SESSION['user_grade'];
 $student_section = $_SESSION['user_section'];
 
@@ -27,6 +26,8 @@ $conn = getDBConnection();
 $stmt = $conn->prepare("SELECT id, subject, title, description, file_path, teacher_name, created_at FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
 $stmt->execute([$student_grade, $student_section, $student_strand]);
 $assignments = $stmt->get_result()->fetch_all();
+
+require_once __DIR__ . '/nav.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,58 +42,15 @@ $assignments = $stmt->get_result()->fetch_all();
 </head>
 
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="layout-wrapper">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <i class="fas fa-user-graduate"></i>
-                </div>
-                <div class="sidebar-brand">
-                    Edu<span>Portal</span>
-                </div>
-            </div>
-
-            <nav class="sidebar-menu">
-                <li class="menu-item">
-                    <a href="dashboard.php" class="menu-link" onclick="EduPortal.navigate('Student Hub', 'Loading your dashboard...', this)">
-                        <i class="fas fa-home"></i> Dashboard
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="assignments.php" class="menu-link active" onclick="EduPortal.navigate('Assignments', 'Loading assignments...', this)">
-                        <i class="fas fa-book-open"></i> New Assignments
-                    </a>
-                </li>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-snippet">
-                    <div class="avatar-small">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="user-snippet-info">
-                        <div class="user-name"><?php echo htmlspecialchars($student_name); ?></div>
-                        <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Online</div>
-                    </div>
-                </div>
-                <form method="POST" action="../logout.php" style="display:inline;" onsubmit="return EduPortal.confirmLogout(this)">
-                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                    <button type="submit" class="logout-link">
-                        <i class="fas fa-right-from-bracket"></i> Logout
-                    </button>
-                </form>
-                <div style="padding: 8px 0 0; text-align: center; opacity: 0.4; font-size: 0.65rem; color: var(--text-muted);">
-                    <span id="_sys_v_auth" style="display: none;">Alwin T. Casagan</span>
-                </div>
-            </div>
-        </aside>
+        <?php renderStudentNav('assignments'); ?>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content">
             <header class="top-bar">
-                <button class="menu-toggle">
-                    <i class="fas fa-bars"></i>
+                <button class="menu-toggle" type="button" aria-label="Open navigation" aria-controls="student-sidebar" aria-expanded="false">
+                    <i class="fas fa-bars" aria-hidden="true"></i>
                 </button>
                 <div class="page-title">
                     <h1>Selective Assignments</h1>

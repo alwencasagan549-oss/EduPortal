@@ -28,7 +28,8 @@ $conn = getDBConnection();
 
 // Auto-create file_content columns if they don't exist (self-healing, PostgreSQL + MySQL safe)
 try {
-    $check = $conn->prepare("SELECT column_name FROM information_schema.columns WHERE table_name = 'submissions' AND column_name = 'file_content'");
+    $schemaExpression = $conn->getDriverName() === 'mysql' ? 'DATABASE()' : 'current_schema()';
+    $check = $conn->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = {$schemaExpression} AND table_name = 'submissions' AND column_name = 'file_content'");
     $check->execute();
     $exists = $check->fetchColumn();
     if (!$exists) {

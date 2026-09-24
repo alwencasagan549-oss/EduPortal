@@ -126,6 +126,10 @@ class EduPortalDB {
     public function getPDO() {
         return $this->pdo;
     }
+
+    public function getDriverName() {
+        return $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+    }
 }
 
 class EduPortalStmt {

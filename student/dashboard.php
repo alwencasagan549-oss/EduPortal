@@ -11,8 +11,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'student') {
 }
 
 $student_id = $_SESSION['user_id'];
-$student_name = $_SESSION['user_name'];
-$student_lrn = $_SESSION['user_lrn'];
 
 // Get student submissions
 $conn = getDBConnection();
@@ -27,6 +25,8 @@ $student_strand = $_SESSION['user_strand'] ?? 'Academic';
 $stmt2 = $conn->prepare("SELECT id, subject, title, description, file_path, teacher_name, created_at FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
 $stmt2->execute([$student_grade, $student_section, $student_strand]);
 $broadcasted = $stmt2->get_result()->fetch_all();
+
+require_once __DIR__ . '/nav.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -37,7 +37,6 @@ $broadcasted = $stmt2->get_result()->fetch_all();
     <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="../assets/script.js" defer></script>
     <style>
         .notification-item {
             padding: 0.85rem 1rem;
@@ -74,55 +73,15 @@ $broadcasted = $stmt2->get_result()->fetch_all();
     </style>
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="layout-wrapper">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <i class="fas fa-user-graduate"></i>
-                </div>
-                <div class="sidebar-brand">
-                    Edu<span>Portal</span>
-                </div>
-            </div>
-            
-            <nav class="sidebar-menu">
-                <li class="menu-item">
-                    <a href="dashboard.php" class="menu-link active" onclick="EduPortal.navigate('Student Hub', 'Loading your dashboard...', this)">
-                        <i class="fas fa-house"></i> Home
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="assignments.php" class="menu-link" onclick="EduPortal.navigate('Assignments', 'Loading assignments...', this)">
-                        <i class="fas fa-file-arrow-down"></i> New Assignments
-                    </a>
-                </li>
-            </nav>
-            
-            <div class="sidebar-footer">
-                <div class="user-snippet">
-                    <div class="avatar-small">
-                        <i class="fas fa-graduation-cap"></i>
-                    </div>
-                    <div class="user-snippet-info">
-                        <div class="user-name"><?php echo htmlspecialchars($student_name); ?></div>
-                        <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Student</div>
-                    </div>
-                </div>
-                <form method="POST" action="../logout.php" style="display:inline;" onsubmit="return EduPortal.confirmLogout(this)">
-                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                    <button type="submit" class="logout-link">
-                        <i class="fas fa-right-from-bracket"></i> Logout
-                    </button>
-                </form>
-            </div>
-        </aside>
+        <?php renderStudentNav('dashboard'); ?>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content">
             <header class="top-bar">
-                <button class="menu-toggle">
-                    <i class="fas fa-bars"></i>
+                <button class="menu-toggle" type="button" aria-label="Open navigation" aria-controls="student-sidebar" aria-expanded="false">
+                    <i class="fas fa-bars" aria-hidden="true"></i>
                 </button>
                 <div class="page-title">
                     <h1>Student Hub</h1>
@@ -260,7 +219,7 @@ $broadcasted = $stmt2->get_result()->fetch_all();
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
                 <!-- Submit Form -->
                 <div class="glass-card">
-                    <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;"><i class="fas fa-cloud-arrow-up" style="color: var(--primary-color); margin-right: 10px;"></i> New Assignment</h2>
+                    <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;"><i class="fas fa-cloud-arrow-up" style="color: var(--primary-color); margin-right: 10px;"></i> Submit Assignment</h2>
                     
                     <form action="../controllers/submit.php" method="POST" enctype="multipart/form-data" onsubmit="return validateForm()" data-loader="true">
                         <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
