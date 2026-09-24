@@ -11,11 +11,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid security token.';
     } else {
-        $lrn = trim($_POST['lrn']);
-        $name = trim($_POST['name']);
-        $email = trim($_POST['email']);
-        $password = $_POST['password'];
-        $confirm_password = $_POST['confirm_password'];
+        $lrn = trim($_POST['lrn'] ?? '');
+        $name = trim($_POST['name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
 
         if ($password !== $confirm_password) {
             $error = "Passwords do not match";
@@ -35,25 +35,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $strand = trim($_POST['strand'] ?? 'Academic');
         $hashed_password = password_hash($password, PASSWORD_BCRYPT);
 
-        $conn = getDBConnection();
-        // Check if LRN already exists
-        $check = $conn->prepare("SELECT id FROM students WHERE lrn = ?");
-        $check->execute([$lrn]);
+        try {
+            $conn = getDBConnection();
+            $check = $conn->prepare("SELECT id FROM students WHERE lrn = ? OR email = ?");
+            $check->execute([$lrn, $email]);
 
-        if ($check->get_result()->num_rows() > 0) {
-            $error = "This LRN is already registered (Verification: Duplicate #$lrn)";
-        } else {
-            $stmt = $conn->prepare("INSERT INTO students (lrn, name, email, grade_level, section, strand, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$lrn, $name, $email, $grade_level, $section, $strand, $hashed_password]);
-
-            if ($stmt->rowCount() > 0) {
-                $success = "Registration successful! You can now login.";
+            if ($check->get_result()->num_rows() > 0) {
+                $error = "An account with this LRN or email already exists.";
             } else {
-                $error = "Registration failed";
+                $stmt = $conn->prepare("INSERT INTO students (lrn, name, email, grade_level, section, strand, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$lrn, $name, $email, $grade_level, $section, $strand, $hashed_password]);
+
+                if ($stmt->rowCount() > 0) {
+                    $success = "Registration successful! You can now login.";
+                } else {
+                    $error = "Registration failed";
+                }
             }
-            // Skip re-closing $check or $stmt as they are closed inside logic
-            $check_closed = true;
-            $stmt_closed = true;
+        } catch (PDOException $exception) {
+            $sqlState = (string) $exception->getCode();
+            $driverCode = isset($exception->errorInfo[1]) ? (int) $exception->errorInfo[1] : 0;
+            if ($sqlState === '23505' || $driverCode === 1062) {
+                $error = "An account with this LRN or email already exists.";
+            } else {
+                error_log('Student registration failed: ' . $exception->getMessage());
+                $error = "Registration could not be completed. Please try again.";
+            }
         }
         }
     }
@@ -65,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Registration | EduPortal LMS</title>
-    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
+    <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
