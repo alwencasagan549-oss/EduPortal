@@ -105,7 +105,7 @@ require_once __DIR__ . '/nav.php';
                             <div id="uploadEmptyState" class="upload-empty-state">
                                 <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem; opacity: 0.6;"></i>
                                 <p style="font-weight: 500; margin-bottom: 0.5rem;">Click or drag to upload assignment</p>
-                                <p style="font-size: 0.8rem; color: var(--text-muted);">PDF, DOC, DOCX, ZIP, Images, MP4 — max 500MB</p>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">PDF, DOC, DOCX, ZIP, Images, MP4 — max 9MB</p>
                             </div>
                             <div id="uploadQueue" class="upload-queue"></div>
                         </div>
@@ -128,7 +128,7 @@ require_once __DIR__ . '/nav.php';
             dropZoneSelector: '#dropZone',
             queueSelector: '#uploadQueue',
             emptyStateSelector: '#uploadEmptyState',
-            maxSize: 500 * 1024 * 1024
+            maxSize: 9 * 1024 * 1024
         });
 
         window.uploadManager = uploadManager;

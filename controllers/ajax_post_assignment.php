@@ -1,10 +1,8 @@
 <?php
-/**
- * AJAX Handler: Post Broadcast Assignment & Notify
- * Handles file upload, record creation, and internal notifications.
- */
 
 require_once __DIR__ . '/../libs/NotificationManager.php';
+require_once __DIR__ . '/../libs/assignment_management.php';
+
 requireLogin();
 
 header('Content-Type: application/json');
@@ -15,79 +13,98 @@ if (getUserRole() !== 'teacher') {
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $csrfToken = $_POST['csrf_token'] ?? '';
-        if (!is_string($csrfToken) || !validate_csrf($csrfToken)) {
-        echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Allow: POST');
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed.']);
+    exit();
+}
+
+$csrfToken = $_POST['csrf_token'] ?? '';
+if (!is_string($csrfToken) || !validate_csrf($csrfToken)) {
+    echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
+    exit();
+}
+
+$storedUpload = null;
+
+try {
+    $teacherId = (int) ($_SESSION['user_id'] ?? 0);
+    $teacherName = isset($_SESSION['user_name']) && is_string($_SESSION['user_name'])
+        ? $_SESSION['user_name']
+        : 'Teacher';
+    $subject = isset($_SESSION['user_subject']) && is_string($_SESSION['user_subject'])
+        ? $_SESSION['user_subject']
+        : '';
+    $values = assignment_form_values($_POST);
+
+    if (!isset($_FILES['assignment_file']) || !is_array($_FILES['assignment_file'])) {
+        echo json_encode(['success' => false, 'error' => 'Please select a valid file.']);
         exit();
     }
-    try {
-        $teacher_id = $_SESSION['user_id'] ?? 0;
-        $teacher_name = $_SESSION['user_name'] ?? 'Teacher';
-        $subject = $_SESSION['user_subject'] ?? '';
-        
-        $grade_level = $_POST['grade_level'] ?? '';
-        $strand = $_POST['strand'] ?? '';
-        $section = $_POST['section'] ?? '';
-        $title = trim($_POST['title'] ?? '');
-        $description = trim($_POST['description'] ?? '');
-        
-        if (!isset($_FILES['assignment_file']) || $_FILES['assignment_file']['error'] !== 0) {
-            echo json_encode(['success' => false, 'error' => 'Please select a valid file.']);
-            exit();
-        }
-        
-        $file = $_FILES['assignment_file'];
-        $upload_dir = 'uploads/assignments/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0750, true);
-        }
-        
-        $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $allowed_exts = ['pdf', 'doc', 'docx', 'txt', 'zip', 'jpg', 'png'];
-        
-        if (!in_array($file_ext, $allowed_exts)) {
-            echo json_encode(['success' => false, 'error' => 'File type not allowed.']);
-            exit();
-        }
-        
-        $new_filename = time() . '_' . bin2hex(random_bytes(8)) . '.' . $file_ext;
-        $file_path = $upload_dir . $new_filename;
 
-        if (move_uploaded_file($file['tmp_name'], $file_path)) {
-            $conn = getDBConnection();
-
-            $stmt = $conn->prepare("INSERT INTO posted_assignments (teacher_id, teacher_name, subject, title, description, file_path, grade_level, strand, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$teacher_id, $teacher_name, $subject, $title, $description, $file_path, $grade_level, $strand, $section]);
-
-            $st_stmt = $conn->prepare("SELECT id, name FROM students WHERE grade_level = ? AND strand = ? AND section = ?");
-            $st_stmt->execute([$grade_level, $strand, $section]);
-            $students_res = $st_stmt->get_result();
-
-            $notified_count = 0;
-            while ($student = $students_res->fetch_assoc()) {
-                NotificationManager::push($student['id'], 'assignment', 'New Assignment Posted', "Your teacher has posted a new assignment: $title", [
-                    'assignment_title' => $title,
-                    'teacher_name' => $teacher_name,
-                    'subject' => $subject,
-                    'grade_level' => $grade_level,
-                    'section' => $section,
-                    'strand' => $strand
-                ]);
-                $notified_count++;
-            }
-
-            echo json_encode([
-                'success' => true,
-                'total_notified' => $notified_count,
-                'target_group' => "$grade_level $strand - $section"
-            ]);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Failed to move uploaded file.']);
-        }
-    } catch (Throwable $e) {
-        error_log('EduPortal error in ajax_post_assignment.php: ' . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
+    $file = $_FILES['assignment_file'];
+    $uploadError = assignment_upload_error($file);
+    if ($uploadError !== null) {
+        echo json_encode(['success' => false, 'error' => $uploadError]);
+        exit();
     }
+
+    $fileData = file_get_contents($file['tmp_name']);
+    if ($fileData === false) {
+        echo json_encode(['success' => false, 'error' => 'The uploaded file could not be read.']);
+        exit();
+    }
+
+    $storedUpload = assignment_store_upload($file);
+    $fileContent = base64_encode($fileData);
+    $fileType = $storedUpload['type'];
+    $conn = getDBConnection();
+    $stmt = $conn->prepare(
+        'INSERT INTO posted_assignments
+         (teacher_id, teacher_name, subject, title, description, file_path, file_content, file_type, grade_level, strand, section)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([
+        $teacherId,
+        $teacherName,
+        $subject,
+        $values['title'],
+        $values['description'],
+        $storedUpload['path'],
+        $fileContent,
+        $fileType,
+        $values['grade_level'],
+        $values['strand'],
+        $values['section']
+    ]);
+
+    $studentsStmt = $conn->prepare('SELECT id, name FROM students WHERE grade_level = ? AND strand = ? AND section = ?');
+    $studentsStmt->execute([$values['grade_level'], $values['strand'], $values['section']]);
+    $studentsResult = $studentsStmt->get_result();
+    $notifiedCount = 0;
+
+    while ($student = $studentsResult->fetch_assoc()) {
+        NotificationManager::push($student['id'], 'assignment', 'New Assignment Posted', 'Your teacher has posted a new assignment: ' . $values['title'], [
+            'assignment_title' => $values['title'],
+            'teacher_name' => $teacherName,
+            'subject' => $subject,
+            'grade_level' => $values['grade_level'],
+            'section' => $values['section'],
+            'strand' => $values['strand']
+        ]);
+        $notifiedCount++;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'total_notified' => $notifiedCount,
+        'target_group' => $values['grade_level'] . ' ' . $values['strand'] . ' - ' . $values['section']
+    ]);
+} catch (Throwable $exception) {
+    if ($storedUpload !== null) {
+        assignment_remove_stored_file($storedUpload['path']);
+    }
+    error_log('EduPortal error in ajax_post_assignment.php: ' . $exception->getMessage());
+    echo json_encode(['success' => false, 'error' => 'The assignment could not be published. Try again.']);
 }
-?>
