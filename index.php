@@ -498,7 +498,7 @@ require_once 'config/database.php';
             }
         })();
     </script>
-    <script src="assets/js/system_loader.js?v=20260924-loader3" defer></script>
+    <script src="assets/js/system_loader.js?v=20260924-loader4" defer></script>
     <script src="assets/js/responsive_ui.js" defer></script>
     <script src="assets/js/pwa.js" defer></script>
 </body>

@@ -77,6 +77,13 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token_prev'] = '';
 }
 
+function normalize_teacher_subject(string $subject): string
+{
+    $normalized = preg_replace('/\s+/u', ' ', $subject);
+    $subject = trim(is_string($normalized) ? $normalized : $subject);
+    return strcasecmp($subject, 'programming') === 0 ? 'Programming' : $subject;
+}
+
 function csrf_token() {
     return $_SESSION['csrf_token'] ?? '';
 }

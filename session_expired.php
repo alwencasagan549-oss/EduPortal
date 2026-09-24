@@ -159,7 +159,7 @@ if (session_status() === PHP_SESSION_NONE) {
         </div>
     </main>
     <script src="assets/js/trusted_types.js"></script>
-    <script src="assets/js/system_loader.js?v=20260924-loader3"></script>
+    <script src="assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="assets/js/pwa.js"></script>
 </body>
 </html>

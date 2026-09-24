@@ -15,9 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!validate_csrf($_POST['csrf_token'] ?? '')) {
             $error = 'Invalid security token.';
         } else {
-        $email = $_POST['email'];
-        $subject = $_POST['subject'];
-        $password = $_POST['password'];
+        $email = trim($_POST['email'] ?? '');
+        $subject = normalize_teacher_subject($_POST['subject'] ?? $_POST['teacher_type'] ?? '');
+        $password = $_POST['password'] ?? '';
         
         $conn = getDBConnection();
         $stmt = $conn->prepare("SELECT id, name, email, subject, password FROM teachers WHERE email = ? AND subject = ?");
@@ -142,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
     <script src="../assets/js/trusted_types.js"></script>
-    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>

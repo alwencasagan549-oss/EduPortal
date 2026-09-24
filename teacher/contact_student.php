@@ -184,7 +184,7 @@ require_once __DIR__ . '/nav.php';
         </main>
     </div>
 
-    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script>
         const contactForm = document.getElementById('contactForm');
         const contactButton = contactForm.querySelector('button[type="submit"]');

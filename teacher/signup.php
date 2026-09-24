@@ -10,7 +10,7 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
-    $subject = trim($_POST['subject'] ?? '');
+    $subject = normalize_teacher_subject($_POST['subject'] ?? $_POST['teacher_type'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
     
@@ -33,10 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         try {
             $conn = getDBConnection();
-            $check = $conn->prepare("SELECT id FROM teachers WHERE email = ?");
-            $check->execute([$email]);
+            $check = $conn->prepare("SELECT id FROM teachers WHERE subject = ?");
+            $check->execute([$subject]);
             if ($check->get_result()->num_rows() > 0) {
-                $error = "An account with this email already exists. Please log in instead.";
+                $error = "This subject is already registered. Please choose another.";
             } else {
                 $stmt = $conn->prepare("INSERT INTO teachers (name, email, subject, password) VALUES (?, ?, ?, ?)");
                 $stmt->execute([$name, $email, $subject, $hashed_password]);
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sqlState = (string) $exception->getCode();
             $driverCode = isset($exception->errorInfo[1]) ? (int) $exception->errorInfo[1] : 0;
             if ($sqlState === '23505' || $driverCode === 1062) {
-                $error = "An account with this email already exists. Please log in instead.";
+                $error = "This subject is already registered. Please choose another.";
             } else {
                 error_log('Teacher registration failed: ' . $exception->getMessage());
                 $error = "Registration could not be completed. Please try again.";
@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
     <script src="../assets/js/trusted_types.js"></script>
-    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>
