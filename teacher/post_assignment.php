@@ -125,7 +125,7 @@ require_once __DIR__ . '/nav.php';
         </main>
     </div>
 
-    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
     <script type="module">

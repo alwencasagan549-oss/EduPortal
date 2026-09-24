@@ -182,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
     <script src="../assets/js/trusted_types.js"></script>
-    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>

@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `teachers` (
     `password` VARCHAR(255) NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `email` (`email`)
+    UNIQUE KEY `teachers_subject_unique` (`subject`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------

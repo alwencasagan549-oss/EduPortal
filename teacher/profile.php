@@ -113,7 +113,7 @@ require_once __DIR__ . '/nav.php';
     <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
-    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </head>

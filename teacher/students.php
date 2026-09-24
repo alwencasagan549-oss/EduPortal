@@ -196,7 +196,7 @@ require_once __DIR__ . '/nav.php';
             box-shadow: 0 10px 30px rgba(78, 115, 223, 0.1);
         }
     </style>
-    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>

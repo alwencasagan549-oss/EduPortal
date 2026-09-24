@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'eduportal-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v5`;
+const CACHE_NAME = `${CACHE_PREFIX}v6`;
 const scopeUrl = new URL(self.registration.scope);
 const staticPaths = [
   'offline.html',
@@ -8,7 +8,7 @@ const staticPaths = [
   'assets/style.min.css?v=20260924',
   'assets/js/pwa.js',
   'assets/js/trusted_types.js',
-  'assets/js/system_loader.js?v=20260924-loader3',
+  'assets/js/system_loader.js?v=20260924-loader4',
   'assets/js/responsive_ui.js',
   'assets/pwa-icon-192.svg',
   'assets/pwa-icon-512.svg',
@@ -79,7 +79,7 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(async cache => {
         await cache.addAll(staticUrls);
-        const loaderUrl = new URL('assets/js/system_loader.js?v=20260924-loader3', scopeUrl).href;
+        const loaderUrl = new URL('assets/js/system_loader.js?v=20260924-loader4', scopeUrl).href;
         const loaderResponse = await cache.match(loaderUrl);
         if (loaderResponse) {
           await cache.put(new URL('assets/js/system_loader.js', scopeUrl).href, loaderResponse);
