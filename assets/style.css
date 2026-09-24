@@ -548,6 +548,7 @@ select.premium-input option {
 }
 
 .alert-success { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+.alert-warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
 .alert-danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
 
 /* Custom Badge */
@@ -2002,6 +2003,55 @@ select.premium-input option {
 
 @media (prefers-reduced-motion: reduce) {
     .student-assignment-item {
+        transition: none;
+    }
+}
+
+.pwa-install-button {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 3000;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: var(--primary-gradient);
+    color: #fff;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pwa-install-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+}
+
+.pwa-install-button:focus-visible {
+    outline: 3px solid rgba(145, 168, 255, 0.9);
+    outline-offset: 3px;
+}
+
+.pwa-install-button svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+@media (max-width: 480px) {
+    .pwa-install-button {
+        right: 0.75rem;
+        bottom: 0.75rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pwa-install-button {
         transition: none;
     }
 }

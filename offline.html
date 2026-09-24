@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a0b10">
+    <meta name="description" content="EduPortal offline page">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="assets/style.css">
+    <title>Offline | EduPortal LMS</title>
+</head>
+<body>
+    <main class="auth-page" style="display: grid; place-items: center; min-height: 100vh; padding: 1.5rem;">
+        <section class="auth-card" style="max-width: 520px; width: 100%; text-align: center;">
+            <img src="assets/pwa-icon-192.svg" alt="" width="72" height="72" style="width: 72px; height: 72px; margin: 0 auto 1.5rem; border-radius: 20px;">
+            <span class="premium-badge badge-blue" style="display: inline-flex; margin-bottom: 1.25rem;">EduPortal LMS</span>
+            <h1 class="auth-title">You are offline</h1>
+            <p class="auth-subtitle" style="margin-bottom: 2rem;">The app could not reach the server. Reconnect to load your assignments, submissions, and messages.</p>
+            <button type="button" class="premium-btn premium-btn-primary" style="width: 100%; justify-content: center;" onclick="window.location.reload()">
+                <i class="fas fa-rotate-right" aria-hidden="true"></i> Try again
+            </button>
+            <p style="margin-top: 1.5rem; color: var(--text-muted); font-size: 0.8rem;">Your account data is never stored in the offline cache.</p>
+        </section>
+    </main>
+    <script src="assets/js/pwa.js"></script>
+</body>
+</html>

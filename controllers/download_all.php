@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../libs/assignment_management.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -16,26 +17,27 @@ $teacher_subject = $_SESSION['user_subject'] ?? '';
 // Get submissions for teacher's subject (Auth Shield: RLS Check)
 $conn = getDBConnection();
 
-// Auto-create columns if needed (PostgreSQL + MySQL safe)
 try {
-    $schemaExpression = $conn->getDriverName() === 'mysql' ? 'DATABASE()' : 'current_schema()';
-    $check = $conn->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = {$schemaExpression} AND table_name = 'submissions' AND column_name = 'file_content'");
-    $check->execute();
-    $exists = $check->fetchColumn();
-    if (!$exists) {
-        $conn->exec("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
+    $submissionColumns = assignment_submission_column_names($conn);
+    if (!isset($submissionColumns['file_content'])) {
+        if ($conn->getDriverName() === 'mysql') {
+            $conn->exec('ALTER TABLE submissions ADD COLUMN file_content LONGTEXT');
+        } else {
+            $conn->exec('ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL');
+        }
+    }
+    if (!isset($submissionColumns['file_type'])) {
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-    } catch (Throwable $e) {
-        error_log('EduPortal schema migration error in download_all.php: ' . $e->getMessage());
-    }
+} catch (Throwable $e) {
+    error_log('EduPortal schema migration error in download_all.php: ' . $e->getMessage());
+}
 
-// Strengthened Logic: Filter by subject only (since teacher_id is not consistently populated)
 $stmt = $conn->prepare("SELECT s.file_path, s.file_content, s.file_type, st.name as student_name
                        FROM submissions s
                        LEFT JOIN students st ON s.student_id = st.id
-                       WHERE s.subject = ?");
-$stmt->execute([$teacher_subject]);
+                       WHERE (s.teacher_id = ? OR (s.teacher_id IS NULL AND s.subject = ?))");
+$stmt->execute([$teacher_id, $teacher_subject]);
 $result = $stmt->get_result();
 $submissions = $result->fetch_all(PDO::FETCH_ASSOC);
 
@@ -66,8 +68,12 @@ foreach ($submissions as $submission) {
         $zip->addFromString($new_name, $file_data);
     } else {
         // Fallback: serve from filesystem
-        $resolved = realpath(__DIR__ . '/../' . ltrim($submission['file_path'], '/\\'));
-        if ($resolved !== false && $base_dir !== false && strpos($resolved, $base_dir) === 0) {
+        $relative = ltrim(str_replace('\\', '/', (string) $submission['file_path']), '/');
+        if (strpos($relative, 'uploads/') === 0) {
+            $relative = substr($relative, strlen('uploads/'));
+        }
+        $resolved = $base_dir === false ? false : realpath($base_dir . DIRECTORY_SEPARATOR . $relative);
+        if ($resolved !== false && $base_dir !== false && strpos(str_replace('\\', '/', $resolved), rtrim(str_replace('\\', '/', $base_dir), '/') . '/') === 0) {
             $zip->addFile($resolved, $new_name);
         }
     }

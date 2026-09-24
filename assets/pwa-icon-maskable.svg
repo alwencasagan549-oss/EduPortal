@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">EduPortal</title>
+  <defs>
+    <linearGradient id="background" x1="42" y1="32" x2="466" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4e73df"/>
+      <stop offset="1" stop-color="#a259ff"/>
+    </linearGradient>
+    <linearGradient id="cap" x1="154" y1="165" x2="360" y2="316" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dce5ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="#0a0b10"/>
+  <rect x="22" y="22" width="468" height="468" rx="102" fill="url(#background)"/>
+  <circle cx="96" cy="90" r="86" fill="#8b5cf6" opacity=".35"/>
+  <circle cx="448" cy="426" r="112" fill="#22d3ee" opacity=".24"/>
+  <path d="M104 205 256 128l152 77-152 77-152-77Z" fill="url(#cap)"/>
+  <path d="M150 236v72c0 32 48 59 106 59s106-27 106-59v-72l-106 54-106-54Z" fill="#e8edff" opacity=".95"/>
+  <path d="M387 222v96" stroke="#ffffff" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="387" cy="327" r="19" fill="#ffffff"/>
+  <path d="m128 379 21 21 43-48" fill="none" stroke="#b9fff0" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

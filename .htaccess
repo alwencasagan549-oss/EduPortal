@@ -51,4 +51,10 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
     Header always set X-Frame-Options DENY
     Header always set Referrer-Policy strict-origin-when-cross-origin
     Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    <Files "manifest.webmanifest">
+        Header set Content-Type "application/manifest+json"
+    </Files>
+    <Files "sw.js">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </Files>
 </IfModule>

@@ -28,9 +28,10 @@ CREATE TABLE IF NOT EXISTS teachers (
 CREATE TABLE IF NOT EXISTS submissions (
     id SERIAL PRIMARY KEY,
     student_id INTEGER,
+    assignment_id INTEGER,
     teacher_id INTEGER,
     student_name VARCHAR(100),
-    subject VARCHAR(100) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
     file_path TEXT NOT NULL,
     file_content TEXT,
     file_type VARCHAR(100) DEFAULT 'application/octet-stream',
@@ -61,6 +62,33 @@ CREATE INDEX IF NOT EXISTS idx_posted_assignments_teacher_created
     ON posted_assignments (teacher_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_posted_assignments_target_created
     ON posted_assignments (grade_level, strand, section, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_submissions_student_subject
+    ON submissions (student_id, subject);
+CREATE INDEX IF NOT EXISTS idx_submissions_student_subject_normalized
+    ON submissions (student_id, LOWER(TRIM(subject)))
+    WHERE assignment_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_submissions_student_assignment_unique
+    ON submissions (student_id, assignment_id)
+    WHERE assignment_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS submission_deletion_audit (
+    id BIGSERIAL PRIMARY KEY,
+    submission_id INTEGER,
+    existing_submission_id INTEGER,
+    student_id INTEGER,
+    assignment_id INTEGER,
+    subject VARCHAR(255),
+    file_path TEXT,
+    file_removed SMALLINT NOT NULL DEFAULT 0,
+    event VARCHAR(100) NOT NULL DEFAULT 'submission_file_deleted',
+    reason VARCHAR(100) NOT NULL,
+    actor_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_submission_deletion_audit_student
+    ON submission_deletion_audit (student_id, created_at);
 
 -- Jobs table (kept for compatibility)
 CREATE TABLE IF NOT EXISTS jobs (

@@ -55,10 +55,13 @@ CREATE TABLE IF NOT EXISTS `students` (
 CREATE TABLE IF NOT EXISTS `submissions` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `student_id` INT(11) DEFAULT NULL,
+    `assignment_id` INT(11) DEFAULT NULL,
     `teacher_id` INT(11) DEFAULT NULL,
     `student_name` VARCHAR(100) DEFAULT NULL,
-    `subject` VARCHAR(100) NOT NULL,
+    `subject` VARCHAR(255) NOT NULL,
     `file_path` VARCHAR(255) NOT NULL,
+    `file_content` LONGTEXT,
+    `file_type` VARCHAR(100) DEFAULT 'application/octet-stream',
     `marks` VARCHAR(10) DEFAULT NULL,
     `remarks` TEXT DEFAULT NULL,
     `submission_date` DATE NOT NULL,
@@ -66,8 +69,26 @@ CREATE TABLE IF NOT EXISTS `submissions` (
     PRIMARY KEY (`id`),
     KEY `student_id` (`student_id`),
     KEY `teacher_id` (`teacher_id`),
+    UNIQUE KEY `idx_submissions_student_assignment_unique` (`student_id`, `assignment_id`),
     CONSTRAINT `submissions_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE SET NULL,
     CONSTRAINT `submissions_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `submission_deletion_audit` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `submission_id` INT(11) DEFAULT NULL,
+    `existing_submission_id` INT(11) DEFAULT NULL,
+    `student_id` INT(11) DEFAULT NULL,
+    `assignment_id` INT(11) DEFAULT NULL,
+    `subject` VARCHAR(255) DEFAULT NULL,
+    `file_path` TEXT,
+    `file_removed` SMALLINT NOT NULL DEFAULT 0,
+    `event` VARCHAR(100) NOT NULL DEFAULT 'submission_file_deleted',
+    `reason` VARCHAR(100) NOT NULL,
+    `actor_id` INT(11) DEFAULT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_submission_deletion_audit_student` (`student_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------
@@ -81,6 +102,8 @@ CREATE TABLE IF NOT EXISTS `posted_assignments` (
     `title` VARCHAR(255) NOT NULL,
     `description` TEXT DEFAULT NULL,
     `file_path` VARCHAR(255) NOT NULL,
+    `file_content` LONGTEXT,
+    `file_type` VARCHAR(100) DEFAULT 'application/octet-stream',
     `grade_level` VARCHAR(50) NOT NULL,
     `section` VARCHAR(50) NOT NULL,
     `strand` VARCHAR(50) DEFAULT 'Academic',

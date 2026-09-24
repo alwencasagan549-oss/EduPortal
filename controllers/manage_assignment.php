@@ -51,6 +51,14 @@ try {
         $pdo->beginTransaction();
 
         try {
+            $lockStmt = $conn->prepare('SELECT id FROM posted_assignments WHERE id = ? FOR UPDATE');
+            $lockStmt->execute([$assignmentId]);
+            if ($lockStmt->fetchColumn() === false) {
+                $pdo->rollBack();
+                assignment_flash('error', 'That assignment was not found or is no longer available.');
+                assignment_redirect('../teacher/assignments.php');
+            }
+
             $deleteStmt = $conn->prepare('DELETE FROM posted_assignments WHERE id = ? AND teacher_id = ? RETURNING file_path');
             $deleteStmt->execute([$assignmentId, $teacherId]);
             $deletedPath = $deleteStmt->fetchColumn();

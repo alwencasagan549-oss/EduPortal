@@ -1,0 +1,61 @@
+{
+  "name": "EduPortal LMS",
+  "short_name": "EduPortal",
+  "description": "A secure learning and assignment portal for teachers and students.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0a0b10",
+  "background_color": "#0a0b10",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "assets/pwa-icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/pwa-icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/pwa-icon-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Student login",
+      "short_name": "Student",
+      "url": "student/login.php",
+      "icons": [
+        {
+          "src": "assets/pwa-icon-192.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Teacher login",
+      "short_name": "Teacher",
+      "url": "teacher/login.php",
+      "icons": [
+        {
+          "src": "assets/pwa-icon-192.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
