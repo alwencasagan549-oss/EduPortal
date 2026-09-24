@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_id'] = $student['id'];
                 $_SESSION['user_name'] = $student['name'];
                 $_SESSION['user_lrn'] = $student['lrn'];
+                $_SESSION['user_email'] = $student['email'];
                 $_SESSION['user_grade'] = $student['grade_level'];
                 $_SESSION['user_section'] = $student['section'];
                 $_SESSION['user_strand'] = $student['strand'] ?? 'Academic';

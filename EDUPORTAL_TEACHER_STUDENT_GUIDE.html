@@ -13,6 +13,32 @@
             margin: 0 auto;
             padding: 40px;
         }
+        .guide-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: -40px -40px 28px;
+            padding: 1rem 2.5rem;
+            background: #1a3c6c;
+            color: #fff;
+        }
+        .guide-nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .guide-nav a:hover,
+        .guide-nav a:focus-visible {
+            text-decoration: underline;
+        }
+        .guide-nav span {
+            font-weight: 700;
+        }
+        @media print {
+            .guide-nav { display: none; }
+        }
         h1 {
             font-size: 24pt;
             color: #1a3c6c;
@@ -117,6 +143,11 @@
     </style>
 </head>
 <body>
+<nav class="guide-nav" aria-label="Guide navigation">
+    <a href="index.php">EduPortal Home</a>
+    <span>Teacher &amp; Student Guide</span>
+    <span><a href="student/login.php">Student Login</a> · <a href="teacher/login.php">Teacher Login</a></span>
+</nav>
 
 <h1>Eduportal &mdash; Teacher &amp; Student User Guide</h1>
 
@@ -464,7 +495,7 @@
     <tr>
         <td><strong>Profile</strong></td>
         <td>Edit name, email, subject, password</td>
-        <td>No profile page (update at registration)</td>
+        <td>View account details</td>
     </tr>
     <tr>
         <td><strong>Email Notifications</strong></td>
