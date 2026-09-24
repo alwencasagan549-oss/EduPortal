@@ -40,12 +40,29 @@ function renderPortalNav(array $pages, string $currentPage, array $identity, str
                     <div class="user-status"><i class="<?php echo htmlspecialchars($statusIcon, ENT_QUOTES, 'UTF-8'); ?>" aria-hidden="true" style="font-size: 0.5rem"></i> <?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
             </div>
-            <form method="POST" action="../logout.php" style="display:inline;" onsubmit="return EduPortal.confirmLogout(this)">
+            <form method="POST" action="../logout.php" style="display:inline;" data-loader="true" data-logout-confirm="true">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                 <button type="submit" class="logout-link">
                     <i class="<?php echo htmlspecialchars($logoutIcon, ENT_QUOTES, 'UTF-8'); ?>" aria-hidden="true"></i> Logout
                 </button>
             </form>
+            <script>
+                document.addEventListener('submit', event => {
+                    const form = event.target;
+                    if (!(form instanceof HTMLFormElement) || form.dataset.logoutConfirm !== 'true') {
+                        return;
+                    }
+                    if (form.dataset.logoutConfirmed === 'true') {
+                        return;
+                    }
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    if (window.confirm('Log out of EduPortal?')) {
+                        form.dataset.logoutConfirmed = 'true';
+                        form.submit();
+                    }
+                }, true);
+            </script>
         </div>
     </aside>
 <?php
