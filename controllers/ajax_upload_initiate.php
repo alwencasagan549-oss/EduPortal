@@ -5,13 +5,20 @@
  */
 require_once __DIR__ . '/../config/database.php';
 
-if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
+$autoloadPath = __DIR__ . '/../vendor/autoload.php';
+if (!is_file($autoloadPath)) {
     header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Server configuration error: object storage SDK not installed. Run composer install.']);
     exit();
 }
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once $autoloadPath;
+if (!class_exists(\Aws\S3\S3Client::class)) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Server configuration error: Cloudflare R2 S3 SDK is not installed.']);
+    exit();
+}
+
 require_once __DIR__ . '/../src/ObjectStorageService.php';
 
 use EduPortal\ObjectStorageService;
