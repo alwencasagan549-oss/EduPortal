@@ -13,7 +13,7 @@ $sql = "CREATE TABLE IF NOT EXISTS posted_assignments (
     subject VARCHAR(255) NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    file_path VARCHAR(255) NOT NULL,
+    file_path TEXT NOT NULL,
     grade_level VARCHAR(50) NOT NULL,
     strand VARCHAR(50) NOT NULL,
     section VARCHAR(50) NOT NULL,

@@ -52,9 +52,7 @@ if ($file['size'] > $max_size) {
     exit();
 }
 
-// Sanitize filename
-$safe_filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $file['name']);
-$new_filename = time() . '_' . preg_replace('/[^a-zA-Z0-9]/', '_', $student_name) . '_' . $safe_filename;
+$new_filename = time() . '_' . bin2hex(random_bytes(8)) . '.' . $file_ext;
 $upload_path = 'uploads/' . $new_filename;
 
 // Create uploads directory if it doesn't exist

@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
         
-        $new_filename = time() . "_" . preg_replace("/[^a-zA-Z0-9]/", "_", $teacher_name) . "_" . $file['name'];
+        $new_filename = time() . '_' . bin2hex(random_bytes(8)) . '.' . $file_ext;
         $file_path = $upload_dir . $new_filename;
 
         if (move_uploaded_file($file['tmp_name'], $file_path)) {
