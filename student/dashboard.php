@@ -28,6 +28,13 @@ if (isset($historyColumns['assignment_id'])) {
 $stmt = $conn->prepare("SELECT {$historySelect} FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC");
 $stmt->execute([$student_id]);
 $submissions = $stmt->get_result()->fetch_all();
+$submittedAssignmentIds = [];
+foreach ($submissions as $submission) {
+    $submittedAssignmentId = assignment_id($submission['assignment_id'] ?? null);
+    if ($submittedAssignmentId !== null) {
+        $submittedAssignmentIds[$submittedAssignmentId] = true;
+    }
+}
 
 // Get broadcasted assignments for this student's group
 $student_grade = $_SESSION['user_grade'] ?? '';
@@ -295,6 +302,7 @@ require_once __DIR__ . '/nav.php';
                             $assignmentSubject = (string) ($assignment['subject'] ?? 'General');
                             $assignmentTeacher = (string) ($assignment['teacher_name'] ?? 'Your teacher');
                             $assignmentDescription = trim((string) ($assignment['description'] ?? ''));
+                            $isSubmitted = isset($submittedAssignmentIds[$assignmentId]);
                             $createdTimestamp = strtotime((string) ($assignment['created_at'] ?? ''));
                             $createdTimestamp = $createdTimestamp === false ? time() : $createdTimestamp;
                             ?>
@@ -323,9 +331,16 @@ require_once __DIR__ . '/nav.php';
                                     <a href="../controllers/download_assignment.php?id=<?php echo $assignmentId; ?>" class="premium-btn premium-btn-primary student-assignment-item__action" aria-label="Download <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?> from <?php echo htmlspecialchars($assignmentTeacher, ENT_QUOTES, 'UTF-8'); ?>" download>
                                         <i class="fas fa-download" aria-hidden="true"></i> Get copy
                                     </a>
-                                    <button type="button" class="premium-btn premium-btn-outline js-open-submission" data-assignment-id="<?php echo $assignmentId; ?>" data-subject="<?php echo rawurlencode($assignmentSubject); ?>" data-title="<?php echo rawurlencode($assignmentTitle); ?>" aria-label="Submit work for <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?>" aria-haspopup="dialog">
-                                        <i class="fas fa-paper-plane" aria-hidden="true"></i> Submit
-                                    </button>
+                                    <?php if ($isSubmitted): ?>
+                                        <span class="premium-badge badge-green" style="display: inline-flex; align-items: center; gap: 0.45rem;" role="status" aria-label="Submitted">
+                                            <span aria-hidden="true" style="width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);"></span>
+                                            Submitted
+                                        </span>
+                                    <?php else: ?>
+                                        <button type="button" class="premium-btn premium-btn-outline js-open-submission" data-assignment-id="<?php echo $assignmentId; ?>" data-subject="<?php echo rawurlencode($assignmentSubject); ?>" data-title="<?php echo rawurlencode($assignmentTitle); ?>" aria-label="Submit work for <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?>" aria-haspopup="dialog">
+                                            <i class="fas fa-paper-plane" aria-hidden="true"></i> Submit
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                             </article>
                         <?php endforeach; ?>
