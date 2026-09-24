@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = $_POST['password'] ?? '';
         
         $conn = getDBConnection();
-        $stmt = $conn->prepare("SELECT id, name, email, subject, password FROM teachers WHERE email = ? AND subject = ?");
+        $stmt = $conn->prepare("SELECT id, name, email, subject, password FROM teachers WHERE email = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?))");
         $stmt->execute([$email, $subject]);
         $result = $stmt->get_result();
 
