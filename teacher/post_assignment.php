@@ -33,14 +33,14 @@ require_once __DIR__ . '/nav.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post Assignment | EduPortal Teacher</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <meta name="csrf-token" content="<?php echo csrf_token(); ?>">
 </head>
@@ -106,7 +106,7 @@ require_once __DIR__ . '/nav.php';
 
                     <div style="margin-bottom: 3rem;">
                         <label class="premium-label">Assignment Soft Copy (PDF, Word, etc.)</label>
-                        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" style="margin-top: 1rem; position: relative;">
+                        <div class="upload-zone" id="dropZone" role="button" tabindex="0" style="margin-top: 1rem; position: relative;">
                             <input type="file" id="fileInput" name="assignment_file" style="display: none;" accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png,.mp4,.txt">
                             <div id="uploadEmptyState" class="upload-empty-state">
                                 <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem; opacity: 0.6;"></i>
@@ -125,11 +125,11 @@ require_once __DIR__ . '/nav.php';
         </main>
     </div>
 
-    <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
     <script type="module">
-        import { UploadManager } from '../assets/js/uploads/index.js';
+        import { UploadManager } from '../assets/js/uploads/index.js?v=20260924-uploads3';
 
         const uploadManager = new UploadManager(document.body, {
             dropZoneSelector: '#dropZone',
@@ -140,136 +140,219 @@ require_once __DIR__ . '/nav.php';
 
         window.uploadManager = uploadManager;
 
-        document.getElementById('postAssignmentForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
+        const postAssignmentForm = document.getElementById('postAssignmentForm');
+        const publishButton = postAssignmentForm.querySelector('button[type="submit"]');
+        const assignmentSection = document.getElementById('sectionSelect');
+        const publishStatus = document.getElementById('statusAlert');
+        let publishController = null;
 
-            const queue = uploadManager.getQueue();
-            const completed = queue.filter(u => u.state === 'completed');
+        const showPublishStatus = (message, type = 'danger') => {
+            publishStatus.replaceChildren();
+            if (!message) {
+                return;
+            }
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} animate-fade-up`;
+            alert.setAttribute('role', 'alert');
+            alert.textContent = message;
+            publishStatus.appendChild(alert);
+        };
 
-            if (completed.length === 0) {
-                const statusAlert = document.getElementById('statusAlert');
-                statusAlert.innerHTML = `
-                    <div class="alert alert-danger animate-fade-up">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <div>Please upload and complete at least one file before publishing.</div>
-                    </div>
-                `;
+        document.body.addEventListener('upload:onValidationError', event => {
+            showPublishStatus(event.detail.error || 'The selected file is not valid.');
+        });
+        document.body.addEventListener('upload:onUploadError', event => {
+            showPublishStatus(event.detail.error || 'The file upload failed.');
+        });
+
+        postAssignmentForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            if (this.dataset.submitting === 'true') {
+                return;
+            }
+            if (!assignmentSection || assignmentSection.disabled || !assignmentSection.value) {
+                event.preventDefault();
+                EduPortal.hideLoader();
+                showPublishStatus('Select an available section before publishing.');
                 return;
             }
 
+            const completed = uploadManager.getQueue().filter(upload => upload.state === 'completed');
+            if (completed.length === 0) {
+                EduPortal.hideLoader();
+                showPublishStatus('Please upload and complete at least one file before publishing.');
+                return;
+            }
+
+            this.dataset.submitting = 'true';
+            publishButton.disabled = true;
+            publishButton.setAttribute('aria-busy', 'true');
+            showPublishStatus('');
+
             const formData = new FormData(this);
-            const upload = completed[0];
-
-            formData.set('assignment_file', upload.file);
-
-            EduPortal.showLoader("Publishing Content", "Uploading assignment and notifying students...");
+            formData.set('assignment_file', completed[0].file);
+            const controller = new AbortController();
+            publishController = controller;
+            const timeout = window.setTimeout(() => controller.abort(), 90000);
+            EduPortal.showLoader('Publishing assignment', 'Notifying students and preparing the assignment...', { timeout: 120000 });
 
             try {
                 const response = await fetch('../controllers/ajax_post_assignment.php', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    signal: controller.signal
                 });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    EduPortal.showSuccessModal("Assignment Published", `${data.total_notified} students have been notified.`);
-                    this.reset();
-                    document.getElementById('uploadQueue').innerHTML = '';
-                    document.getElementById('uploadEmptyState').style.display = 'block';
-                } else {
-                    EduPortal.hideLoader();
-                    const statusAlert = document.getElementById('statusAlert');
-                    statusAlert.innerHTML = `
-                        <div class="alert alert-danger animate-fade-up">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <div>${data.error || "Failed to publish assignment."}</div>
-                        </div>
-                    `;
+                const contentType = response.headers.get('content-type') || '';
+                if (response.redirected || !contentType.includes('application/json')) {
+                    const error = new Error('Your session has expired. Sign in again to continue.');
+                    error.sessionExpired = true;
+                    throw error;
                 }
-            } catch (err) {
+                const data = await response.json().catch(() => {
+                    throw new Error('The server returned an invalid response.');
+                });
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to publish assignment.');
+                }
+                uploadManager.clear();
+                this.reset();
+                EduPortal.showSuccessModal('Assignment Published', `${data.total_notified} students have been notified.`);
+            } catch (error) {
                 EduPortal.hideLoader();
-                const statusAlert = document.getElementById('statusAlert');
-                statusAlert.innerHTML = `
-                    <div class="alert alert-danger animate-fade-up">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <div><strong>Server Error</strong> — check console for details.</div>
-                    </div>
-                `;
-                console.error('Assignment publish failed:', err);
+                showPublishStatus(error.name === 'AbortError'
+                    ? 'Publishing timed out. Check your connection and try again.'
+                    : error.sessionExpired
+                        ? error.message
+                        : (error.message || 'The assignment could not be published.'));
+            } finally {
+                window.clearTimeout(timeout);
+                if (publishController === controller) {
+                    publishController = null;
+                }
+                this.dataset.submitting = 'false';
+                publishButton.disabled = !assignmentSection || assignmentSection.disabled || !assignmentSection.value;
+                publishButton.removeAttribute('aria-busy');
             }
+        });
+
+        window.addEventListener('pagehide', () => {
+            publishController?.abort();
+            uploadManager.clear();
         });
     </script>
 
     <script>
-        document.getElementById('gradeLevelSelect').addEventListener('change', function() {
-            const grade = this.value;
-            const strand = document.getElementById('strandSelect').value;
-            const sectionSelect = document.getElementById('sectionSelect');
+        const gradeLevelSelect = document.getElementById('gradeLevelSelect');
+        const strandSelect = document.getElementById('strandSelect');
+        const sectionSelect = document.getElementById('sectionSelect');
+        let sectionRequestController = null;
+        let sectionRequestId = 0;
 
-            sectionSelect.innerHTML = '<option value="">Loading Sections...</option>';
+        const updatePublishButton = () => {
+            publishButton.disabled = postAssignmentForm.dataset.submitting === 'true' ||
+                !sectionSelect.value ||
+                sectionSelect.disabled;
+        };
+
+        publishButton.disabled = true;
+
+        async function loadSections() {
+            const requestId = ++sectionRequestId;
+            sectionRequestController?.abort();
+            sectionSelect.replaceChildren();
             sectionSelect.disabled = true;
+            sectionSelect.setAttribute('aria-busy', 'true');
+            publishButton.disabled = true;
+            publishButton.setAttribute('aria-busy', 'true');
 
+            const grade = gradeLevelSelect.value;
+            const strand = strandSelect.value;
             if (!grade || !strand) {
                 sectionSelect.innerHTML = '<option value="">Select Grade & Strand First</option>';
+                sectionSelect.removeAttribute('aria-busy');
+                publishButton.removeAttribute('aria-busy');
+                updatePublishButton();
                 return;
             }
 
-            fetch(`../controllers/ajax_get_sections_by_grade.php?grade_level=${encodeURIComponent(grade)}&strand=${encodeURIComponent(strand)}`)
-                .then(res => res.json())
-                .then(sections => {
-                    sectionSelect.innerHTML = '<option value="">Select Section</option>';
-                    if (sections.length > 0) {
-                        sections.forEach(s => {
-                            const opt = document.createElement('option');
-                            opt.value = s;
-                            opt.textContent = s;
-                            sectionSelect.appendChild(opt);
-                        });
-                        sectionSelect.disabled = false;
-                    } else {
-                        sectionSelect.innerHTML = '<option value="">No Sections Available</option>';
-                    }
-                })
-                .catch(err => {
-                    console.error("Section Fetch Error:", err);
-                    sectionSelect.innerHTML = '<option value="">Error loading sections</option>';
+            const loadingOption = document.createElement('option');
+            loadingOption.value = '';
+            loadingOption.textContent = 'Loading sections...';
+            sectionSelect.appendChild(loadingOption);
+
+            const controller = new AbortController();
+            sectionRequestController = controller;
+            const timeout = window.setTimeout(() => controller.abort(), 15000);
+
+            try {
+                const query = new URLSearchParams({ grade_level: grade, strand });
+                const response = await fetch('../controllers/ajax_get_sections_by_grade.php?' + query.toString(), {
+                    cache: 'no-store',
+                    headers: { Accept: 'application/json' },
+                    signal: controller.signal
                 });
-        });
+                const contentType = response.headers.get('content-type') || '';
+                if (response.redirected || !contentType.includes('application/json')) {
+                    const error = new Error('Your session has expired. Sign in again to continue.');
+                    error.sessionExpired = true;
+                    throw error;
+                }
+                const sections = await response.json().catch(() => {
+                    throw new Error('Sections could not be loaded.');
+                });
+                if (!response.ok || !Array.isArray(sections)) {
+                    throw new Error('Sections could not be loaded.');
+                }
+                if (requestId !== sectionRequestId) {
+                    return;
+                }
 
-        document.getElementById('strandSelect').addEventListener('change', function() {
-            const grade = document.getElementById('gradeLevelSelect').value;
-            const strand = this.value;
-            const sectionSelect = document.getElementById('sectionSelect');
+                sectionSelect.replaceChildren();
+                if (sections.length === 0) {
+                    const emptyOption = document.createElement('option');
+                    emptyOption.value = '';
+                    emptyOption.textContent = 'No Sections Available';
+                    sectionSelect.appendChild(emptyOption);
+                    return;
+                }
 
-            sectionSelect.innerHTML = '<option value="">Loading Sections...</option>';
-            sectionSelect.disabled = true;
-
-            if (!grade || !strand) {
-                sectionSelect.innerHTML = '<option value="">Select Grade & Strand First</option>';
-                return;
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select Section';
+                sectionSelect.appendChild(defaultOption);
+                sections.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    sectionSelect.appendChild(option);
+                });
+                sectionSelect.disabled = false;
+                updatePublishButton();
+            } catch (error) {
+                if (requestId !== sectionRequestId) {
+                    return;
+                }
+                if (error.name === 'AbortError') {
+                    sectionSelect.innerHTML = '<option value="">Sections timed out. Try again.</option>';
+                } else {
+                    sectionSelect.innerHTML = `<option value="">${error.sessionExpired ? 'Session expired. Sign in again.' : 'Unable to load sections'}</option>`;
+                }
+            } finally {
+                window.clearTimeout(timeout);
+                if (requestId === sectionRequestId) {
+                    sectionSelect.removeAttribute('aria-busy');
+                    publishButton.removeAttribute('aria-busy');
+                    sectionRequestController = null;
+                }
             }
+        }
 
-            fetch(`../controllers/ajax_get_sections_by_grade.php?grade_level=${encodeURIComponent(grade)}&strand=${encodeURIComponent(strand)}`)
-                .then(res => res.json())
-                .then(sections => {
-                    sectionSelect.innerHTML = '<option value="">Select Section</option>';
-                    if (sections.length > 0) {
-                        sections.forEach(s => {
-                            const opt = document.createElement('option');
-                            opt.value = s;
-                            opt.textContent = s;
-                            sectionSelect.appendChild(opt);
-                        });
-                        sectionSelect.disabled = false;
-                    } else {
-                        sectionSelect.innerHTML = '<option value="">No Sections Available</option>';
-                    }
-                })
-                .catch(err => {
-                    console.error("Section Fetch Error:", err);
-                    sectionSelect.innerHTML = '<option value="">Error loading sections</option>';
-                });
+        gradeLevelSelect.addEventListener('change', loadSections);
+        strandSelect.addEventListener('change', loadSections);
+        sectionSelect.addEventListener('change', updatePublishButton);
+        window.addEventListener('pagehide', () => {
+            sectionRequestId += 1;
+            sectionRequestController?.abort();
         });
     </script>
 </body>

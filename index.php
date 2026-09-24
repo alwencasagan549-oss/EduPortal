@@ -12,12 +12,15 @@ $total_students = 0;
 $stats_available = true;
 try {
     $conn = getDBConnection();
-    $res1 = $conn->query("SELECT COUNT(*) as count FROM submissions");
-    $total_submissions = $res1 ? ($res1->fetch_assoc()['count'] ?? 0) : 0;
-    $res2 = $conn->query("SELECT COUNT(*) as count FROM teachers");
-    $total_teachers = $res2 ? ($res2->fetch_assoc()['count'] ?? 0) : 0;
-    $res3 = $conn->query("SELECT COUNT(*) as count FROM students");
-    $total_students = $res3 ? ($res3->fetch_assoc()['count'] ?? 0) : 0;
+    $stats = $conn->query(
+        'SELECT (SELECT COUNT(*) FROM submissions) AS submissions,
+                (SELECT COUNT(*) FROM teachers) AS teachers,
+                (SELECT COUNT(*) FROM students) AS students'
+    );
+    $statsRow = $stats ? $stats->fetch_assoc() : [];
+    $total_submissions = (int) ($statsRow['submissions'] ?? 0);
+    $total_teachers = (int) ($statsRow['teachers'] ?? 0);
+    $total_students = (int) ($statsRow['students'] ?? 0);
 } catch (Throwable $e) {
     $stats_available = false;
 }
@@ -31,15 +34,19 @@ try {
     <meta name="description" content="EduPortal LMS for Ruben E. Ecleo Sr. National High School. Manage assignments, grading, and classroom workflows online.">
     <title>EduPortal LMS | Ruben E. Ecleo Sr. National High School</title>
     <link rel="canonical" href="https://reesnhs.l.cd/">
-    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <script src="assets/js/trusted_types.js"></script>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -62,6 +69,7 @@ try {
 </head>
 
 <body style="overflow-x: hidden;">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <!-- Premium Background Decoration (Blobs) -->
     <div class="blob-container">
         <div class="floating-blob blob-1"></div>
@@ -149,9 +157,10 @@ try {
         </div>
     </aside>
 
+    <main id="main-content">
     <!-- Hero Section -->
     <section class="section-container" style="text-align: center; position: relative; padding-top: 4rem;">
-        <div style="max-width: 1000px; margin: 0 auto;" class="animate-fade-up">
+        <div style="max-width: 1000px; margin: 0 auto;">
             <span class="premium-badge badge-blue" style="margin-bottom: 2rem;">Ruben E. Ecleo Sr. National High School Edition</span>
             <h1
                 style="font-size: clamp(2.2rem, 8vw, 4.5rem); font-weight: 800; line-height: 1.1; margin-bottom: 1.5rem; letter-spacing: -2px;">
@@ -176,7 +185,7 @@ try {
             </div>
 
             <!-- Dashboard Preview (Modernized) -->
-            <div class="glass-card-premium animate-float glow-border"
+            <div class="glass-card-premium glow-border"
                 style="padding: 1rem; max-width: 1050px; margin: 0 auto; overflow: hidden;">
                 <div
                     style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0.8rem 1.5rem; margin-bottom: 1rem;">
@@ -200,9 +209,10 @@ try {
                 </div>
 
                 <div
-                    style="position: relative; border-radius: 16px; overflow: hidden; min-height: 300px; max-height: 580px; background: #000; box-shadow: inset 0 0 100px rgba(78, 115, 223, 0.1);">
-                    <img src="assets/dashboard_modern.png?v=1.1" alt="EduPortal Premium Dashboard"
-                        style="width: 100%; height: 100%; object-fit: cover; opacity: 0.95;">
+                    style="position: relative; border-radius: 16px; overflow: hidden; aspect-ratio: 16 / 10; min-height: 300px; max-height: 580px; background: #000; box-shadow: inset 0 0 100px rgba(78, 115, 223, 0.1);">
+                     <img src="assets/dashboard_modern.png?v=1.1" width="1024" height="1024" sizes="(max-width: 1050px) 100vw, 1050px" alt="EduPortal Premium Dashboard"
+                         loading="lazy" decoding="async"
+                         style="width: 100%; height: 100%; object-fit: cover; opacity: 0.95;">
                     <div
                         style="position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 60%, rgba(10, 11, 16, 0.8));">
                     </div>
@@ -278,19 +288,19 @@ try {
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
             <div class="step-card">
                 <div class="step-number">1</div>
-                <h4 style="font-size: 1.25rem; margin-bottom: 1rem;">Onboard</h4>
+                <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Onboard</h3>
                 <p style="color: var(--text-muted); font-size: 0.95rem;">Students and teachers create accounts with
                     verified credentials in seconds.</p>
             </div>
             <div class="step-card">
                 <div class="step-number">2</div>
-                <h4 style="font-size: 1.25rem; margin-bottom: 1rem;">Deploy</h4>
+                <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Deploy</h3>
                 <p style="color: var(--text-muted); font-size: 0.95rem;">Students upload their assignments directly to
                     their specific subject portals.</p>
             </div>
             <div class="step-card">
                 <div class="step-number">3</div>
-                <h4 style="font-size: 1.25rem; margin-bottom: 1rem;">Assess</h4>
+                <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Assess</h3>
                 <p style="color: var(--text-muted); font-size: 0.95rem;">Teachers view submissions and assign grades
                     with rich feedback tools.</p>
             </div>
@@ -345,6 +355,7 @@ try {
             </div>
         </div>
     </section>
+    </main>
 
     <!-- Sign Up Selection Modal -->
     <div id="signupModal" class="loader-overlay" style="display: none; background: rgba(10, 11, 16, 0.9);">
@@ -384,7 +395,7 @@ try {
                     management with human-centric design at reesnhs.</p>
             </div>
             <div>
-                <h4 style="margin-bottom: 1.2rem; font-weight: 700; font-size: 1rem;">Core Framework</h4>
+                <h2 style="margin-bottom: 1.2rem; font-weight: 700; font-size: 1rem;">Core Framework</h2>
                 <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.8rem;">
                     <li style="color: var(--text-muted); font-size: 0.9rem;"><i class="fab fa-html5"
                             style="margin-right: 8px; color: #e34c26;"></i> HTML5 / CSS3</li>
@@ -411,9 +422,9 @@ try {
             </div>
         </div>
     </footer>
-    <script src="assets/js/system_loader.js"></script>
-    <script src="assets/js/responsive_ui.js"></script>
-    <script src="assets/js/pwa.js"></script>
+    <script src="assets/js/system_loader.js?v=20260924-loader3" defer></script>
+    <script src="assets/js/responsive_ui.js" defer></script>
+    <script src="assets/js/pwa.js" defer></script>
 </body>
 
 </html>

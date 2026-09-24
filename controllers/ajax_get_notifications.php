@@ -7,8 +7,10 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../libs/NotificationManager.php';
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 if (!isLoggedIn()) {
+    http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit();
 }
@@ -29,5 +31,6 @@ if ($action === 'count') {
     NotificationManager::markAllAsRead($user_id);
     echo json_encode(['success' => true]);
 } else {
+    http_response_code(400);
     echo json_encode(['error' => 'Invalid action']);
 }

@@ -39,15 +39,18 @@ require_once __DIR__ . '/nav.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Profile | EduPortal LMS</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -68,9 +71,9 @@ require_once __DIR__ . '/nav.php';
 
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;">
                 <div class="glass-card" style="padding: 2.5rem;">
-                    <h3 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px;">
+                    <h2 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px;">
                         <i class="fas fa-id-card" style="color: var(--primary-color)"></i> Account Information
-                    </h3>
+                    </h2>
 
                     <div style="margin-bottom: 1.5rem;">
                         <label for="student-name" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Full Name</label>
@@ -103,9 +106,9 @@ require_once __DIR__ . '/nav.php';
                     </div>
 
                     <div style="border-top: 1px solid var(--glass-border); padding-top: 2rem;">
-                        <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
+                        <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
                             <i class="fas fa-shield-halved" style="color: var(--primary-color)"></i> Security
-                        </h3>
+                        </h2>
                         <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
                             For security reasons, password changes must be requested through your teacher or system administrator.
                         </p>
@@ -140,7 +143,7 @@ require_once __DIR__ . '/nav.php';
                     </div>
 
                     <div class="glass-card" style="padding: 1.5rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%);">
-                        <h4 style="margin-bottom: 1rem; color: var(--success-color);"><i class="fas fa-chart-line" style="margin-right: 8px;"></i> Your Stats</h4>
+                        <h3 style="margin-bottom: 1rem; color: var(--success-color);"><i class="fas fa-chart-line" style="margin-right: 8px;"></i> Your Stats</h3>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; text-align: center;">
                             <div>
                                 <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);"><?php echo $total_submissions; ?></div>
@@ -164,7 +167,7 @@ require_once __DIR__ . '/nav.php';
             </div>
         </main>
     </div>
-    <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>

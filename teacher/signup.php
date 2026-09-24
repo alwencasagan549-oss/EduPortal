@@ -52,18 +52,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Registration | EduPortal LMS</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 </head>
 <body class="auth-page">
-    <div class="auth-card" style="max-width: 550px;">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <main class="auth-card" id="main-content" style="max-width: 550px;">
         <div class="auth-logo">
             <div class="sidebar-logo" style="margin: 0 auto 1.5rem; width: 60px; height: 60px;">
                 <i class="fas fa-user-plus" style="font-size: 1.5rem;"></i>
@@ -84,28 +88,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Full Name</label>
-                    <input type="text" name="name" required class="premium-input" placeholder="Mr. John Doe">
+                    <label for="name" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Full Name</label>
+                    <input type="text" id="name" name="name" autocomplete="name" required class="premium-input" placeholder="Mr. John Doe">
                 </div>
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Professional Email</label>
-                    <input type="email" name="email" required class="premium-input" placeholder="john@school.com">
+                    <label for="email" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Professional Email</label>
+                    <input type="email" id="email" name="email" autocomplete="email" required class="premium-input" placeholder="john@school.com">
                 </div>
             </div>
             
             <div style="margin-bottom: 1.5rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Specialization / Subject</label>
-                <input type="text" name="subject" required class="premium-input" placeholder="Mathematics, Science, etc.">
+                <label for="subject" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Specialization / Subject</label>
+                <input type="text" id="subject" name="subject" autocomplete="organization-title" required class="premium-input" placeholder="Mathematics, Science, etc.">
             </div>
             
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Password</label>
-                    <input type="password" name="password" required class="premium-input" placeholder="••••••••">
+                    <label for="password" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Password</label>
+                    <input type="password" id="password" name="password" autocomplete="new-password" required class="premium-input" placeholder="••••••••">
                 </div>
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Confirm</label>
-                    <input type="password" name="confirm_password" required class="premium-input" placeholder="••••••••">
+                    <label for="confirm_password" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Confirm</label>
+                    <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" required class="premium-input" placeholder="••••••••">
                 </div>
             </div>
             
@@ -122,14 +126,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div style="margin-top: 2.5rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
                 <p>&copy; 2026 EduPortal. Web Developer: <strong id="_sys_v_auth"><a href="https://casagan.vercel.app/" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwin T. Casagan</a></strong></p>
                 <div style="margin-top: 1rem;">
-                    <a href="../index.php" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'" onclick="EduPortal.showLoader('Navigating...', 'Please wait while we redirect you.')">
+                    <a href="../index.php" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">
                         <i class="fas fa-arrow-left"></i> Home Page
                     </a>
                 </div>
             </div>
         </div>
-    </div>
-    <script src="../assets/js/system_loader.js"></script>
+    </main>
+    <script src="../assets/js/trusted_types.js"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>

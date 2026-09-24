@@ -149,7 +149,7 @@ if (!empty($filter_section)) {
     $params[] = "%$filter_section%";
 }
 
-$query .= " ORDER BY s.submitted_at DESC";
+$query .= " ORDER BY s.submitted_at DESC LIMIT 200";
 
 $stmt = $conn->prepare($query);
 $stmt->execute($params);
@@ -168,15 +168,18 @@ $pending_count = $total_submissions - $reviewed_count;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Dashboard | EduPortal LMS</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <style>
         .notification-item {
             padding: 0.85rem 1rem;
@@ -235,16 +238,16 @@ $pending_count = $total_submissions - $reviewed_count;
                         <input type="text" placeholder="Search student files...">
                     </div>
                     <div style="position: relative;">
-                        <button class="icon-button" id="notificationBell" style="position: relative;">
+                        <button type="button" class="icon-button" id="notificationBell" aria-label="Notifications" aria-expanded="false" aria-controls="notificationPanel" style="position: relative;">
                             <i class="fas fa-bell"></i>
                             <span id="notificationBadge" style="display: none; position: absolute; top: -4px; right: -4px; background: var(--danger-color); color: white; font-size: 0.65rem; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">0</span>
                         </button>
                         <div id="notificationPanel" style="display: none; position: absolute; top: 48px; right: 0; width: 360px; max-height: 480px; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); z-index: 1000; overflow: hidden;">
                             <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
-                                <h4 style="margin: 0; font-size: 1rem;">Notifications</h4>
-                                <button id="markAllRead" style="background: none; border: none; color: var(--primary-color); font-size: 0.8rem; cursor: pointer; font-weight: 600;">Mark all read</button>
+                                <h2 style="margin: 0; font-size: 1rem;">Notifications</h2>
+                                <button type="button" id="markAllRead" style="background: none; border: none; color: var(--primary-color); font-size: 0.8rem; cursor: pointer; font-weight: 600;">Mark all read</button>
                             </div>
-                            <div id="notificationList" style="max-height: 400px; overflow-y: auto; padding: 0.5rem;">
+                            <div id="notificationList" aria-live="polite" aria-busy="true" style="max-height: 400px; overflow-y: auto; padding: 0.5rem;">
                                 <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
                             </div>
                         </div>
@@ -425,21 +428,22 @@ $pending_count = $total_submissions - $reviewed_count;
                                                 <?php echo date('h:i A', strtotime($submission['submitted_at'])); ?></div>
                                         </td>
                                         <td>
-                                            <form method="POST" id="grade-form-<?php echo $submission['id']; ?>"
-                                                data-loader="true">
-                                                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                                                <input type="hidden" name="submission_id"
-                                                    value="<?php echo $submission['id']; ?>">
-                                                <input type="text" name="marks"
-                                                    value="<?php echo htmlspecialchars($submission['marks'] ?? ''); ?>"
-                                                    placeholder="Grade" class="premium-input" style="width: 80px;">
+                                            <input type="text" name="marks"
+                                                form="grade-form-<?php echo $submission['id']; ?>"
+                                                value="<?php echo htmlspecialchars($submission['marks'] ?? ''); ?>"
+                                                placeholder="Grade" class="premium-input" style="width: 80px;">
                                         </td>
                                         <td>
                                             <input type="text" name="remarks"
+                                                form="grade-form-<?php echo $submission['id']; ?>"
                                                 value="<?php echo htmlspecialchars($submission['remarks'] ?? ''); ?>"
                                                 placeholder="Add comments..." class="premium-input">
                                         </td>
                                         <td>
+                                            <form method="POST" id="grade-form-<?php echo $submission['id']; ?>" data-loader="true" hidden>
+                                                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                                <input type="hidden" name="submission_id" value="<?php echo $submission['id']; ?>">
+                                            </form>
                                             <div style="display: flex; gap: 8px;">
                                                 <?php if ($isGraded): ?>
                                                     <span class="premium-badge badge-green" style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.5rem 0.7rem;" role="status" aria-label="Graded">
@@ -487,7 +491,7 @@ $pending_count = $total_submissions - $reviewed_count;
             </footer>
         </main>
     </div>
-    <script src="../assets/js/system_loader.js?v=20260818"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
     <script>
@@ -496,80 +500,222 @@ $pending_count = $total_submissions - $reviewed_count;
         const notificationBadge = document.getElementById('notificationBadge');
         const notificationList = document.getElementById('notificationList');
         const markAllReadBtn = document.getElementById('markAllRead');
+        const notificationEndpoint = '../controllers/ajax_get_notifications.php';
+        let notificationRequest = null;
+        let notificationMutationPending = false;
+        let notificationPollTimer = null;
+        const activeNotificationControllers = new Set();
 
-        function loadNotifications() {
-            fetch('../controllers/ajax_get_notifications.php?action=list')
-                .then(r => r.json())
-                .then(data => {
-                    const notifications = data.notifications || [];
-                    notificationList.innerHTML = '';
-                    if (notifications.length === 0) {
-                        notificationList.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No notifications yet</div>';
-                        notificationBadge.style.display = 'none';
-                        return;
-                    }
-                    let unread = 0;
-                    notifications.forEach(n => {
-                        if (!n.is_read) unread++;
-                        const item = document.createElement('div');
-                        item.className = 'notification-item ' + (n.is_read ? 'read' : 'unread');
-                        item.innerHTML = '<div class="notification-title">' + escapeHtml(n.title) + '</div>' +
-                            '<div class="notification-message">' + escapeHtml(n.message || '') + '</div>' +
-                            '<div class="notification-time">' + formatDate(n.created_at) + '</div>';
-                        item.addEventListener('click', () => {
-                            fetch('../controllers/ajax_get_notifications.php?action=mark_read', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                                body: 'notification_id=' + n.id
-                            }).then(() => loadNotifications());
-                        });
-                        notificationList.appendChild(item);
-                    });
-                    if (unread > 0) {
-                        notificationBadge.textContent = unread > 99 ? '99+' : unread;
-                        notificationBadge.style.display = 'flex';
-                    } else {
-                        notificationBadge.style.display = 'none';
+        const setNotificationMessage = (message, isError = false) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = isError ? 'alert alert-danger' : 'notification-empty';
+            wrapper.setAttribute('role', isError ? 'alert' : 'status');
+            wrapper.textContent = message;
+            notificationList.replaceChildren(wrapper);
+        };
+
+        const escapeHtml = text => {
+            const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+            return String(text ?? '').replace(/[&<>"']/g, character => entities[character]);
+        };
+        const trustedHtml = markup => window.EduPortalTrustedTypes
+            ? window.EduPortalTrustedTypes.createHTML(markup)
+            : markup;
+
+        const formatDate = dateStr => {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        };
+
+        const requestNotifications = async (url, options = {}) => {
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 15000);
+            activeNotificationControllers.add(controller);
+            try {
+                const response = await fetch(url, { ...options, cache: 'no-store', signal: controller.signal });
+                const contentType = response.headers.get('content-type') || '';
+                if (response.redirected || !contentType.includes('application/json')) {
+                    const error = new Error('Your session has expired. Sign in again to continue.');
+                    error.sessionExpired = true;
+                    throw error;
+                }
+                const data = await response.json().catch(() => {
+                    const error = new Error('The server returned an invalid notification response.');
+                    error.sessionExpired = false;
+                    throw error;
+                });
+                if (!response.ok || data.error) {
+                    const error = new Error(data.error || `Request failed (${response.status})`);
+                    error.sessionExpired = response.status === 401;
+                    throw error;
+                }
+                return data;
+            } finally {
+                activeNotificationControllers.delete(controller);
+                window.clearTimeout(timeout);
+            }
+        };
+
+        const renderNotifications = notifications => {
+            notificationList.replaceChildren();
+            if (notifications.length === 0) {
+                setNotificationMessage('No notifications yet');
+                notificationBadge.style.display = 'none';
+                return;
+            }
+
+            let unread = 0;
+            notifications.forEach(notification => {
+                if (!notification.is_read) {
+                    unread += 1;
+                }
+                const item = document.createElement('div');
+                item.className = 'notification-item ' + (notification.is_read ? 'read' : 'unread');
+                item.setAttribute('role', 'button');
+                item.setAttribute('tabindex', '0');
+                item.setAttribute('aria-label', `Mark notification as read: ${notification.title}`);
+                item.innerHTML = trustedHtml('<div class="notification-title">' + escapeHtml(notification.title) + '</div>' +
+                    '<div class="notification-message">' + escapeHtml(notification.message) + '</div>' +
+                    '<div class="notification-time">' + escapeHtml(formatDate(notification.created_at)) + '</div>');
+                item.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        item.click();
                     }
                 });
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function formatDate(dateStr) {
-            const d = new Date(dateStr);
-            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        if (notificationBell) {
-            notificationBell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                notificationPanel.style.display = notificationPanel.style.display === 'none' ? 'block' : 'none';
-                if (notificationPanel.style.display === 'block') {
-                    loadNotifications();
-                }
+                item.addEventListener('click', async () => {
+                    if (item.dataset.pending === 'true' || notificationMutationPending) {
+                        return;
+                    }
+                    notificationMutationPending = true;
+                    item.dataset.pending = 'true';
+                    item.setAttribute('aria-busy', 'true');
+                    try {
+                        await requestNotifications(notificationEndpoint + '?action=mark_read', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: 'notification_id=' + encodeURIComponent(notification.id)
+                        });
+                        await loadNotifications({ showLoading: false });
+                    } catch (error) {
+                        setNotificationMessage(error.name === 'AbortError'
+                            ? 'Updating the notification timed out.'
+                            : error.sessionExpired
+                                ? error.message
+                                : 'The notification could not be updated.', true);
+                    } finally {
+                        notificationMutationPending = false;
+                        if (item.isConnected) {
+                            item.removeAttribute('data-pending');
+                            item.removeAttribute('aria-busy');
+                        }
+                    }
+                });
+                notificationList.appendChild(item);
             });
+
+            notificationBadge.textContent = unread > 99 ? '99+' : unread;
+            notificationBadge.style.display = unread > 0 ? 'flex' : 'none';
+        };
+
+        async function loadNotifications({ showLoading = true } = {}) {
+            if (notificationRequest) {
+                return notificationRequest;
+            }
+            if (showLoading) {
+                setNotificationMessage('Loading notifications...');
+            }
+            notificationList.setAttribute('aria-busy', 'true');
+            notificationRequest = requestNotifications(notificationEndpoint + '?action=list')
+                .then(data => renderNotifications(data.notifications || []))
+                .catch(error => {
+                    if (error.sessionExpired) {
+                        setNotificationMessage(error.message, true);
+                        return;
+                    }
+                    if (!showLoading && notificationList.childElementCount > 0) {
+                        return;
+                    }
+                    setNotificationMessage(error.name === 'AbortError'
+                        ? 'Loading notifications timed out.'
+                        : 'Notifications could not be loaded.', true);
+                })
+                .finally(() => {
+                    notificationList.removeAttribute('aria-busy');
+                    notificationRequest = null;
+                });
+            return notificationRequest;
         }
 
-        if (markAllReadBtn) {
-            markAllReadBtn.addEventListener('click', () => {
-                fetch('../controllers/ajax_get_notifications.php?action=mark_all_read', { method: 'POST' })
-                    .then(() => loadNotifications());
-            });
-        }
+        const scheduleNotificationPoll = (delay = 30000) => {
+            window.clearTimeout(notificationPollTimer);
+            if (!document.hidden) {
+                notificationPollTimer = window.setTimeout(async () => {
+                    if (!notificationMutationPending) {
+                        await loadNotifications({ showLoading: false });
+                    }
+                    scheduleNotificationPoll();
+                }, delay);
+            }
+        };
 
-        document.addEventListener('click', (e) => {
-            if (notificationPanel && !notificationPanel.contains(e.target) && e.target !== notificationBell) {
-                notificationPanel.style.display = 'none';
+        notificationBell?.addEventListener('click', event => {
+            event.stopPropagation();
+            const willOpen = notificationPanel.style.display === 'none';
+            notificationPanel.style.display = willOpen ? 'block' : 'none';
+            notificationBell.setAttribute('aria-expanded', String(willOpen));
+            if (willOpen) {
+                loadNotifications({ showLoading: true });
             }
         });
 
-        loadNotifications();
-        setInterval(loadNotifications, 30000);
+        markAllReadBtn?.addEventListener('click', async () => {
+            if (markAllReadBtn.disabled || notificationMutationPending) {
+                return;
+            }
+            notificationMutationPending = true;
+            markAllReadBtn.disabled = true;
+            markAllReadBtn.setAttribute('aria-busy', 'true');
+            try {
+                if (notificationRequest) {
+                    await notificationRequest;
+                }
+                await requestNotifications(notificationEndpoint + '?action=mark_all_read', { method: 'POST' });
+                await loadNotifications({ showLoading: false });
+            } catch (error) {
+                setNotificationMessage(error.name === 'AbortError'
+                    ? 'Marking all notifications read timed out.'
+                    : error.sessionExpired
+                        ? error.message
+                        : 'Notifications could not be updated.', true);
+            } finally {
+                notificationMutationPending = false;
+                markAllReadBtn.disabled = false;
+                markAllReadBtn.removeAttribute('aria-busy');
+            }
+        });
+
+        document.addEventListener('click', event => {
+            if (notificationPanel && !notificationPanel.contains(event.target) && event.target !== notificationBell) {
+                notificationPanel.style.display = 'none';
+                notificationBell.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                window.clearTimeout(notificationPollTimer);
+            } else {
+                scheduleNotificationPoll(0);
+            }
+        });
+        window.addEventListener('pagehide', () => {
+            window.clearTimeout(notificationPollTimer);
+            activeNotificationControllers.forEach(controller => controller.abort());
+        });
+
+        loadNotifications({ showLoading: true });
+        scheduleNotificationPoll();
     </script>
 </body>
 

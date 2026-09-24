@@ -27,51 +27,93 @@ export class PreviewGenerator {
   }
 
   static generateImagePreview(file) {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const url = URL.createObjectURL(file);
       const img = new Image();
-
-      img.onload = () => {
-        resolve({
-          type: 'image',
-          url,
-          previewUrl: url,
-          metadata: {
-            width: img.width,
-            height: img.height,
-            size: file.size,
-            icon: '🖼️'
-          }
-        });
-      };
-
-      img.onerror = () => {
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        img.onload = null;
+        img.onerror = null;
         URL.revokeObjectURL(url);
+        img.src = '';
         resolve({
           type: 'file',
           url: null,
           metadata: this.getFileMetadata(file)
         });
+      }, 3000);
+      const finish = preview => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        img.onload = null;
+        img.onerror = null;
+        if (preview.url !== url) {
+          URL.revokeObjectURL(url);
+        }
+        resolve(preview);
       };
+
+      img.onload = () => finish({
+        type: 'image',
+        url,
+        previewUrl: url,
+        metadata: {
+          width: img.width,
+          height: img.height,
+          size: file.size,
+          icon: '🖼️'
+        }
+      });
+
+      img.onerror = () => finish({
+        type: 'file',
+        url: null,
+        metadata: this.getFileMetadata(file)
+      });
 
       img.src = url;
     });
   }
 
   static generateVideoPreview(file) {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const url = URL.createObjectURL(file);
       const video = document.createElement('video');
       video.preload = 'metadata';
       video.muted = true;
       video.crossOrigin = 'anonymous';
+      let settled = false;
 
-      const cleanup = () => {
+      const finish = preview => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        video.onloadedmetadata = null;
+        video.onseeked = null;
+        video.onerror = null;
+        video.removeAttribute('src');
+        video.load();
         URL.revokeObjectURL(url);
+        resolve(preview);
       };
 
+      const fallback = () => finish({
+        type: 'file',
+        url: null,
+        metadata: this.getFileMetadata(file)
+      });
+
+      const timeout = setTimeout(fallback, 3000);
+
       video.onloadedmetadata = () => {
-        video.currentTime = Math.min(1, video.duration * 0.1);
+        try {
+          video.currentTime = Math.min(1, video.duration * 0.1);
+        } catch {
+          fallback();
+        }
       };
 
       video.onseeked = () => {
@@ -79,43 +121,30 @@ export class PreviewGenerator {
           const canvas = document.createElement('canvas');
           canvas.width = video.videoWidth || 320;
           canvas.height = video.videoHeight || 180;
-
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            resolve({
-              type: 'video',
-              url: canvas.toDataURL('image/jpeg', 0.7),
-              previewUrl: url,
-              metadata: {
-                duration: video.duration,
-                width: video.videoWidth,
-                height: video.videoHeight,
-                size: file.size,
-                icon: '🎬'
-              }
-            });
-          } else {
-            resolve({
-              type: 'file',
-              url: null,
-              metadata: this.getFileMetadata(file)
-            });
+          const context = canvas.getContext('2d');
+          if (!context) {
+            fallback();
+            return;
           }
-        } finally {
-          cleanup();
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          finish({
+            type: 'video',
+            url: canvas.toDataURL('image/jpeg', 0.7),
+            previewUrl: url,
+            metadata: {
+              duration: video.duration,
+              width: video.videoWidth,
+              height: video.videoHeight,
+              size: file.size,
+              icon: '🎬'
+            }
+          });
+        } catch {
+          fallback();
         }
       };
 
-      video.onerror = () => {
-        cleanup();
-        resolve({
-          type: 'file',
-          url: null,
-          metadata: this.getFileMetadata(file)
-        });
-      };
-
+      video.onerror = fallback;
       video.src = url;
     });
   }

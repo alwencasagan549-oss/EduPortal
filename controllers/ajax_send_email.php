@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
         rotate_csrf();
         header('Content-Type: application/json');
-        echo json_encode(['error' => 'Invalid security token.']);
+        echo json_encode(['error' => 'Invalid security token.', 'csrf_token' => csrf_token()]);
         exit();
     }
     rotate_csrf();
@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (!$student_id || empty($subject) || empty($message)) {
         header('Content-Type: application/json');
-        echo json_encode(['error' => 'Invalid data']);
+        echo json_encode(['error' => 'Invalid data', 'csrf_token' => csrf_token()]);
         exit;
     }
 
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$student) {
         header('Content-Type: application/json');
-        echo json_encode(['error' => 'Student not found']);
+        echo json_encode(['error' => 'Student not found', 'csrf_token' => csrf_token()]);
         exit;
     }
 
@@ -43,6 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 
     header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'notification_id' => $notification_id]);
+    echo json_encode(['success' => true, 'notification_id' => $notification_id, 'csrf_token' => csrf_token()]);
     exit;
 }

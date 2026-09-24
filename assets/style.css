@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-
 :root {
     --primary-color: #4e73df;
     --primary-gradient: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
@@ -27,7 +25,7 @@
 }
 
 body {
-    font-family: 'Outfit', sans-serif;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background-color: var(--bg-dark);
     background-image: 
         radial-gradient(circle at 0% 0%, rgba(78, 115, 223, 0.15) 0%, transparent 40%),
@@ -947,6 +945,24 @@ select.premium-input option {
     font-size: 0.85rem;
     color: var(--text-muted);
     margin-top: 8px;
+}
+
+button:disabled,
+.btn-upload:disabled {
+    cursor: wait;
+}
+
+select:disabled,
+input:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .edu-spinner {
+        animation-duration: 2s;
+    }
 }
 
 /* =====================================================
@@ -2053,5 +2069,32 @@ select.premium-input option {
 @media (prefers-reduced-motion: reduce) {
     .pwa-install-button {
         transition: none;
+    }
+}
+
+:root {
+    color-scheme: dark;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 3px solid rgba(145, 168, 255, 0.9);
+    outline-offset: 3px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
     }
 }

@@ -62,14 +62,14 @@ require_once __DIR__ . '/nav.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Posted Assignment | EduPortal LMS</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -222,7 +222,7 @@ require_once __DIR__ . '/nav.php';
         </main>
     </div>
 
-    <script src="../assets/js/system_loader.js?v=20260924"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js?v=20260924"></script>
     <script src="../assets/js/pwa.js"></script>
     <script>
@@ -238,6 +238,7 @@ require_once __DIR__ . '/nav.php';
         const previewSection = document.getElementById('previewSection');
         const previewDescription = document.getElementById('previewDescription');
         const editForm = document.querySelector('.assignment-form-card form');
+        const saveButton = editForm?.querySelector('button[type="submit"]');
         let hasUnsavedChanges = false;
 
         if (editForm) {
@@ -259,6 +260,15 @@ require_once __DIR__ . '/nav.php';
         }
 
         let sectionRequestId = 0;
+        let sectionRequestController = null;
+
+        const updateSaveButton = () => {
+            if (saveButton) {
+                saveButton.disabled = section.disabled || !section.value;
+            }
+        };
+
+        updateSaveButton();
 
         function updatePreview() {
             previewTitle.textContent = title.value.trim() || 'Untitled assignment';
@@ -270,15 +280,25 @@ require_once __DIR__ . '/nav.php';
 
         function loadSections() {
             const requestId = ++sectionRequestId;
+            sectionRequestController?.abort();
             const previousSection = section.value;
             section.innerHTML = '<option value="">Loading sections...</option>';
             section.disabled = true;
             section.removeAttribute('aria-invalid');
+            if (saveButton) {
+                saveButton.disabled = true;
+                saveButton.setAttribute('aria-busy', 'true');
+            }
             sectionStatus.textContent = 'Loading available sections.';
 
             if (!gradeLevel.value || !strand.value) {
+                sectionRequestController = null;
                 section.innerHTML = '<option value="">Select grade and strand first</option>';
                 sectionStatus.textContent = 'Choose a grade and strand to load sections.';
+                updateSaveButton();
+                if (saveButton) {
+                    saveButton.removeAttribute('aria-busy');
+                }
                 updatePreview();
                 return;
             }
@@ -288,10 +308,22 @@ require_once __DIR__ . '/nav.php';
                 strand: strand.value
             });
 
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 15000);
+            sectionRequestController = controller;
+
             fetch('../controllers/ajax_get_sections_by_grade.php?' + query.toString(), {
-                headers: { Accept: 'application/json' }
+                cache: 'no-store',
+                headers: { Accept: 'application/json' },
+                signal: controller.signal
             })
                 .then(response => {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (response.redirected || !contentType.includes('application/json')) {
+                        const error = new Error('Your session has expired. Sign in again to continue.');
+                        error.sessionExpired = true;
+                        throw error;
+                    }
                     if (!response.ok) {
                         throw new Error('Section request failed');
                     }
@@ -316,25 +348,47 @@ require_once __DIR__ . '/nav.php';
                         section.setAttribute('aria-invalid', 'true');
                     }
                     sectionStatus.textContent = data.length === 0 ? 'No sections are available for this target group.' : '';
+                    updateSaveButton();
                     updatePreview();
                 })
-                .catch(() => {
+                .catch(error => {
                     if (requestId !== sectionRequestId) {
                         return;
                     }
-                    section.innerHTML = '<option value="">Unable to load sections</option>';
+                    section.innerHTML = `<option value="">${error.name === 'AbortError' ? 'Sections timed out. Try again.' : 'Unable to load sections'}</option>`;
                     section.disabled = true;
                     section.setAttribute('aria-invalid', 'true');
-                    sectionStatus.textContent = 'Sections could not be loaded. Try changing the grade or strand.';
+                    updateSaveButton();
+                    sectionStatus.textContent = error.name === 'AbortError'
+                        ? 'The section request timed out.'
+                        : error.sessionExpired
+                            ? error.message
+                            : 'Sections could not be loaded. Try changing the grade or strand.';
                     updatePreview();
+                })
+                .finally(() => {
+                    window.clearTimeout(timeout);
+                    if (requestId === sectionRequestId) {
+                        sectionRequestController = null;
+                        if (saveButton) {
+                            saveButton.removeAttribute('aria-busy');
+                        }
+                    }
                 });
         }
 
         gradeLevel.addEventListener('change', loadSections);
         strand.addEventListener('change', loadSections);
-        section.addEventListener('change', updatePreview);
+        section.addEventListener('change', () => {
+            updateSaveButton();
+            updatePreview();
+        });
         title.addEventListener('input', updatePreview);
         description.addEventListener('input', updatePreview);
+        window.addEventListener('pagehide', () => {
+            sectionRequestId += 1;
+            sectionRequestController?.abort();
+        });
     </script>
 </body>
 </html>

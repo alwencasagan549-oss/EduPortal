@@ -25,7 +25,7 @@ $historySelect = 'id, subject, file_path, marks, remarks, submitted_at';
 if (isset($historyColumns['assignment_id'])) {
     $historySelect .= ', assignment_id';
 }
-$stmt = $conn->prepare("SELECT {$historySelect} FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC");
+$stmt = $conn->prepare("SELECT {$historySelect} FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC LIMIT 100");
 $stmt->execute([$student_id]);
 $submissions = $stmt->get_result()->fetch_all();
 $submittedAssignmentIds = [];
@@ -40,7 +40,7 @@ foreach ($submissions as $submission) {
 $student_grade = $_SESSION['user_grade'] ?? '';
 $student_section = $_SESSION['user_section'] ?? '';
 $student_strand = $_SESSION['user_strand'] ?? 'Academic';
-$stmt2 = $conn->prepare("SELECT id, subject, title, description, file_path, teacher_name, created_at FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC");
+$stmt2 = $conn->prepare("SELECT id, subject, title, description, file_path, teacher_name, created_at FROM posted_assignments WHERE grade_level = ? AND section = ? AND strand = ? ORDER BY created_at DESC LIMIT 100");
 $stmt2->execute([$student_grade, $student_section, $student_strand]);
 $broadcasted = $stmt2->get_result()->fetch_all();
 
@@ -52,15 +52,18 @@ require_once __DIR__ . '/nav.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard | EduPortal LMS</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <style>
         .notification-item {
             padding: 0.85rem 1rem;
@@ -209,16 +212,16 @@ require_once __DIR__ . '/nav.php';
                         <input type="text" placeholder="Search subjects...">
                     </div>
                     <div style="position: relative;">
-                        <button class="icon-button" id="notificationBell" style="position: relative;">
+                        <button type="button" class="icon-button" id="notificationBell" aria-label="Notifications" aria-expanded="false" aria-controls="notificationPanel" style="position: relative;">
                             <i class="fas fa-bell"></i>
                             <span id="notificationBadge" style="display: none; position: absolute; top: -4px; right: -4px; background: var(--danger-color); color: white; font-size: 0.65rem; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">0</span>
                         </button>
                         <div id="notificationPanel" style="display: none; position: absolute; top: 48px; right: 0; width: 360px; max-height: 480px; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); z-index: 1000; overflow: hidden;">
                             <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
-                                <h4 style="margin: 0; font-size: 1rem;">Notifications</h4>
-                                <button id="markAllRead" style="background: none; border: none; color: var(--primary-color); font-size: 0.8rem; cursor: pointer; font-weight: 600;">Mark all read</button>
+                                <h2 style="margin: 0; font-size: 1rem;">Notifications</h2>
+                                <button type="button" id="markAllRead" style="background: none; border: none; color: var(--primary-color); font-size: 0.8rem; cursor: pointer; font-weight: 600;">Mark all read</button>
                             </div>
-                            <div id="notificationList" style="max-height: 400px; overflow-y: auto; padding: 0.5rem;">
+                            <div id="notificationList" aria-live="polite" aria-busy="true" style="max-height: 400px; overflow-y: auto; padding: 0.5rem;">
                                 <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
                             </div>
                         </div>
@@ -367,7 +370,7 @@ require_once __DIR__ . '/nav.php';
                         <input type="hidden" name="subject" id="submissionSubject" value="">
                         <div style="margin-bottom: 1.5rem;">
                             <label for="assignment" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Assignment file</label>
-                            <div class="submission-drop-zone" id="dropZone" onclick="document.getElementById('assignment').click()" role="button" tabindex="0" onkeydown="if (event.key === 'Enter' || event.key === ' ') document.getElementById('assignment').click();">
+                            <div class="submission-drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Choose an assignment file">
                                 <input type="file" id="assignment" name="assignment" style="display: none;" accept=".pdf,.doc,.docx" onchange="updateFileName(this)">
                                 <div id="fileInfo">
                                     <i class="fas fa-file-arrow-up" style="font-size: 2.5rem; color: var(--primary-color); margin-bottom: 1rem; opacity: 0.5;" aria-hidden="true"></i>
@@ -479,7 +482,21 @@ require_once __DIR__ . '/nav.php';
     const submissionSubject = document.getElementById('submissionSubject');
     const submissionModalContext = document.getElementById('submissionModalContext');
     const submissionFileInput = document.getElementById('assignment');
+    const submissionDropZone = document.getElementById('dropZone');
     let lastSubmissionTrigger = null;
+
+    submissionDropZone?.addEventListener('click', event => {
+        if (event.target !== submissionFileInput) {
+            submissionFileInput.click();
+        }
+    });
+
+    submissionDropZone?.addEventListener('keydown', event => {
+        if ((event.key === 'Enter' || event.key === ' ') && event.target !== submissionFileInput) {
+            event.preventDefault();
+            submissionFileInput.click();
+        }
+    });
 
     function decodeSubmissionValue(value) {
         try {
@@ -502,7 +519,7 @@ require_once __DIR__ . '/nav.php';
         }
         if (fileName) {
             fileName.style.display = 'none';
-            fileName.innerHTML = '';
+            fileName.replaceChildren();
         }
         if (dropZone) {
             dropZone.style.borderColor = '';
@@ -524,7 +541,7 @@ require_once __DIR__ . '/nav.php';
         lastSubmissionTrigger = trigger;
         submissionModal.hidden = false;
         document.body.classList.add('modal-open');
-        window.setTimeout(() => submissionFileInput && submissionFileInput.focus(), 0);
+        window.setTimeout(() => submissionDropZone && submissionDropZone.focus(), 0);
     }
 
     function closeSubmissionModal() {
@@ -571,7 +588,10 @@ require_once __DIR__ . '/nav.php';
             fileNameContainer.style.display = 'block';
             
             // Auth Shield: Clear and safely set text content (XSS Protection)
-            fileNameContainer.innerHTML = '<i class="fas fa-check-circle" style="color: var(--success-color); margin-right: 8px;"></i>';
+            const fileIconMarkup = '<i class="fas fa-check-circle" style="color: var(--success-color); margin-right: 8px;"></i>';
+            fileNameContainer.innerHTML = window.EduPortalTrustedTypes
+                ? window.EduPortalTrustedTypes.createHTML(fileIconMarkup)
+                : fileIconMarkup;
             const textNode = document.createTextNode(input.files[0].name);
             fileNameContainer.appendChild(textNode);
             
@@ -604,7 +624,7 @@ require_once __DIR__ . '/nav.php';
         return true;
     }
     </script>
-    <script src="../assets/js/system_loader.js?v=20260818"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
     <script>
@@ -613,80 +633,222 @@ require_once __DIR__ . '/nav.php';
         const notificationBadge = document.getElementById('notificationBadge');
         const notificationList = document.getElementById('notificationList');
         const markAllReadBtn = document.getElementById('markAllRead');
+        const notificationEndpoint = '../controllers/ajax_get_notifications.php';
+        let notificationRequest = null;
+        let notificationMutationPending = false;
+        let notificationPollTimer = null;
+        const activeNotificationControllers = new Set();
 
-        function loadNotifications() {
-            fetch('../controllers/ajax_get_notifications.php?action=list')
-                .then(r => r.json())
-                .then(data => {
-                    const notifications = data.notifications || [];
-                    notificationList.innerHTML = '';
-                    if (notifications.length === 0) {
-                        notificationList.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No notifications yet</div>';
-                        notificationBadge.style.display = 'none';
-                        return;
-                    }
-                    let unread = 0;
-                    notifications.forEach(n => {
-                        if (!n.is_read) unread++;
-                        const item = document.createElement('div');
-                        item.className = 'notification-item ' + (n.is_read ? 'read' : 'unread');
-                        item.innerHTML = '<div class="notification-title">' + escapeHtml(n.title) + '</div>' +
-                            '<div class="notification-message">' + escapeHtml(n.message || '') + '</div>' +
-                            '<div class="notification-time">' + formatDate(n.created_at) + '</div>';
-                        item.addEventListener('click', () => {
-                            fetch('../controllers/ajax_get_notifications.php?action=mark_read', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                                body: 'notification_id=' + n.id
-                            }).then(() => loadNotifications());
-                        });
-                        notificationList.appendChild(item);
-                    });
-                    if (unread > 0) {
-                        notificationBadge.textContent = unread > 99 ? '99+' : unread;
-                        notificationBadge.style.display = 'flex';
-                    } else {
-                        notificationBadge.style.display = 'none';
+        const setNotificationMessage = (message, isError = false) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = isError ? 'alert alert-danger' : 'notification-empty';
+            wrapper.setAttribute('role', isError ? 'alert' : 'status');
+            wrapper.textContent = message;
+            notificationList.replaceChildren(wrapper);
+        };
+
+        const escapeHtml = text => {
+            const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+            return String(text ?? '').replace(/[&<>"']/g, character => entities[character]);
+        };
+        const trustedHtml = markup => window.EduPortalTrustedTypes
+            ? window.EduPortalTrustedTypes.createHTML(markup)
+            : markup;
+
+        const formatDate = dateStr => {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        };
+
+        const requestNotifications = async (url, options = {}) => {
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 15000);
+            activeNotificationControllers.add(controller);
+            try {
+                const response = await fetch(url, { ...options, cache: 'no-store', signal: controller.signal });
+                const contentType = response.headers.get('content-type') || '';
+                if (response.redirected || !contentType.includes('application/json')) {
+                    const error = new Error('Your session has expired. Sign in again to continue.');
+                    error.sessionExpired = true;
+                    throw error;
+                }
+                const data = await response.json().catch(() => {
+                    const error = new Error('The server returned an invalid notification response.');
+                    error.sessionExpired = false;
+                    throw error;
+                });
+                if (!response.ok || data.error) {
+                    const error = new Error(data.error || `Request failed (${response.status})`);
+                    error.sessionExpired = response.status === 401;
+                    throw error;
+                }
+                return data;
+            } finally {
+                activeNotificationControllers.delete(controller);
+                window.clearTimeout(timeout);
+            }
+        };
+
+        const renderNotifications = notifications => {
+            notificationList.replaceChildren();
+            if (notifications.length === 0) {
+                setNotificationMessage('No notifications yet');
+                notificationBadge.style.display = 'none';
+                return;
+            }
+
+            let unread = 0;
+            notifications.forEach(notification => {
+                if (!notification.is_read) {
+                    unread += 1;
+                }
+                const item = document.createElement('div');
+                item.className = 'notification-item ' + (notification.is_read ? 'read' : 'unread');
+                item.setAttribute('role', 'button');
+                item.setAttribute('tabindex', '0');
+                item.setAttribute('aria-label', `Mark notification as read: ${notification.title}`);
+                item.innerHTML = trustedHtml('<div class="notification-title">' + escapeHtml(notification.title) + '</div>' +
+                    '<div class="notification-message">' + escapeHtml(notification.message) + '</div>' +
+                    '<div class="notification-time">' + escapeHtml(formatDate(notification.created_at)) + '</div>');
+                item.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        item.click();
                     }
                 });
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function formatDate(dateStr) {
-            const d = new Date(dateStr);
-            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        if (notificationBell) {
-            notificationBell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                notificationPanel.style.display = notificationPanel.style.display === 'none' ? 'block' : 'none';
-                if (notificationPanel.style.display === 'block') {
-                    loadNotifications();
-                }
+                item.addEventListener('click', async () => {
+                    if (item.dataset.pending === 'true' || notificationMutationPending) {
+                        return;
+                    }
+                    notificationMutationPending = true;
+                    item.dataset.pending = 'true';
+                    item.setAttribute('aria-busy', 'true');
+                    try {
+                        await requestNotifications(notificationEndpoint + '?action=mark_read', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: 'notification_id=' + encodeURIComponent(notification.id)
+                        });
+                        await loadNotifications({ showLoading: false });
+                    } catch (error) {
+                        setNotificationMessage(error.name === 'AbortError'
+                            ? 'Updating the notification timed out.'
+                            : error.sessionExpired
+                                ? error.message
+                                : 'The notification could not be updated.', true);
+                    } finally {
+                        notificationMutationPending = false;
+                        if (item.isConnected) {
+                            item.removeAttribute('data-pending');
+                            item.removeAttribute('aria-busy');
+                        }
+                    }
+                });
+                notificationList.appendChild(item);
             });
+
+            notificationBadge.textContent = unread > 99 ? '99+' : unread;
+            notificationBadge.style.display = unread > 0 ? 'flex' : 'none';
+        };
+
+        async function loadNotifications({ showLoading = true } = {}) {
+            if (notificationRequest) {
+                return notificationRequest;
+            }
+            if (showLoading) {
+                setNotificationMessage('Loading notifications...');
+            }
+            notificationList.setAttribute('aria-busy', 'true');
+            notificationRequest = requestNotifications(notificationEndpoint + '?action=list')
+                .then(data => renderNotifications(data.notifications || []))
+                .catch(error => {
+                    if (error.sessionExpired) {
+                        setNotificationMessage(error.message, true);
+                        return;
+                    }
+                    if (!showLoading && notificationList.childElementCount > 0) {
+                        return;
+                    }
+                    setNotificationMessage(error.name === 'AbortError'
+                        ? 'Loading notifications timed out.'
+                        : 'Notifications could not be loaded.', true);
+                })
+                .finally(() => {
+                    notificationList.removeAttribute('aria-busy');
+                    notificationRequest = null;
+                });
+            return notificationRequest;
         }
 
-        if (markAllReadBtn) {
-            markAllReadBtn.addEventListener('click', () => {
-                fetch('../controllers/ajax_get_notifications.php?action=mark_all_read', { method: 'POST' })
-                    .then(() => loadNotifications());
-            });
-        }
+        const scheduleNotificationPoll = (delay = 30000) => {
+            window.clearTimeout(notificationPollTimer);
+            if (!document.hidden) {
+                notificationPollTimer = window.setTimeout(async () => {
+                    if (!notificationMutationPending) {
+                        await loadNotifications({ showLoading: false });
+                    }
+                    scheduleNotificationPoll();
+                }, delay);
+            }
+        };
 
-        document.addEventListener('click', (e) => {
-            if (notificationPanel && !notificationPanel.contains(e.target) && e.target !== notificationBell) {
-                notificationPanel.style.display = 'none';
+        notificationBell?.addEventListener('click', event => {
+            event.stopPropagation();
+            const willOpen = notificationPanel.style.display === 'none';
+            notificationPanel.style.display = willOpen ? 'block' : 'none';
+            notificationBell.setAttribute('aria-expanded', String(willOpen));
+            if (willOpen) {
+                loadNotifications({ showLoading: true });
             }
         });
 
-        loadNotifications();
-        setInterval(loadNotifications, 30000);
+        markAllReadBtn?.addEventListener('click', async () => {
+            if (markAllReadBtn.disabled || notificationMutationPending) {
+                return;
+            }
+            notificationMutationPending = true;
+            markAllReadBtn.disabled = true;
+            markAllReadBtn.setAttribute('aria-busy', 'true');
+            try {
+                if (notificationRequest) {
+                    await notificationRequest;
+                }
+                await requestNotifications(notificationEndpoint + '?action=mark_all_read', { method: 'POST' });
+                await loadNotifications({ showLoading: false });
+            } catch (error) {
+                setNotificationMessage(error.name === 'AbortError'
+                    ? 'Marking all notifications read timed out.'
+                    : error.sessionExpired
+                        ? error.message
+                        : 'Notifications could not be updated.', true);
+            } finally {
+                notificationMutationPending = false;
+                markAllReadBtn.disabled = false;
+                markAllReadBtn.removeAttribute('aria-busy');
+            }
+        });
+
+        document.addEventListener('click', event => {
+            if (notificationPanel && !notificationPanel.contains(event.target) && event.target !== notificationBell) {
+                notificationPanel.style.display = 'none';
+                notificationBell.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                window.clearTimeout(notificationPollTimer);
+            } else {
+                scheduleNotificationPoll(0);
+            }
+        });
+        window.addEventListener('pagehide', () => {
+            window.clearTimeout(notificationPollTimer);
+            activeNotificationControllers.forEach(controller => controller.abort());
+        });
+
+        loadNotifications({ showLoading: true });
+        scheduleNotificationPoll();
     </script>
 </body>
 </html>

@@ -64,7 +64,12 @@ if (!headers_sent()) {
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.r2.cloudflarestorage.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';");
+    header('Cache-Control: no-store, max-age=0');
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+    header('Cross-Origin-Opener-Policy: same-origin');
+    header('Cross-Origin-Resource-Policy: same-site');
+    header('X-XSS-Protection: 0');
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' https://*.r2.cloudflarestorage.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; trusted-types eduportal;");
 }
 
 if (empty($_SESSION['csrf_token'])) {
@@ -94,13 +99,14 @@ class EduPortalDB {
     private $pdo;
 
     public function __construct($host, $user, $pass, $dbname, $port = '5432', $sslmode = '') {
-        $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+        $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};connect_timeout=5";
         if ($sslmode !== '') {
             $dsn .= ";sslmode=$sslmode";
         }
         $this->pdo = new PDO($dsn, $user, $pass, [
             PDO::ATTR_PERSISTENT => false,
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_TIMEOUT => 5,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
