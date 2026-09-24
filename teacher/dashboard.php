@@ -389,6 +389,7 @@ $pending_count = $total_submissions - $reviewed_count;
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($submissions as $submission): ?>
+                                    <?php $isGraded = trim((string) ($submission['marks'] ?? '')) !== ''; ?>
                                     <tr>
                                         <td><span
                                                 class="premium-badge badge-blue">#<?php echo htmlspecialchars($submission['id']); ?></span>
@@ -440,12 +441,19 @@ $pending_count = $total_submissions - $reviewed_count;
                                         </td>
                                         <td>
                                             <div style="display: flex; gap: 8px;">
-                                                <button type="submit" name="update_grading"
-                                                    form="grade-form-<?php echo $submission['id']; ?>"
-                                                    class="premium-btn premium-btn-primary"
-                                                    style="padding: 0.5rem; font-size: 0.8rem;">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
+                                                <?php if ($isGraded): ?>
+                                                    <span class="premium-badge badge-green" style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.5rem 0.7rem;" role="status" aria-label="Graded">
+                                                        <span aria-hidden="true" style="width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);"></span>
+                                                        Graded
+                                                    </span>
+                                                <?php else: ?>
+                                                    <button type="submit" name="update_grading"
+                                                        form="grade-form-<?php echo $submission['id']; ?>"
+                                                        class="premium-btn premium-btn-primary"
+                                                        style="padding: 0.5rem; font-size: 0.8rem;" aria-label="Save grade">
+                                                        <i class="fas fa-check" aria-hidden="true"></i>
+                                                    </button>
+                                                <?php endif; ?>
                                                 <form method="POST" onsubmit="return confirm('Delete this record?')" data-loader="true">
                                                     <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                                     <input type="hidden" name="submission_id"
