@@ -71,14 +71,33 @@ try {
     $s3UploadId = $session['s3_upload_id'];
 
     $parts = [];
+    $seenPartNumbers = [];
+
     foreach ($chunks as $chunk) {
-        if (!isset($chunk['partNumber']) || !isset($chunk['etag'])) {
-            continue;
+        $partNumber = filter_var($chunk['partNumber'] ?? null, FILTER_VALIDATE_INT);
+        $etag = trim((string)($chunk['etag'] ?? ''));
+
+        if ($partNumber === false || $partNumber < 1 || $etag === '') {
+            echo json_encode(['success' => false, 'error' => 'Each uploaded part must include a valid part number and ETag.']);
+            exit();
         }
+
+        if (isset($seenPartNumbers[$partNumber])) {
+            echo json_encode(['success' => false, 'error' => 'Duplicate uploaded part number.']);
+            exit();
+        }
+
+        $seenPartNumbers[$partNumber] = true;
         $parts[] = [
-            'PartNumber' => (int)$chunk['partNumber'],
-            'ETag' => $chunk['etag'],
+            'PartNumber' => $partNumber,
+            'ETag' => $etag,
         ];
+    }
+
+    $expectedPartCount = (int)$session['total_chunks'];
+    if ($expectedPartCount > 0 && count($parts) !== $expectedPartCount) {
+        echo json_encode(['success' => false, 'error' => 'Not all uploaded parts were returned for completion.']);
+        exit();
     }
 
     if (empty($parts)) {

@@ -93,6 +93,7 @@ export class ChunkedUploader {
         chunkSize,
         totalChunks,
         completedChunks: [],
+        completedParts: {},
         abortController: null,
         error: null,
         retryCount: 0,
@@ -225,6 +226,11 @@ export class ChunkedUploader {
           (error) => error.name === 'NetworkError' || error.status >= 500
         );
 
+        if (!etag) {
+          throw new Error(`Storage service did not return an ETag for chunk ${chunkNumber}`);
+        }
+
+        upload.completedParts[chunkNumber] = etag;
         upload.completedChunks.push(chunkNumber);
         upload.loadedBytes = end;
         upload.progress = Math.round((upload.loadedBytes / file.size) * 100);
@@ -252,10 +258,15 @@ export class ChunkedUploader {
   }
 
   async #finalizeUpload(upload) {
-    const chunks = upload.completedChunks.map((partNumber, index) => ({
+    const chunks = upload.completedChunks.map((partNumber) => ({
       partNumber,
-      etag: upload.presignedUrls[partNumber - 1]?.etag || ''
+      etag: upload.completedParts?.[partNumber] || ''
     }));
+
+    const missingPart = chunks.find(({ etag }) => !etag);
+    if (missingPart) {
+      throw new Error(`Missing ETag for uploaded part ${missingPart.partNumber}. Check the R2 CORS ExposeHeaders setting.`);
+    }
 
     const result = await finalizeUpload(upload.uploadId, chunks);
 
@@ -290,7 +301,7 @@ export class ChunkedUploader {
 
         if (xhr.status >= 200 && xhr.status < 300) {
           const etag = xhr.getResponseHeader('ETag') || '';
-          resolve(etag.replace(/"/g, ''));
+          resolve(etag.trim());
         } else {
           const error = new Error(`Chunk upload failed: HTTP ${xhr.status}`);
           error.status = xhr.status;
