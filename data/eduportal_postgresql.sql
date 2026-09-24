@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS submissions (
     student_name VARCHAR(100),
     subject VARCHAR(100) NOT NULL,
     file_path TEXT NOT NULL,
+    file_content TEXT,
+    file_type VARCHAR(100) DEFAULT 'application/octet-stream',
     marks VARCHAR(10),
     remarks TEXT,
     submission_date DATE NOT NULL,
@@ -47,11 +49,18 @@ CREATE TABLE IF NOT EXISTS posted_assignments (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     file_path TEXT NOT NULL,
+    file_content TEXT,
+    file_type VARCHAR(100) DEFAULT 'application/octet-stream',
     grade_level VARCHAR(50) NOT NULL,
     section VARCHAR(50) NOT NULL,
     strand VARCHAR(50) DEFAULT 'Academic',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_posted_assignments_teacher_created
+    ON posted_assignments (teacher_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posted_assignments_target_created
+    ON posted_assignments (grade_level, strand, section, created_at DESC);
 
 -- Jobs table (kept for compatibility)
 CREATE TABLE IF NOT EXISTS jobs (

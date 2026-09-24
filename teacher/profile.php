@@ -92,6 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $error_msg = implode(" ", $errors);
     }
 }
+
+require_once __DIR__ . '/nav.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -106,63 +108,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     <script src="../assets/js/responsive_ui.js"></script>
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="layout-wrapper">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <i class="fas fa-user-circle"></i>
-                </div>
-                <div class="sidebar-brand">
-                    Edu<span>Portal</span>
-                </div>
-            </div>
-            
-            <nav class="sidebar-menu">
-                <li class="menu-item">
-                    <a href="dashboard.php" class="menu-link" onclick="EduPortal.navigate('Dashboard', 'Loading dashboard...', this)">
-                        <i class="fas fa-home"></i> Dashboard
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="profile.php" class="menu-link active" onclick="EduPortal.navigate('Profile', 'Loading profile settings...', this)">
-                        <i class="fas fa-user-circle"></i> Profile
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="students.php" class="menu-link" onclick="EduPortal.navigate('My Students', 'Loading student directory...', this)">
-                        <i class="fas fa-user-graduate"></i> <?php echo htmlspecialchars($teacher_subject); ?> Students
-                    </a>
-                </li>
-            </nav>
-            
-            <div class="sidebar-footer">
-                <div class="user-snippet">
-                    <div class="avatar-small">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="user-snippet-info">
-                        <div class="user-name"><?php echo htmlspecialchars($teacher['name']); ?></div>
-                        <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Online</div>
-                    </div>
-                </div>
-                <form method="POST" action="../logout.php" style="display:inline;" onsubmit="return EduPortal.confirmLogout(this)">
-                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                    <button type="submit" class="logout-link">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </button>
-                </form>
-                <div style="padding: 8px 0 0; text-align: center; opacity: 0.4; font-size: 0.65rem; color: var(--text-muted);">
-                    <span id="_sys_v_auth" style="display: none;">Alwin T. Casagan</span>
-                </div>
-            </div>
-        </aside>
+        <?php renderTeacherNav('profile', $teacher_subject, $teacher_name); ?>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content">
             <header class="top-bar">
-                <button class="menu-toggle">
-                    <i class="fas fa-bars"></i>
+                <button class="menu-toggle" type="button" aria-label="Open navigation" aria-controls="teacher-sidebar" aria-expanded="false">
+                    <i class="fas fa-bars" aria-hidden="true"></i>
                 </button>
                 <div class="page-title">
                     <h1>Teacher Settings</h1>

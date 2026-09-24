@@ -39,6 +39,8 @@ RewriteRule ^(.*)/$ /$1 [L,R=301]
 # Protect the config directory
 RewriteRule ^config/ - [F,L]
 
+RewriteRule ^uploads(?:/|$) - [F,L]
+
 # Redirect to HTTPS
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
