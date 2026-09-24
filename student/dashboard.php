@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../libs/assignment_management.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -14,7 +15,17 @@ $student_id = $_SESSION['user_id'];
 
 // Get student submissions
 $conn = getDBConnection();
-$stmt = $conn->prepare("SELECT id, subject, file_path, marks, remarks, submitted_at FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC");
+$historyColumns = [];
+try {
+    $historyColumns = assignment_submission_column_names($conn);
+} catch (Throwable $exception) {
+    error_log('EduPortal submission history schema check failed: ' . $exception->getMessage());
+}
+$historySelect = 'id, subject, file_path, marks, remarks, submitted_at';
+if (isset($historyColumns['assignment_id'])) {
+    $historySelect .= ', assignment_id';
+}
+$stmt = $conn->prepare("SELECT {$historySelect} FROM submissions WHERE student_id = ? ORDER BY submitted_at DESC");
 $stmt->execute([$student_id]);
 $submissions = $stmt->get_result()->fetch_all();
 
@@ -26,6 +37,19 @@ $stmt2 = $conn->prepare("SELECT id, subject, title, description, file_path, teac
 $stmt2->execute([$student_grade, $student_section, $student_strand]);
 $broadcasted = $stmt2->get_result()->fetch_all();
 
+$selectedAssignmentId = assignment_id($_GET['assignment_id'] ?? null);
+$selectedSubject = isset($_GET['subject']) && is_string($_GET['subject'])
+    ? assignment_normalize_subject($_GET['subject'])
+    : '';
+if ($selectedSubject === '' && $selectedAssignmentId !== null) {
+    foreach ($broadcasted as $postedAssignment) {
+        if ((int) ($postedAssignment['id'] ?? 0) === $selectedAssignmentId) {
+            $selectedSubject = assignment_normalize_subject($postedAssignment['subject'] ?? '');
+            break;
+        }
+    }
+}
+
 require_once __DIR__ . '/nav.php';
 ?>
 <!DOCTYPE html>
@@ -35,6 +59,12 @@ require_once __DIR__ . '/nav.php';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard | EduPortal LMS</title>
     <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="manifest" href="../manifest.webmanifest">
+    <meta name="theme-color" content="#0a0b10">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -115,8 +145,13 @@ require_once __DIR__ . '/nav.php';
             <!-- Success/Error Messages -->
             <?php if (isset($_GET['success'])): ?>
                 <div class="alert alert-success">
-                    <i class="fas fa-circle-check"></i> 
+                    <i class="fas fa-circle-check"></i>
                     <div><strong>Submitted!</strong> Your assignment has been uploaded successfully.</div>
+                </div>
+            <?php elseif (isset($_GET['duplicate'])): ?>
+                <div class="alert alert-warning" role="status" aria-live="polite">
+                    <i class="fas fa-circle-info"></i>
+                    <div><strong>Already submitted.</strong> The duplicate upload was removed; your original submission is unchanged.</div>
                 </div>
             <?php elseif (isset($_GET['error'])): ?>
                 <div class="alert alert-danger">
@@ -207,9 +242,14 @@ require_once __DIR__ . '/nav.php';
                                         Posted by <strong><?php echo htmlspecialchars($assignmentTeacher, ENT_QUOTES, 'UTF-8'); ?></strong>
                                     </p>
                                 </div>
-                                <a href="../controllers/download_assignment.php?id=<?php echo $assignmentId; ?>" class="premium-btn premium-btn-primary student-assignment-item__action" aria-label="Download <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?> from <?php echo htmlspecialchars($assignmentTeacher, ENT_QUOTES, 'UTF-8'); ?>" download>
-                                    <i class="fas fa-download" aria-hidden="true"></i> Get copy
-                                </a>
+                                <div class="student-assignment-item__actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <a href="../controllers/download_assignment.php?id=<?php echo $assignmentId; ?>" class="premium-btn premium-btn-primary student-assignment-item__action" aria-label="Download <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?> from <?php echo htmlspecialchars($assignmentTeacher, ENT_QUOTES, 'UTF-8'); ?>" download>
+                                        <i class="fas fa-download" aria-hidden="true"></i> Get copy
+                                    </a>
+                                    <a href="dashboard.php?assignment_id=<?php echo $assignmentId; ?>&amp;subject=<?php echo rawurlencode($assignmentSubject); ?>" class="premium-btn premium-btn-outline" aria-label="Submit work for <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?>">
+                                        <i class="fas fa-paper-plane" aria-hidden="true"></i> Submit
+                                    </a>
+                                </div>
                             </article>
                         <?php endforeach; ?>
                     </div>
@@ -224,8 +264,26 @@ require_once __DIR__ . '/nav.php';
                     <form action="../controllers/submit.php" method="POST" enctype="multipart/form-data" onsubmit="return validateForm()" data-loader="true">
                         <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                         <div style="margin-bottom: 1.5rem;">
-                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Subject Name</label>
-                            <input type="text" id="subject" name="subject" required 
+                            <label for="assignment_id" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Posted assignment <span style="font-size: 0.75rem; color: var(--text-muted);">(optional)</span></label>
+                            <select id="assignment_id" name="assignment_id" class="premium-input">
+                                <option value="">Unlinked submission</option>
+                                <?php foreach ($broadcasted as $postedAssignment): ?>
+                                    <?php
+                                    $postedAssignmentId = (int) ($postedAssignment['id'] ?? 0);
+                                    $postedAssignmentSubject = (string) ($postedAssignment['subject'] ?? '');
+                                    $postedAssignmentTitle = (string) ($postedAssignment['title'] ?? 'Untitled assignment');
+                                    ?>
+                                    <option value="<?php echo $postedAssignmentId; ?>" data-subject="<?php echo htmlspecialchars($postedAssignmentSubject, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedAssignmentId === $postedAssignmentId ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($postedAssignmentSubject . ' — ' . $postedAssignmentTitle, ENT_QUOTES, 'UTF-8'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small style="display: block; margin-top: 0.4rem; color: var(--text-muted);">Select a posted assignment to enable duplicate protection; unlinked submissions remain separate.</small>
+                        </div>
+                        <div style="margin-bottom: 1.5rem;">
+                            <label for="subject" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Subject Name</label>
+                            <input type="text" id="subject" name="subject" required
+                                   value="<?php echo htmlspecialchars($selectedSubject, ENT_QUOTES, 'UTF-8'); ?>"
                                    placeholder="e.g., Mathematics" class="premium-input">
                         </div>
                         
@@ -282,7 +340,13 @@ require_once __DIR__ . '/nav.php';
                                 <?php else: ?>
                                     <?php foreach ($submissions as $submission): ?>
                                     <tr>
-                                        <td><span class="premium-badge badge-yellow"><?php echo htmlspecialchars($submission['subject']); ?></span></td>
+                                         <td>
+                                             <span class="premium-badge badge-yellow"><?php echo htmlspecialchars($submission['subject']); ?></span>
+                                             <?php if (!empty($submission['assignment_id'])): ?>
+                                                 <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.35rem;">Assignment #<?php echo (int) $submission['assignment_id']; ?></div>
+                                             <?php endif; ?>
+                                         </td>
+
                                         <td>
                                             <a href="../controllers/download.php?id=<?php echo htmlspecialchars($submission['id']); ?>" class="premium-btn premium-btn-outline" style="padding: 0.4rem 0.6rem; font-size: 0.75rem;">
                                                 <i class="fas fa-file-lines"></i> View
@@ -332,6 +396,20 @@ require_once __DIR__ . '/nav.php';
     </div>
     
     <script>
+    const assignmentInput = document.getElementById('assignment_id');
+    const subjectInput = document.getElementById('subject');
+
+    if (assignmentInput && subjectInput) {
+        assignmentInput.addEventListener('change', () => {
+            const selectedOption = assignmentInput.options[assignmentInput.selectedIndex];
+            if (selectedOption && selectedOption.value) {
+                subjectInput.value = selectedOption.dataset.subject || '';
+            } else {
+                subjectInput.value = '';
+            }
+        });
+    }
+
     function updateFileName(input) {
         if (input.files && input.files[0]) {
             const fileInfo = document.getElementById('fileInfo');
@@ -372,6 +450,7 @@ require_once __DIR__ . '/nav.php';
     </script>
     <script src="../assets/js/system_loader.js?v=20260818"></script>
     <script src="../assets/js/responsive_ui.js"></script>
+    <script src="../assets/js/pwa.js"></script>
     <script>
         const notificationBell = document.getElementById('notificationBell');
         const notificationPanel = document.getElementById('notificationPanel');

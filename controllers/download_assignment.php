@@ -317,7 +317,11 @@ try {
         $storageColumns[(string) $column['column_name']] = true;
     }
     if (!isset($storageColumns['file_content'])) {
-        $conn->exec('ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL');
+        if ($conn->getDriverName() === 'mysql') {
+            $conn->exec('ALTER TABLE posted_assignments ADD COLUMN file_content LONGTEXT');
+        } else {
+            $conn->exec('ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL');
+        }
         $storageColumns['file_content'] = true;
     }
     if (!isset($storageColumns['file_type'])) {

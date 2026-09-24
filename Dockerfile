@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y libpq-dev libzip-dev && docker-php-ext-
 
 # Enable Apache modules
 RUN a2enmod rewrite headers deflate expires
+COPY pwa-apache.conf /etc/apache2/conf-available/eduportal-pwa.conf
+RUN a2enconf eduportal-pwa
 
 # PHP INI settings
 RUN { \

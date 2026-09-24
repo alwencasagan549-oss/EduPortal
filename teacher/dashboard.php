@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../libs/assignment_management.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -17,7 +18,7 @@ $teacher_subject = $_SESSION['user_subject'];
 require_once __DIR__ . '/nav.php';
 
 // Handle updates
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_grading'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['update_grading'])) {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
         die('Invalid security token.');
     }
@@ -26,21 +27,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_grading'])) {
     $remarks = trim($_POST['remarks'] ?? '');
 
     $conn = getDBConnection();
-    $stmt = $conn->prepare("UPDATE submissions SET marks = ?, remarks = ? WHERE id = ? AND subject = ?");
-    $stmt->execute([$marks, $remarks, $submission_id, $teacher_subject]);
+    $stmt = $conn->prepare("UPDATE submissions SET marks = ?, remarks = ? WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))");
+    $stmt->execute([$marks, $remarks, $submission_id, $teacher_id, $teacher_subject]);
 
     header('Location: dashboard.php?updated=1');
     exit();
 }
 
 // Handle deletion
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_submission'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['delete_submission'])) {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
         die('Invalid security token.');
     }
+
+    $submissionId = assignment_id($_POST['submission_id'] ?? null);
     $conn = getDBConnection();
-    $stmt = $conn->prepare("DELETE FROM submissions WHERE id = ? AND subject = ?");
-    $stmt->execute([$_POST['submission_id'], $teacher_subject]);
+    if ($submissionId === null) {
+        header('Location: dashboard.php?deleted=1');
+        exit();
+    }
+
+    $submissionColumns = [];
+    try {
+        $submissionColumns = assignment_submission_column_names($conn);
+    } catch (Throwable $exception) {
+        error_log('EduPortal submission column discovery failed: ' . $exception->getMessage());
+    }
+    $assignmentColumn = isset($submissionColumns['assignment_id']) ? 'assignment_id, ' : '';
+
+    $lookup = $conn->prepare(
+        "SELECT id, student_id, {$assignmentColumn}subject, file_path
+         FROM submissions
+         WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))"
+    );
+    $lookup->execute([$submissionId, $teacher_id, $teacher_subject]);
+    $submission = $lookup->fetch_assoc();
+    if (!$submission) {
+        header('Location: dashboard.php?deleted=1');
+        exit();
+    }
+
+    $pdo = $conn->getPDO();
+    try {
+        $pdo->beginTransaction();
+        if ($submission['student_id'] !== null) {
+            assignment_lock_student_submissions($conn, $submission['student_id']);
+        }
+
+        $lockedSubmission = $conn->prepare(
+            "SELECT id, student_id, {$assignmentColumn}subject, file_path
+             FROM submissions
+             WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))
+             FOR UPDATE"
+        );
+        $lockedSubmission->execute([$submissionId, $teacher_id, $teacher_subject]);
+        $lockedSubmissionRow = $lockedSubmission->fetch_assoc();
+        if (!$lockedSubmissionRow) {
+            $pdo->rollBack();
+            header('Location: dashboard.php?deleted=1');
+            exit();
+        }
+
+        $delete = $conn->prepare('DELETE FROM submissions WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))');
+        $delete->execute([$submissionId, $teacher_id, $teacher_subject]);
+        $pdo->commit();
+
+        $fileRemoved = assignment_remove_stored_file($lockedSubmissionRow['file_path'] ?? '');
+        if (!assignment_record_deletion_audit($conn, [
+            'event' => 'submission_row_deleted',
+            'reason' => 'teacher_deleted',
+            'submission_id' => (int) $lockedSubmissionRow['id'],
+            'student_id' => $lockedSubmissionRow['student_id'],
+            'assignment_id' => $lockedSubmissionRow['assignment_id'] ?? null,
+            'subject' => $lockedSubmissionRow['subject'],
+            'file_path' => $lockedSubmissionRow['file_path'] ?? '',
+            'file_removed' => $fileRemoved,
+            'actor_id' => $teacher_id
+        ])) {
+            error_log('EduPortal teacher-deletion audit persistence failed: ' . (int) $lockedSubmissionRow['id']);
+        }
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('EduPortal submission deletion failed: ' . $exception->getMessage());
+        header('Location: dashboard.php?error=Could+not+delete+submission');
+        exit();
+    }
 
     header('Location: dashboard.php?deleted=1');
     exit();
@@ -57,9 +130,9 @@ $conn = getDBConnection();
 $query = "SELECT s.*, st.name as student_name, st.grade_level, st.section, st.strand
           FROM submissions s
           LEFT JOIN students st ON s.student_id = st.id
-          WHERE s.subject = ?";
+          WHERE (s.teacher_id = ? OR (s.teacher_id IS NULL AND s.subject = ?))";
 
-$params = [$teacher_subject];
+$params = [$teacher_id, $teacher_subject];
 
 if (!empty($filter_grade)) {
     $query .= " AND st.grade_level = ?";
@@ -96,6 +169,12 @@ $pending_count = $total_submissions - $reviewed_count;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Dashboard | EduPortal LMS</title>
     <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="manifest" href="../manifest.webmanifest">
+    <meta name="theme-color" content="#0a0b10">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -317,12 +396,15 @@ $pending_count = $total_submissions - $reviewed_count;
                                         <td>
                                             <div style="display: flex; align-items: center; gap: 10px;">
                                                 <i class="fas fa-user-graduate" style="color: var(--text-muted)"></i>
-                                                <div>
-                                                    <span
-                                                        style="font-weight: 500; display: block;"><?php echo htmlspecialchars($submission['student_name'] ?? 'Unknown'); ?></span>
-                                                    <span
-                                                        style="font-size: 0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars(($submission['grade_level'] ?? 'N/A') . ' | ' . ($submission['section'] ?? 'N/A')); ?></span>
-                                                </div>
+                                             <div>
+                                                 <span
+                                                     style="font-weight: 500; display: block;"><?php echo htmlspecialchars($submission['student_name'] ?? 'Unknown'); ?></span>
+                                                 <span
+                                                     style="font-size: 0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars(($submission['grade_level'] ?? 'N/A') . ' | ' . ($submission['section'] ?? 'N/A')); ?></span>
+                                                 <?php if (!empty($submission['assignment_id'])): ?>
+                                                     <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">Assignment #<?php echo (int) $submission['assignment_id']; ?></span>
+                                                 <?php endif; ?>
+                                             </div>
                                             </div>
                                         </td>
                                         <td>
@@ -399,6 +481,7 @@ $pending_count = $total_submissions - $reviewed_count;
     </div>
     <script src="../assets/js/system_loader.js?v=20260818"></script>
     <script src="../assets/js/responsive_ui.js"></script>
+    <script src="../assets/js/pwa.js"></script>
     <script>
         const notificationBell = document.getElementById('notificationBell');
         const notificationPanel = document.getElementById('notificationPanel');

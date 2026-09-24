@@ -37,6 +37,12 @@ require_once __DIR__ . '/nav.php';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Assignments | EduPortal Student</title>
     <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="manifest" href="../manifest.webmanifest">
+    <meta name="theme-color" content="#0a0b10">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -90,9 +96,14 @@ require_once __DIR__ . '/nav.php';
                                             <span style="font-size: 0.75rem; color: var(--text-muted);">Faculty Member</span>
                                         </div>
                                     </div>
-                                    <a href="../controllers/download_assignment.php?id=<?php echo $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
-                                        <i class="fas fa-download"></i> Get Copy
-                                    </a>
+                                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <a href="../controllers/download_assignment.php?id=<?php echo (int) $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
+                                            <i class="fas fa-download"></i> Get Copy
+                                        </a>
+                                        <a href="dashboard.php?assignment_id=<?php echo (int) $a['id']; ?>&amp;subject=<?php echo rawurlencode((string) $a['subject']); ?>" class="premium-btn premium-btn-outline" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
+                                            <i class="fas fa-paper-plane"></i> Submit
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -104,6 +115,7 @@ require_once __DIR__ . '/nav.php';
 
     <script src="../assets/js/system_loader.js"></script>
     <script src="../assets/js/responsive_ui.js"></script>
+    <script src="../assets/js/pwa.js"></script>
 </body>
 
 </html>

@@ -14,6 +14,60 @@ function assignment_test(bool $condition, string $message): void
     }
 }
 
+class AssignmentTestStatement
+{
+    private array $rows;
+    private array $columns;
+
+    public function __construct(array $rows = [], array $columns = [])
+    {
+        $this->rows = $rows;
+        $this->columns = $columns;
+    }
+
+    public function execute(array $parameters = []): void
+    {
+    }
+
+    public function fetch_assoc()
+    {
+        return array_shift($this->rows) ?: false;
+    }
+
+    public function fetchColumn()
+    {
+        if ($this->columns === []) {
+            return false;
+        }
+        return array_shift($this->columns);
+    }
+}
+
+class AssignmentTestConnection
+{
+    public array $queries = [];
+
+    public function getDriverName(): string
+    {
+        return 'pgsql';
+    }
+
+    public function prepare(string $sql): AssignmentTestStatement
+    {
+        $this->queries[] = $sql;
+        if (strpos($sql, 'information_schema.columns') !== false) {
+            return new AssignmentTestStatement([
+                ['column_name' => 'student_id'],
+                ['column_name' => 'assignment_id']
+            ]);
+        }
+        if (strpos($sql, 'SELECT id FROM submissions') !== false) {
+            return new AssignmentTestStatement([], [123]);
+        }
+        return new AssignmentTestStatement();
+    }
+}
+
 assignment_test(assignment_id('42') === 42, 'Valid numeric IDs must be accepted.');
 assignment_test(assignment_id(7) === 7, 'Integer IDs must be accepted.');
 assignment_test(assignment_id('0') === null, 'Zero must be rejected as an ID.');
@@ -60,6 +114,22 @@ assignment_test(is_array($otherDraft) && $otherDraft['title'] === 'Another assig
 $rules = assignment_upload_rules();
 assignment_test($rules['max_bytes'] === 9 * 1024 * 1024, 'Upload limit must leave room for multipart overhead.');
 assignment_test(isset($rules['extensions']['pdf'], $rules['extensions']['docx'], $rules['extensions']['mp4']), 'Required assignment file types must be supported.');
+
+assignment_test(assignment_normalize_subject("  Mathematics   101  ") === 'Mathematics 101', 'Submission subjects must be normalized before duplicate checks.');
+assignment_test(assignment_subject_length('Mathematics 101') === 15, 'Subject length checks must count characters.');
+$identity = assignment_submission_identity('12', '7', ' Mathematics 101 ');
+assignment_test(is_array($identity) && $identity['student_id'] === 12 && $identity['assignment_id'] === 7, 'Submission identities must include the student and posted assignment.');
+assignment_test(assignment_submission_identity(12, '0', 'Mathematics') === null, 'Invalid assignment IDs must not form submission identities.');
+assignment_test(assignment_submission_identity(12, null, '   ') === null, 'Legacy submissions must include a subject.');
+assignment_test(assignment_is_duplicate_database_error(new RuntimeException('duplicate key value violates unique constraint')), 'Unique constraint failures must be recognized as duplicate submissions.');
+assignment_test(assignment_is_duplicate_database_error(new RuntimeException("Duplicate entry '1' for key 'idx_submissions_student_assignment_unique'")), 'MySQL duplicate-entry failures must be recognized as duplicate submissions.');
+assignment_test(!assignment_is_duplicate_database_error(new RuntimeException('connection reset')), 'Unrelated database failures must not be treated as duplicates.');
+
+$duplicateDatabase = new AssignmentTestConnection();
+assignment_test(assignment_find_submission($duplicateDatabase, 12, 7, 'Mathematics', true) === 123, 'Linked duplicate checks must return the canonical submission ID.');
+assignment_test(count($duplicateDatabase->queries) >= 2 && strpos(end($duplicateDatabase->queries), 'FOR UPDATE') !== false, 'Locked duplicate checks must select the existing submission for update.');
+assignment_test(assignment_find_submission($duplicateDatabase, 12, null, 'Mathematics') === null, 'Unlinked submissions must remain independent.');
+assignment_test(assignment_submission_exists($duplicateDatabase, 12, null, 'Mathematics'), 'The legacy duplicate helper must retain subject-based lookup compatibility.');
 
 if ($failures) {
     fwrite(STDERR, "Assignment management tests failed:\n- " . implode("\n- ", $failures) . "\n");

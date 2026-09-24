@@ -7,6 +7,7 @@
 
 // Load Secure Session & Database
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../libs/assignment_management.php';
 
 // session_start handled by database.php
 
@@ -26,26 +27,28 @@ $user_role = $_SESSION['user_role'];
 
 $conn = getDBConnection();
 
-// Auto-create file_content columns if they don't exist (self-healing, PostgreSQL + MySQL safe)
 try {
-    $schemaExpression = $conn->getDriverName() === 'mysql' ? 'DATABASE()' : 'current_schema()';
-    $check = $conn->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = {$schemaExpression} AND table_name = 'submissions' AND column_name = 'file_content'");
-    $check->execute();
-    $exists = $check->fetchColumn();
-    if (!$exists) {
-        $conn->exec("ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL");
+    $submissionColumns = assignment_submission_column_names($conn);
+    if (!isset($submissionColumns['file_content'])) {
+        if ($conn->getDriverName() === 'mysql') {
+            $conn->exec('ALTER TABLE submissions ADD COLUMN file_content LONGTEXT');
+        } else {
+            $conn->exec('ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL');
+        }
+    }
+    if (!isset($submissionColumns['file_type'])) {
         $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
     }
-    } catch (Throwable $e) {
-        error_log('EduPortal schema migration error in download.php: ' . $e->getMessage());
-    }
+} catch (Throwable $e) {
+    error_log('EduPortal schema migration error in download.php: ' . $e->getMessage());
+}
 
 // Different queries based on user role
 if ($user_role === 'teacher') {
     if (isset($_SESSION['user_subject'])) {
         $teacher_subject = $_SESSION['user_subject'];
-        $stmt = $conn->prepare("SELECT file_path, file_content, file_type FROM submissions WHERE id = ? AND subject = ?");
-        $stmt->execute([$id, $teacher_subject]);
+        $stmt = $conn->prepare("SELECT file_path, file_content, file_type FROM submissions WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))");
+        $stmt->execute([$id, $user_id, $teacher_subject]);
     } else {
         $stmt = $conn->prepare("SELECT file_path, file_content, file_type FROM submissions WHERE id = ? AND teacher_id = ?");
         $stmt->execute([$id, $user_id]);
@@ -93,7 +96,10 @@ if ($base_dir === false) {
     die('Server configuration error: uploads directory not found');
 }
 
-$relative = ltrim($file_path, '/\\');
+$relative = ltrim(str_replace('\\', '/', (string) $file_path), '/');
+if (strpos($relative, 'uploads/') === 0) {
+    $relative = substr($relative, strlen('uploads/'));
+}
 $resolved = $base_dir . DIRECTORY_SEPARATOR . $relative;
 
 $base_norm = rtrim(str_replace('\\', '/', $base_dir), '/') . '/';
@@ -108,7 +114,7 @@ if (!file_exists($resolved)) {
 }
 
 $filename = basename($resolved);
-$filetype = mime_content_type($resolved);
+$filetype = function_exists('mime_content_type') ? mime_content_type($resolved) : 'application/octet-stream';
 $filesize = filesize($resolved);
 
 header('Content-Description: File Transfer');
