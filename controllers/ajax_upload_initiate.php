@@ -84,7 +84,6 @@ try {
         exit();
     }
 
-    $safeFilename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
     $storedFilename = bin2hex(random_bytes(16)) . '.' . $extension;
     $objectKey = trim(ObjectStorageService::fromEnv()->getUploadPrefix(), '/') . '/' . $storedFilename;
 
