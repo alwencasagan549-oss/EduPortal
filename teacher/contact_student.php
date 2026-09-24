@@ -39,15 +39,18 @@ require_once __DIR__ . '/nav.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Student | EduPortal LMS</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css?v=1.3">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 </head>
 
 <body>
@@ -84,9 +87,9 @@ require_once __DIR__ . '/nav.php';
                         style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: var(--primary-gradient); opacity: 0.1; border-radius: 50%; blur: 50px;">
                     </div>
 
-                    <h3 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-pen-nib" style="color: var(--primary-color)"></i> Message Composer
-                    </h3>
+                <h2 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-pen-nib" style="color: var(--primary-color)"></i> Message Composer
+                    </h2>
 
                     <form id="contactForm" method="POST" data-loader="true">
                         <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
@@ -140,9 +143,9 @@ require_once __DIR__ . '/nav.php';
 
                 <!-- Student Profile Sidebar -->
                 <div class="glass-card" style="padding: 2rem; border-left: 3px solid var(--primary-color);">
-                    <h4 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px;">
+                    <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px;">
                         <i class="fas fa-user-graduate" style="color: var(--primary-color)"></i> Student Context
-                    </h4>
+                    </h3>
 
                     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
                         <div style="background: rgba(0,0,0,0.2); border-radius: 12px; padding: 1.25rem;">
@@ -181,49 +184,82 @@ require_once __DIR__ . '/nav.php';
         </main>
     </div>
 
-    <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script>
-        document.getElementById('contactForm').onsubmit = function (e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            formData.append('send_message', 'true');
+        const contactForm = document.getElementById('contactForm');
+        const contactButton = contactForm.querySelector('button[type="submit"]');
+        const contactStatus = document.getElementById('statusAlert');
+        let contactController = null;
 
-            // Show global loader instantly
-            EduPortal.showLoader("Analyzing Request", "Queuing your message for priority delivery...");
-
-            fetch('../controllers/ajax_send_email.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    EduPortal.showSuccessModal(
-                        "Message Sent", 
-                        "Your message has been delivered as an internal notification."
-                    );
-                } else {
-                    EduPortal.hideLoader();
-                    const statusAlert = document.getElementById('statusAlert');
-                    statusAlert.innerHTML = `
-                        <div class="alert alert-danger animate-fade-up">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <div id="errorMessage"></div>
-                        </div>
-                    `;
-                    document.getElementById('errorMessage').textContent = data.error || "Submission failed. Please check all fields.";
-                }
-            })
-            .catch(err => {
-                EduPortal.hideLoader();
-                console.error(err);
-            });
-            
-            return false;
+        const showContactError = message => {
+            contactStatus.replaceChildren();
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger animate-fade-up';
+            alert.setAttribute('role', 'alert');
+            alert.textContent = message;
+            contactStatus.appendChild(alert);
         };
+
+        contactForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (contactForm.dataset.submitting === 'true') {
+                return;
+            }
+
+            contactForm.dataset.submitting = 'true';
+            contactButton.disabled = true;
+            contactButton.setAttribute('aria-busy', 'true');
+            contactStatus.replaceChildren();
+            EduPortal.showLoader('Sending message', 'Delivering your notification to the student...');
+
+            const controller = new AbortController();
+            contactController = controller;
+            const timeout = window.setTimeout(() => controller.abort(), 20000);
+
+            try {
+                const formData = new FormData(contactForm);
+                formData.append('send_message', 'true');
+                const response = await fetch('../controllers/ajax_send_email.php', {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+                const contentType = response.headers.get('content-type') || '';
+                if (response.redirected || !contentType.includes('application/json')) {
+                    const error = new Error('Your session has expired. Sign in again to continue.');
+                    error.sessionExpired = true;
+                    throw error;
+                }
+                const data = await response.json().catch(() => {
+                    throw new Error('The server returned an invalid response.');
+                });
+                if (data.csrf_token) {
+                    contactForm.querySelector('input[name="csrf_token"]').value = data.csrf_token;
+                }
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'The message could not be sent.');
+                }
+                EduPortal.showSuccessModal('Message Sent', 'Your message has been delivered as an internal notification.');
+            } catch (error) {
+                EduPortal.hideLoader();
+                showContactError(error.name === 'AbortError'
+                    ? 'The request timed out. Check your connection and try again.'
+                    : error.sessionExpired
+                        ? error.message
+                        : (error.message || 'The message could not be sent.'));
+            } finally {
+                window.clearTimeout(timeout);
+                if (contactController === controller) {
+                    contactController = null;
+                }
+                contactForm.dataset.submitting = 'false';
+                contactButton.disabled = false;
+                contactButton.removeAttribute('aria-busy');
+            }
+        });
+
+        window.addEventListener('pagehide', () => contactController?.abort());
     </script>
-    <script src="../assets/js/system_loader.js"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>

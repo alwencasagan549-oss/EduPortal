@@ -25,7 +25,8 @@ $query = "SELECT st.id, st.name, st.lrn, st.grade_level, st.strand, st.section, 
           JOIN submissions s ON st.id = s.student_id
           WHERE s.subject = ?
           GROUP BY st.id
-          ORDER BY latest_submission DESC";
+           ORDER BY latest_submission DESC
+           LIMIT 200";
 
 $stmt = $conn->prepare($query);
 $stmt->execute([$teacher_subject]);
@@ -40,15 +41,18 @@ require_once __DIR__ . '/nav.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($teacher_subject); ?> Students | EduPortal LMS</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -69,7 +73,7 @@ require_once __DIR__ . '/nav.php';
                 <div class="top-bar-actions">
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="text" id="directorySearch" placeholder="Search by name or LRN..." onkeyup="filterDirectory()">
+                        <input type="text" id="directorySearch" placeholder="Search by name or LRN..." oninput="scheduleDirectoryFilter()">
                     </div>
                     <button class="icon-button">
                         <i class="fas fa-bell"></i>
@@ -126,7 +130,7 @@ require_once __DIR__ . '/nav.php';
                                     <i class="fas fa-user-graduate"></i>
                                 </div>
                                 <div>
-                                    <h3 style="font-size: 1.1rem; margin-bottom: 2px;"><?php echo htmlspecialchars($student['name']); ?></h3>
+                                    <h2 style="font-size: 1.1rem; margin-bottom: 2px;"><?php echo htmlspecialchars($student['name']); ?></h2>
                                     <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">LRN: <?php echo htmlspecialchars($student['lrn']); ?></span>
                                 </div>
                             </div>
@@ -161,6 +165,13 @@ require_once __DIR__ . '/nav.php';
     </div>
 
     <script>
+    let directoryFilterTimer;
+
+    function scheduleDirectoryFilter() {
+        window.clearTimeout(directoryFilterTimer);
+        directoryFilterTimer = window.setTimeout(filterDirectory, 120);
+    }
+
     function filterDirectory() {
         const input = document.getElementById('directorySearch');
         const filter = input.value.toLowerCase();
@@ -185,7 +196,7 @@ require_once __DIR__ . '/nav.php';
             box-shadow: 0 10px 30px rgba(78, 115, 223, 0.1);
         }
     </style>
-    <script src="../assets/js/system_loader.js"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>

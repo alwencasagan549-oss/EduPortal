@@ -9,9 +9,11 @@ require_once '../config/database.php';
 requireLogin();
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 if (getUserRole() !== 'teacher') {
-    header('HTTP/1.1 403 Forbidden');
+    http_response_code(403);
+    echo json_encode(['error' => 'Forbidden']);
     exit();
 }
 

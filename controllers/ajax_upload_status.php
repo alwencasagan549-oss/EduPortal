@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/database.php';
 
 requireLogin();
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     echo json_encode(['success' => false, 'error' => 'Method not allowed']);

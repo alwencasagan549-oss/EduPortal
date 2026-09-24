@@ -4,8 +4,8 @@
  * pause/resume, and progress tracking.
  */
 
-import { initiateUpload, finalizeUpload, getUploadStatus } from './api.js';
-import { RetryPolicy } from './RetryPolicy.js';
+import { initiateUpload, finalizeUpload, getUploadStatus } from './api.js?v=20260924-uploads3';
+import { RetryPolicy } from './RetryPolicy.js?v=20260924-uploads3';
 
 export class ChunkedUploader {
   #queue = new Map();
@@ -98,6 +98,7 @@ export class ChunkedUploader {
         error: null,
         retryCount: 0,
         presignedUrls: [],
+        presignedUrlsAreRemaining: false,
         uploadId: null,
         s3UploadId: null,
         objectKey: null
@@ -160,10 +161,12 @@ export class ChunkedUploader {
     try {
       if (!resume || upload.completedChunks.length === 0) {
         const initResult = await this.#retryPolicy.execute(
-          () => initiateUpload(upload.file),
-          (error) => error.name === 'NetworkError' || error.status >= 500
+          () => initiateUpload(upload.file, { signal: upload.abortController.signal }),
+          error => error.name === 'NetworkError' || error.name === 'TypeError' || error.name === 'TimeoutError' || error.status >= 500,
+          upload.abortController.signal
         );
 
+        this.#assertActive(upload);
         if (!initResult.success) {
           throw new Error(initResult.error || 'Failed to initiate upload');
         }
@@ -171,29 +174,40 @@ export class ChunkedUploader {
         upload.uploadId = initResult.uploadId;
         upload.s3UploadId = initResult.s3UploadId;
         upload.presignedUrls = initResult.presignedUrls;
+        upload.presignedUrlsAreRemaining = false;
         upload.chunkSize = initResult.chunkSize || upload.chunkSize;
         upload.totalChunks = initResult.totalChunks || upload.totalChunks;
         upload.objectKey = initResult.objectKey;
       } else {
-        const status = await getUploadStatus(upload.uploadId);
+        const status = await getUploadStatus(upload.uploadId, { signal: upload.abortController.signal });
+        this.#assertActive(upload);
         if (!status.success) {
           throw new Error(status.error || 'Failed to get upload status');
         }
         upload.presignedUrls = status.remainingPresignedUrls;
+        upload.presignedUrlsAreRemaining = true;
       }
 
       await this.#uploadChunks(upload);
     } catch (error) {
+      if (!this.#queue.has(id) || upload.state === 'cancelled') {
+        return;
+      }
       if (error.name === 'AbortError') {
         upload.state = 'paused';
         upload.error = 'Upload paused';
-      } else {
-        upload.state = 'failed';
-        upload.error = error.message;
-        upload.retryCount++;
+        this.#emit('onStateChange', upload);
+        return;
       }
+      upload.state = 'failed';
+      upload.error = upload.error || error.message;
+      upload.retryCount++;
       this.#emit('onStateChange', upload);
       this.#emit('onError', { upload, error: upload.error, type: 'upload' });
+    } finally {
+      if (this.#queue.has(id)) {
+        upload.abortController = null;
+      }
     }
   }
 
@@ -206,13 +220,11 @@ export class ChunkedUploader {
       return;
     }
 
-    const remainingPresignedUrls = presignedUrls;
+    const remainingPresignedUrls = upload.presignedUrlsAreRemaining ? presignedUrls : presignedUrls.slice(completedCount);
     const startChunkNumber = completedCount + 1;
 
     for (let i = 0; i < remainingPresignedUrls.length; i++) {
-      if (abortController.signal.aborted) {
-        throw new DOMException('Upload aborted', 'AbortError');
-      }
+      this.#assertActive(upload);
 
       const chunkNumber = startChunkNumber + i;
       const presignedUrl = remainingPresignedUrls[i];
@@ -223,7 +235,8 @@ export class ChunkedUploader {
       try {
         const etag = await this.#retryPolicy.execute(
           () => this.#uploadChunk(presignedUrl, chunkBlob, abortController.signal),
-          (error) => error.name === 'NetworkError' || error.status >= 500
+          error => error.name === 'NetworkError' || error.name === 'TypeError' || error.name === 'TimeoutError' || error.status >= 500,
+          abortController.signal
         );
 
         if (!etag) {
@@ -245,11 +258,10 @@ export class ChunkedUploader {
           uploadedChunks: upload.completedChunks.length
         });
       } catch (error) {
+        if (error.name === 'AbortError') {
+          throw error;
+        }
         upload.error = `Chunk ${chunkNumber} failed: ${error.message}`;
-        upload.state = 'failed';
-        upload.retryCount++;
-        this.#emit('onStateChange', upload);
-        this.#emit('onError', { upload, error: upload.error, type: 'chunk' });
         throw error;
       }
     }
@@ -268,7 +280,8 @@ export class ChunkedUploader {
       throw new Error(`Missing ETag for uploaded part ${missingPart.partNumber}. Check the R2 CORS ExposeHeaders setting.`);
     }
 
-    const result = await finalizeUpload(upload.uploadId, chunks);
+    const result = await finalizeUpload(upload.uploadId, chunks, { signal: upload.abortController.signal });
+    this.#assertActive(upload);
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to finalize upload');
@@ -280,57 +293,100 @@ export class ChunkedUploader {
     upload.objectKey = result.objectKey;
     upload.url = result.url;
     this.#emit('onStateChange', upload);
+    this.#emit('onProgress', {
+      id: upload.id,
+      progress: 100,
+      loadedBytes: upload.file.size,
+      totalBytes: upload.file.size,
+      chunkIndex: upload.totalChunks,
+      totalChunks: upload.totalChunks,
+      uploadedChunks: upload.totalChunks
+    });
     this.#emit('onComplete', upload);
   }
 
   #uploadChunk(presignedUrl, blob, signal) {
     return new Promise((resolve, reject) => {
+      if (signal.aborted) {
+        reject(new DOMException('Upload aborted', 'AbortError'));
+        return;
+      }
+
       const xhr = new XMLHttpRequest();
+      let settled = false;
+      let timeout = null;
 
-      xhr.open('PUT', presignedUrl, true);
-      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-      xhr.responseType = 'text';
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        signal.removeEventListener('abort', handleAbort);
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.onabort = null;
+      };
 
-      const timeout = setTimeout(() => {
-        xhr.abort();
-        reject(new DOMException('Request timeout', 'TimeoutError'));
+      const settle = callback => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        callback();
+      };
+
+      const handleAbort = () => {
+        settle(() => {
+          if (xhr.readyState !== XMLHttpRequest.UNSENT) {
+            xhr.abort();
+          }
+          reject(new DOMException('Upload aborted', 'AbortError'));
+        });
+      };
+
+      signal.addEventListener('abort', handleAbort, { once: true });
+      if (signal.aborted) {
+        handleAbort();
+        return;
+      }
+
+      try {
+        xhr.open('PUT', presignedUrl, true);
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        xhr.responseType = 'text';
+      } catch (error) {
+        settle(() => reject(error));
+        return;
+      }
+
+      timeout = setTimeout(() => {
+        settle(() => {
+          xhr.abort();
+          reject(new DOMException('Request timeout', 'TimeoutError'));
+        });
       }, 60000);
 
       xhr.onload = () => {
-        clearTimeout(timeout);
-
         if (xhr.status >= 200 && xhr.status < 300) {
           const etag = xhr.getResponseHeader('ETag') || '';
-          resolve(etag.trim());
+          settle(() => resolve(etag.trim()));
         } else {
           const error = new Error(`Chunk upload failed: HTTP ${xhr.status}`);
           error.status = xhr.status;
-          reject(error);
+          settle(() => reject(error));
         }
       };
 
       xhr.onerror = () => {
-        clearTimeout(timeout);
         const error = new DOMException('Network error during chunk upload', 'NetworkError');
         error.status = 0;
-        reject(error);
+        settle(() => reject(error));
       };
 
       xhr.onabort = () => {
-        clearTimeout(timeout);
-        reject(new DOMException('Upload aborted', 'AbortError'));
+        settle(() => reject(new DOMException('Upload aborted', 'AbortError')));
       };
-
-      signal.addEventListener('abort', () => {
-        clearTimeout(timeout);
-        xhr.abort();
-      }, { once: true });
 
       try {
         xhr.send(blob);
       } catch (error) {
-        clearTimeout(timeout);
-        reject(error);
+        settle(() => reject(error));
       }
     });
   }
@@ -353,6 +409,12 @@ export class ChunkedUploader {
     this.#queue.delete(id);
   }
 
+  cancelAll() {
+    for (const id of this.#queue.keys()) {
+      this.cancelUpload(id);
+    }
+  }
+
   retryUpload(id) {
     const upload = this.#queue.get(id);
     if (!upload || upload.state !== 'failed') return;
@@ -360,15 +422,36 @@ export class ChunkedUploader {
     upload.state = 'pending';
     upload.error = null;
     upload.retryCount = 0;
-    this.startUpload(id, true);
+    upload.progress = 0;
+    upload.loadedBytes = 0;
+    upload.completedChunks = [];
+    upload.completedParts = {};
+    upload.presignedUrls = [];
+    upload.presignedUrlsAreRemaining = false;
+    upload.uploadId = null;
+    upload.s3UploadId = null;
+    upload.objectKey = null;
+    this.#emit('onStateChange', upload);
+    this.#emit('onProgress', {
+      id: upload.id,
+      progress: 0,
+      loadedBytes: 0,
+      totalBytes: upload.file.size,
+      chunkIndex: 0,
+      totalChunks: upload.totalChunks,
+      uploadedChunks: 0
+    });
+    this.startUpload(id, false);
   }
 
   removeUpload(id) {
-    const upload = this.#queue.get(id);
-    if (upload?.state === 'uploading') {
-      upload.abortController?.abort();
+    this.cancelUpload(id);
+  }
+
+  #assertActive(upload) {
+    if (!this.#queue.has(upload.id) || upload.state === 'cancelled' || upload.abortController?.signal.aborted) {
+      throw new DOMException('Upload aborted', 'AbortError');
     }
-    this.#queue.delete(id);
   }
 
   #formatBytes(bytes) {

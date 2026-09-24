@@ -1,13 +1,14 @@
 const CACHE_PREFIX = 'eduportal-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const scopeUrl = new URL(self.registration.scope);
 const staticPaths = [
   'offline.html',
   'manifest.webmanifest',
-  'favicon.ico',
-  'assets/style.css',
+  'assets/pwa-icon-192.svg',
+  'assets/style.min.css?v=20260924',
   'assets/js/pwa.js',
-  'assets/js/system_loader.js',
+  'assets/js/trusted_types.js',
+  'assets/js/system_loader.js?v=20260924-loader3',
   'assets/js/responsive_ui.js',
   'assets/pwa-icon-192.svg',
   'assets/pwa-icon-512.svg',
@@ -19,7 +20,7 @@ const offlineUrl = new URL('offline.html', scopeUrl).href;
 const assetsPath = new URL('assets/', scopeUrl).pathname;
 const cacheablePaths = new Set([
   new URL('manifest.webmanifest', scopeUrl).pathname,
-  new URL('favicon.ico', scopeUrl).pathname,
+  new URL('assets/pwa-icon-192.svg', scopeUrl).pathname,
   new URL('EDUPORTAL_TEACHER_STUDENT_GUIDE.html', scopeUrl).pathname
 ]);
 
@@ -30,7 +31,16 @@ const isCacheableAsset = requestUrl => {
 const cacheFirst = async request => {
   const cache = await caches.open(CACHE_NAME);
   const cachedResponse = await cache.match(request);
+
   if (cachedResponse) {
+    fetch(request)
+      .then(response => {
+        if (response.ok) {
+          return cache.put(request, response.clone());
+        }
+        return null;
+      })
+      .catch(() => null);
     return cachedResponse;
   }
 
@@ -49,21 +59,32 @@ const cacheFirst = async request => {
 };
 
 const networkFirstNavigation = async request => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    return await fetch(request);
+    return await fetch(request, { signal: controller.signal });
   } catch (error) {
     const offlineResponse = await caches.match(offlineUrl);
     return offlineResponse || new Response('EduPortal is offline.', {
       status: 503,
       statusText: 'Offline'
     });
+  } finally {
+    clearTimeout(timeout);
   }
 };
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(staticUrls))
+      .then(async cache => {
+        await cache.addAll(staticUrls);
+        const loaderUrl = new URL('assets/js/system_loader.js?v=20260924-loader3', scopeUrl).href;
+        const loaderResponse = await cache.match(loaderUrl);
+        if (loaderResponse) {
+          await cache.put(new URL('assets/js/system_loader.js', scopeUrl).href, loaderResponse);
+        }
+      })
       .then(() => self.skipWaiting())
   );
 });

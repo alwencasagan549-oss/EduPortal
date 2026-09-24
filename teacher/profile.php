@@ -98,7 +98,7 @@ require_once __DIR__ . '/nav.php';
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
@@ -108,9 +108,12 @@ require_once __DIR__ . '/nav.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Profile | EduPortal LMS</title>
-    <link rel="stylesheet" href="../assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="../assets/js/system_loader.js"></script>
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </head>
@@ -152,9 +155,9 @@ require_once __DIR__ . '/nav.php';
                 <div class="glass-card" style="padding: 2.5rem;">
                     <form method="POST" data-loader="true">
                         <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                        <h3 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px;">
+                        <h2 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px;">
                             <i class="fas fa-id-card" style="color: var(--primary-color)"></i> General Information
-                        </h3>
+                        </h2>
                         
                         <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
                             <div>
@@ -172,9 +175,9 @@ require_once __DIR__ . '/nav.php';
                             <input type="text" name="subject" value="<?php echo htmlspecialchars($teacher['subject']); ?>" required class="premium-input">
                         </div>
 
-                        <h3 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--glass-border); pt: 2rem;">
+                        <h2 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--glass-border); pt: 2rem;">
                             <i class="fas fa-shield-halved" style="color: var(--primary-color)"></i> Security Check
-                        </h3>
+                        </h2>
 
                         <div style="margin-bottom: 1.5rem;">
                             <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Current Password (required for changes)</label>
@@ -225,7 +228,7 @@ require_once __DIR__ . '/nav.php';
                     </div>
 
                     <div class="glass-card" style="padding: 1.5rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%);">
-                        <h4 style="margin-bottom: 1rem; color: var(--success-color);"><i class="fas fa-circle-check" style="margin-right: 8px;"></i> Security Tip</h4>
+                        <h3 style="margin-bottom: 1rem; color: var(--success-color);"><i class="fas fa-circle-check" style="margin-right: 8px;"></i> Security Tip</h3>
                         <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">Ensure your password is unique and complex. Regularly update your security settings to protect student data.</p>
                     </div>
                 </div>

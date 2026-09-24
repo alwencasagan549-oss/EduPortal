@@ -24,20 +24,28 @@
         installButton.type = 'button';
         installButton.className = 'pwa-install-button';
         installButton.setAttribute('aria-label', 'Install EduPortal as an app');
-        installButton.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Install app</span>';
+        const installMarkup = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Install app</span>';
+        installButton.innerHTML = window.EduPortalTrustedTypes
+            ? window.EduPortalTrustedTypes.createHTML(installMarkup)
+            : installMarkup;
         installButton.addEventListener('click', async () => {
             if (!deferredPrompt) {
                 return;
             }
+            installButton.disabled = true;
+            installButton.setAttribute('aria-busy', 'true');
+            const label = installButton.querySelector('span');
+            if (label) {
+                label.textContent = 'Opening...';
+            }
             try {
-                deferredPrompt.prompt();
-                const choice = await deferredPrompt.userChoice;
-                deferredPrompt = null;
-                if (choice.outcome === 'accepted') {
-                    removeInstallButton();
-                }
+                await deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
             } catch (error) {
                 deferredPrompt = null;
+            } finally {
+                deferredPrompt = null;
+                removeInstallButton();
             }
         });
         document.body.appendChild(installButton);

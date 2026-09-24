@@ -4,9 +4,13 @@
  * and the underlying chunked uploader.
  */
 
-import { ChunkedUploader } from './ChunkedUploader.js';
-import { PreviewGenerator } from './PreviewGenerator.js';
-import { performFullValidation } from './MagicBytesValidator.js';
+import { ChunkedUploader } from './ChunkedUploader.js?v=20260924-uploads3';
+import { PreviewGenerator } from './PreviewGenerator.js?v=20260924-uploads3';
+import { performFullValidation } from './MagicBytesValidator.js?v=20260924-uploads3';
+
+const trustedHtml = markup => window.EduPortalTrustedTypes
+  ? window.EduPortalTrustedTypes.createHTML(markup)
+  : markup;
 
 export class UploadManager {
   #uploader;
@@ -39,11 +43,16 @@ export class UploadManager {
       this.#updateProgress(id, progress, loadedBytes, totalBytes, uploadedChunks, totalChunks);
     });
 
-    this.#uploader.on('onComplete', async (upload) => {
-      const preview = await PreviewGenerator.generate(upload.file);
-      this.#previews.set(upload.id, preview);
-      this.#renderUploadItem(upload);
-      this.#triggerEvent('onUploadComplete', upload);
+    this.#uploader.on('onComplete', upload => {
+      PreviewGenerator.generate(upload.file)
+        .then(preview => {
+          this.#previews.set(upload.id, preview);
+          this.#renderUploadItem(upload);
+          this.#triggerEvent('onUploadComplete', upload);
+        })
+        .catch(error => {
+          this.#triggerEvent('onUploadError', { upload, error: error.message, type: 'preview' });
+        });
     });
 
     this.#uploader.on('onError', ({ upload, error, type }) => {
@@ -57,6 +66,20 @@ export class UploadManager {
     if (!dropZone) return;
 
     const fileInput = this.#container.querySelector('input[type="file"]');
+
+    dropZone.addEventListener('click', event => {
+      if (event.target.closest('button, input, a')) {
+        return;
+      }
+      fileInput?.click();
+    });
+
+    dropZone.addEventListener('keydown', event => {
+      if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('button, input, a')) {
+        event.preventDefault();
+        fileInput?.click();
+      }
+    });
 
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       dropZone.addEventListener(eventName, (e) => {
@@ -116,7 +139,17 @@ export class UploadManager {
     });
 
     for (const upload of uploads) {
-      const preview = await PreviewGenerator.generate(upload.file);
+      let preview;
+      try {
+        preview = await PreviewGenerator.generate(upload.file);
+      } catch (error) {
+        preview = {
+          type: 'file',
+          url: null,
+          metadata: PreviewGenerator.getFileMetadata(upload.file)
+        };
+        this.#triggerEvent('onUploadError', { upload, error: error.message, type: 'preview' });
+      }
       this.#previews.set(upload.id, preview);
       this.#createUploadItem(upload, preview);
 
@@ -158,21 +191,36 @@ export class UploadManager {
     return this.#uploader.getQueue();
   }
 
+  clear() {
+    this.#uploader.cancelAll();
+    const queue = this.#container.querySelector(this.#options.queueSelector);
+    if (queue) {
+      queue.replaceChildren();
+    }
+    this.#previews.forEach(preview => {
+      if (preview.url?.startsWith('blob:')) {
+        URL.revokeObjectURL(preview.url);
+      }
+    });
+    this.#previews.clear();
+    this.#updateEmptyState();
+  }
+
   #createUploadItem(upload, preview) {
     const queue = this.#container.querySelector(this.#options.queueSelector);
     if (!queue) return;
 
     const item = document.createElement('div');
-    item.className = 'upload-item';
+    item.className = `upload-item state-${upload.state}`;
     item.dataset.uploadId = upload.id;
-    item.innerHTML = this.#buildUploadItemHTML(upload, preview);
+    item.innerHTML = trustedHtml(this.#buildUploadItemHTML(upload, preview));
 
     queue.appendChild(item);
+    this.#renderUploadItem(upload);
   }
 
   #buildUploadItemHTML(upload, preview) {
     const previewHTML = this.#renderPreview(preview, upload.file.name);
-    const stateClass = upload.state === 'failed' ? 'error' : upload.state;
     const actionButtons = this.#renderActionButtons(upload);
 
     return `
@@ -182,12 +230,12 @@ export class UploadManager {
           <div class="upload-name" title="${this.#escapeHtml(upload.file.name)}">${this.#escapeHtml(upload.file.name)}</div>
           <div class="upload-size">${PreviewGenerator.formatSize(upload.file.size)}</div>
         </div>
-        <div class="progress-container">
+        <div class="progress-container" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${upload.progress}">
           <div class="progress-bar" style="width: ${upload.progress}%"></div>
         </div>
-        <div class="progress-text">${upload.progress}%</div>
+        <div class="progress-text" aria-live="polite">${upload.progress}%</div>
         <div class="upload-actions">${actionButtons}</div>
-        <div class="upload-error" style="display: none;"></div>
+        <div class="upload-error" role="alert" aria-live="assertive" style="display: none;"></div>
       </div>
     `;
   }
@@ -206,10 +254,10 @@ export class UploadManager {
   #renderActionButtons(upload) {
     if (upload.state === 'uploading') {
       return `
-        <button class="btn-upload btn-pause" data-action="pause" title="Pause">
+        <button type="button" class="btn-upload btn-pause" data-action="pause" title="Pause">
           <i class="fas fa-pause"></i> Pause
         </button>
-        <button class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
+        <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
           <i class="fas fa-times"></i>
         </button>
       `;
@@ -217,10 +265,10 @@ export class UploadManager {
 
     if (upload.state === 'paused') {
       return `
-        <button class="btn-upload btn-resume" data-action="resume" title="Resume">
+        <button type="button" class="btn-upload btn-resume" data-action="resume" title="Resume">
           <i class="fas fa-play"></i> Resume
         </button>
-        <button class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
+        <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
           <i class="fas fa-times"></i>
         </button>
       `;
@@ -228,10 +276,10 @@ export class UploadManager {
 
     if (upload.state === 'pending') {
       return `
-        <button class="btn-upload btn-start" data-action="start" title="Start">
+        <button type="button" class="btn-upload btn-start" data-action="start" title="Start">
           <i class="fas fa-upload"></i> Upload
         </button>
-        <button class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
+        <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
           <i class="fas fa-times"></i>
         </button>
       `;
@@ -239,10 +287,10 @@ export class UploadManager {
 
     if (upload.state === 'failed') {
       return `
-        <button class="btn-upload btn-retry" data-action="retry" title="Retry">
+        <button type="button" class="btn-upload btn-retry" data-action="retry" title="Retry">
           <i class="fas fa-redo"></i> Retry
         </button>
-        <button class="btn-upload btn-cancel" data-action="cancel" title="Remove">
+        <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="Remove">
           <i class="fas fa-trash"></i>
         </button>
       `;
@@ -259,13 +307,18 @@ export class UploadManager {
     const item = this.#container.querySelector(`[data-upload-id="${upload.id}"]`);
     if (!item) return;
 
+    item.classList.remove('state-pending', 'state-uploading', 'state-paused', 'state-failed', 'state-completed', 'state-cancelled');
+    item.classList.add(`state-${upload.state}`);
+
     const actionsContainer = item.querySelector('.upload-actions');
     if (actionsContainer) {
       const preview = this.#previews.get(upload.id);
-      actionsContainer.innerHTML = this.#renderActionButtons(upload);
+      actionsContainer.innerHTML = trustedHtml(this.#renderActionButtons(upload));
 
       actionsContainer.querySelectorAll('button').forEach(button => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
           const action = button.dataset.action;
           this.#handleAction(upload.id, action);
         });
@@ -287,8 +340,14 @@ export class UploadManager {
     const item = this.#container.querySelector(`[data-upload-id="${id}"]`);
     if (!item) return;
 
+    const progressContainer = item.querySelector('.progress-container');
     const progressBar = item.querySelector('.progress-bar');
     const progressText = item.querySelector('.progress-text');
+
+    if (progressContainer) {
+      progressContainer.setAttribute('aria-valuenow', String(progress));
+      progressContainer.setAttribute('aria-valuetext', `${progress}% uploaded, ${uploadedChunks} of ${totalChunks} chunks`);
+    }
 
     if (progressBar) {
       progressBar.style.width = `${progress}%`;
@@ -345,8 +404,7 @@ export class UploadManager {
   }
 
   #escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(text ?? '').replace(/[&<>"']/g, character => entities[character]);
   }
 }

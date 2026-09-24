@@ -140,6 +140,42 @@
         @page {
             margin: 1in 1in 1in 1in;
         }
+        .loader-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 11, 16, 0.92);
+        }
+        .loader-container {
+            color: #fff;
+            text-align: center;
+            padding: 2rem;
+        }
+        .loader-text {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .loader-subtext {
+            margin-top: 0.4rem;
+            color: #cbd5e1;
+            font-size: 0.85rem;
+        }
+        .edu-spinner {
+            width: 42px;
+            height: 42px;
+            margin: 0 auto;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #4e73df;
+            border-radius: 50%;
+            animation: loader-spin 0.8s linear infinite;
+        }
+        @keyframes loader-spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -149,6 +185,7 @@
     <span><a href="student/login.php">Student Login</a> · <a href="teacher/login.php">Teacher Login</a></span>
 </nav>
 
+<main id="main-content">
 <h1>Eduportal &mdash; Teacher &amp; Student User Guide</h1>
 
 <h2 style="border-bottom: none; margin-top: 0;">About EduPortal</h2>
@@ -516,6 +553,8 @@
     Eduportal &mdash; Teacher &amp; Student User Guide<br>
     Generated on August 17, 2026
 </div>
+</main>
 
+<script src="assets/js/system_loader.js?v=20260924-loader3"></script>
 </body>
 </html>

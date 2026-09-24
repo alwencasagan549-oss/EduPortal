@@ -69,18 +69,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Login | EduPortal LMS</title>
-    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="../assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 </head>
 <body class="auth-page">
-    <div class="auth-card">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <main class="auth-card" id="main-content">
         <div class="auth-logo">
             <div class="sidebar-logo" style="margin: 0 auto 1.5rem; width: 60px; height: 60px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">
                 <i class="fas fa-chalkboard-teacher" style="font-size: 1.5rem;"></i>
@@ -99,24 +103,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="POST" data-loader="true">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <div style="margin-bottom: 1.5rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
+                <label for="email" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
                     <i class="fas fa-envelope"></i> Professional Email
                 </label>
-                <input type="email" name="email" required class="premium-input" placeholder="name@school.com">
+                <input type="email" id="email" name="email" autocomplete="username" required class="premium-input" placeholder="name@school.com">
             </div>
 
             <div style="margin-bottom: 1.5rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
+                <label for="subject" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
                     <i class="fas fa-book"></i> Subject
                 </label>
-                <input type="text" name="subject" required class="premium-input" placeholder="e.g., Mathematics">
+                <input type="text" id="subject" name="subject" autocomplete="organization-title" required class="premium-input" placeholder="e.g., Mathematics">
             </div>
             
             <div style="margin-bottom: 2rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
+                <label for="password" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
                     <i class="fas fa-shield-halved"></i> Security Password
                 </label>
-                <input type="password" name="password" required class="premium-input" placeholder="••••••••">
+                <input type="password" id="password" name="password" autocomplete="current-password" required class="premium-input" placeholder="••••••••">
             </div>
             
             <button type="submit" class="premium-btn" style="width: 100%; justify-content: center; padding: 1rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
@@ -131,13 +135,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </a>
             <div style="margin-top: 2.5rem; border-top: 1px solid var(--glass-border); padding-top: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
                 <p>&copy; 2026 EduPortal. Web Developer: <strong id="_sys_v_auth"><a href="https://casagan.vercel.app/" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwin T. Casagan</a></strong></p>
-                <a href="../index.php" style="color: var(--text-muted); text-decoration: none; display: inline-block; margin-top: 10px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'" onclick="EduPortal.showLoader('Navigating...', 'Please wait while we redirect you.')">
+                <a href="../index.php" style="color: var(--text-muted); text-decoration: none; display: inline-block; margin-top: 10px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">
                     <i class="fas fa-arrow-left"></i> Back to Main Portal
                 </a>
             </div>
         </div>
-    </div>
-    <script src="../assets/js/system_loader.js"></script>
+    </main>
+    <script src="../assets/js/trusted_types.js"></script>
+    <script src="../assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
 </body>

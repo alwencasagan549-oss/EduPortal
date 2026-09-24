@@ -21,9 +21,11 @@ export class RetryPolicy {
     return Math.floor(exponentialDelay + jitterAmount);
   }
 
-  async execute(fn, shouldRetry) {
+  async execute(fn, shouldRetry, signal) {
     const retryCondition = shouldRetry ?? ((error) => {
       return error.name === 'NetworkError' ||
+             error.name === 'TypeError' ||
+             error.name === 'TimeoutError' ||
              error.status >= 500 ||
              error.code === 'ECONNRESET' ||
              error.code === 'ETIMEDOUT' ||
@@ -33,25 +35,44 @@ export class RetryPolicy {
     let lastError;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      if (signal?.aborted) {
+        throw new DOMException('Request aborted', 'AbortError');
+      }
       try {
         return await fn();
       } catch (error) {
+        if (signal?.aborted) {
+          throw new DOMException('Request aborted', 'AbortError');
+        }
         lastError = error;
 
         if (attempt === this.maxRetries || !retryCondition(error)) {
           throw error;
         }
 
-        const delay = this.getDelay(attempt);
-        await this.sleep(delay);
+        await this.sleep(this.getDelay(attempt), signal);
       }
     }
 
     throw lastError;
   }
 
-  sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  sleep(ms, signal) {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new DOMException('Request aborted', 'AbortError'));
+        return;
+      }
+      const timeout = setTimeout(() => {
+        signal?.removeEventListener('abort', abort);
+        resolve();
+      }, ms);
+      const abort = () => {
+        clearTimeout(timeout);
+        reject(new DOMException('Request aborted', 'AbortError'));
+      };
+      signal?.addEventListener('abort', abort, { once: true });
+    });
   }
 
   reset() {

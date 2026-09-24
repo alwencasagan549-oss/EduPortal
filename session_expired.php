@@ -10,15 +10,18 @@ if (session_status() === PHP_SESSION_NONE) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Session Expired | EduPortal LMS</title>
-    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="assets/pwa-icon-192.svg" type="image/svg+xml">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/pwa-icon-192.svg">
-    <link rel="stylesheet" href="assets/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/style.min.css?v=20260924">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <style>
         .session-expired-wrapper {
             min-height: 100vh;
@@ -128,7 +131,7 @@ if (session_status() === PHP_SESSION_NONE) {
     </style>
 </head>
 <body>
-    <div class="session-expired-wrapper">
+    <main class="session-expired-wrapper" id="main-content">
         <div class="expired-card">
             <div class="expired-icon">
                 <i class="fas fa-clock"></i>
@@ -154,7 +157,9 @@ if (session_status() === PHP_SESSION_NONE) {
                 <p>&copy; <?php echo date('Y'); ?> EduPortal LMS. <a href="index.php">Return to portal</a></p>
             </div>
         </div>
-    </div>
+    </main>
+    <script src="assets/js/trusted_types.js"></script>
+    <script src="assets/js/system_loader.js?v=20260924-loader3"></script>
     <script src="assets/js/pwa.js"></script>
 </body>
 </html>

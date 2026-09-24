@@ -77,8 +77,8 @@ if (!empty($submission['file_content'])) {
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     header('Content-Transfer-Encoding: binary');
     header('Content-Length: ' . $filesize);
-    header('Cache-Control: must-revalidate');
-    header('Pragma: public');
+    header('Cache-Control: private, no-store, max-age=0');
+    header('Pragma: no-cache');
     header('Expires: 0');
 
     if (ob_get_level()) {
@@ -122,8 +122,8 @@ header('Content-Type: ' . $filetype);
 header('Content-Disposition: attachment; filename="' . $filename . '"');
 header('Content-Transfer-Encoding: binary');
 header('Content-Length: ' . $filesize);
-header('Cache-Control: must-revalidate');
-header('Pragma: public');
+header('Cache-Control: private, no-store, max-age=0');
+header('Pragma: no-cache');
 header('Expires: 0');
 
 if (ob_get_level()) {

@@ -4,5 +4,318 @@
  * @copyright 2026 Alwin T. Casagan. Proprietary Code.
  * Unauthorized modification or redistribution is strictly prohibited.
  */
-const EduPortal={isProcessing:!1,injectLoader:function(){if(document.getElementById("loaderOverlay"))return;const e='\n            <div id="loaderOverlay" class="loader-overlay" style="display: none;">\n                <div class="loader-container animate-scale-up">\n                    <div id="loaderIcon" class="edu-spinner"></div>\n                    <div id="loaderText" class="loader-text">EduPortal Core</div>\n                    <div id="loaderSubtext" class="loader-subtext">Initializing system streams...</div>\n                    <div id="loaderProgress" style="margin-top: 15px; font-size: 0.75rem; color: var(--primary-color); font-weight: 700;"></div>\n                    <div id="loaderActions" style="margin-top: 25px; display: none;">\n                        <button onclick="EduPortal.hideLoader()" class="premium-btn premium-btn-primary" style="padding: 0.8rem 2rem; border-radius: 12px; font-size: 0.9rem;">\n                            <i class="fas fa-check"></i> OK\n                        </button>\n                    </div>\n                </div>\n            </div>\n        ';document.body.insertAdjacentHTML("afterbegin",e)},showLoader:function(e="Processing...",t="Please wait while we handle your request."){this.injectLoader();const n=document.getElementById("loaderOverlay");document.getElementById("loaderText").innerText=e,document.getElementById("loaderSubtext").innerText=t,n.style.display="flex",n.style.opacity="1"},hideLoader:function(){const e=document.getElementById("loaderOverlay");e&&(e.style.opacity="0",setTimeout(()=>{e.style.display="none",document.getElementById("loaderIcon").className="edu-spinner",document.getElementById("loaderActions").style.display="none"},300))},showSuccessModal:function(e,t){this.injectLoader();const n=document.getElementById("loaderOverlay"),o=document.getElementById("loaderIcon"),s=document.getElementById("loaderActions");o.className="fas fa-check-circle",o.style.cssText="font-size: 4rem; color: #2ecc71; margin-bottom: 20px;",document.getElementById("loaderText").innerText=e,document.getElementById("loaderSubtext").innerText=t,s.style.display="block",n.style.display="flex",n.style.opacity="1"},checkTraffic:async function(e=!0){try{const t=await fetch("controllers/ajax_check_traffic.php"),n=await t.json();if(n.has_traffic)this.isProcessing=!0,this.showLoader("Your request is being sent","Please wait patiently while the system processes your request..."),await fetch("controllers/process_job.php?action=process"),setTimeout(()=>this.checkTraffic(!0),2e3);else{if(this.isProcessing){document.getElementById("loaderText").innerText="Request Complete",document.getElementById("loaderSubtext").innerText="Your request has been successfully processed.";setTimeout(()=>this.hideLoader(),1e3)}else this.hideLoader();this.isProcessing=!1}}catch(e){console.error("Traffic Detection Error:",e),this.hideLoader()}},processJob:async function(e){this.showLoader("Task Queued","Your request is in the job queue..."),fetch("controllers/process_job.php?action=process");const t=async()=>{const n=await fetch(`controllers/process_job.php?action=status&job_id=${e}`),o=await n.json();if("processing"===o.status)document.getElementById("loaderText").innerText="Almost there!",document.getElementById("loaderSubtext").innerText="Your request is being sent, please wait patiently...";else{if("completed"===o.status)return void this.showSuccessModal("Request Successful","Your request has been processed and delivered successfully.");if("failed"===o.status)return void(this.hideLoader(),alert("Task Failed: "+(o.error_message||"Unknown server error")))}setTimeout(t,1500)};t()},vault:function(){setInterval(()=>{const e=document.getElementById("_sys_v_auth");if(e&&"Alwin T. Casagan"!==e.textContent.trim())document.body.innerHTML='<div style="background:#0a0b10;color:#ef4444;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;text-align:center;padding:2rem;"><div><i class="fas fa-shield-halved" style="font-size:5rem;margin-bottom:2rem;opacity:0.2;"></i><h1 style="font-size:2.5rem;font-weight:800;letter-spacing:-1px;margin-bottom:1rem;">SYSTEM INTEGRITY ERROR</h1><p style="color:#94a3b8;font-size:1.1rem;line-height:1.6;">Authorship attribution has been tampered with or removed.<br>Please restore the original developer credits to continue.</p></div></div>'},3e3)},confirmLogout:function(e){this._logoutHref=e.getAttribute("href"),this._logoutEl=e,this.injectLoader();const t=document.getElementById("loaderOverlay"),n=document.getElementById("loaderIcon"),o=document.getElementById("loaderText"),s=document.getElementById("loaderSubtext"),l=document.getElementById("loaderActions");n.className="fas fa-right-from-bracket",n.style.cssText="font-size: 3rem; color: #ef4444; margin-bottom: 15px;",o.innerText="Confirm Logout",s.innerText="Are you sure you want to end your session?",l.style.display="block",l.innerHTML='<button onclick="EduPortal.doLogout()" class="premium-btn" style="padding: 0.8rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; cursor: pointer; font-size: 0.95rem; margin-right: 10px;"><i class="fas fa-power-off"></i> Yes, Logout</button><button onclick="EduPortal.hideLoader()" class="premium-btn premium-btn-outline" style="padding: 0.8rem 2rem; border-radius: 12px; cursor: pointer; font-size: 0.95rem;">Cancel</button>',t.style.display="flex",t.style.opacity="1"},doLogout:function(){this._logoutEl&&this._logoutEl.classList.add("loading"),this.showLoader("Logging Out","Securely ending your session..."),setTimeout(()=>{this._logoutHref&&(window.location.href=this._logoutHref)},600)}};document.addEventListener("DOMContentLoaded",()=>{EduPortal.injectLoader(),EduPortal.vault(),document.querySelectorAll('form[data-loader="true"]').forEach(e=>{e.addEventListener("submit",e=>{EduPortal.showLoader("Analyzing Request","Connecting to the EduPortal core...")})})});
+(() => {
+    if (window.EduPortal) {
+        return;
+    }
 
+    const defaultTimeout = 30000;
+    let loaderVersion = 0;
+    let hideTimer = null;
+    let fallbackTimer = null;
+    let loaderMode = 'request';
+    let focusBeforeModal = null;
+    let inertElements = [];
+
+    const setBackgroundInert = inert => {
+        const overlay = document.getElementById('loaderOverlay');
+        if (inert) {
+            inertElements = Array.from(document.body.children)
+                .filter(element => element !== overlay)
+                .map(element => ({ element, ariaHidden: element.getAttribute('aria-hidden'), inert: element.inert }));
+            inertElements.forEach(({ element }) => {
+                element.inert = true;
+                element.setAttribute('aria-hidden', 'true');
+            });
+            return;
+        }
+        inertElements.forEach(({ element, ariaHidden, inert }) => {
+            element.inert = inert;
+            if (ariaHidden === null) {
+                element.removeAttribute('aria-hidden');
+            } else {
+                element.setAttribute('aria-hidden', ariaHidden);
+            }
+        });
+        inertElements = [];
+    };
+
+    const injectLoader = () => {
+        if (document.getElementById('loaderOverlay')) {
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = 'loaderOverlay';
+        overlay.className = 'loader-overlay';
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.setAttribute('aria-live', 'polite');
+
+        const container = document.createElement('div');
+        container.className = 'loader-container animate-scale-up';
+        container.setAttribute('role', 'status');
+        container.setAttribute('aria-busy', 'true');
+
+        const icon = document.createElement('div');
+        icon.id = 'loaderIcon';
+        icon.className = 'edu-spinner';
+
+        const text = document.createElement('div');
+        text.id = 'loaderText';
+        text.className = 'loader-text';
+        text.textContent = 'EduPortal Core';
+
+        const subtext = document.createElement('div');
+        subtext.id = 'loaderSubtext';
+        subtext.className = 'loader-subtext';
+        subtext.textContent = 'Initializing system streams...';
+
+        const actions = document.createElement('div');
+        actions.id = 'loaderActions';
+        actions.style.display = 'none';
+
+        const confirmButton = document.createElement('button');
+        confirmButton.id = 'loaderConfirmButton';
+        confirmButton.type = 'button';
+        confirmButton.className = 'premium-btn premium-btn-primary';
+        confirmButton.style.cssText = 'padding: 0.8rem 2rem; border-radius: 12px; font-size: 0.9rem;';
+        const confirmationMarkup = '<i class="fas fa-check" aria-hidden="true"></i> OK';
+        confirmButton.innerHTML = window.EduPortalTrustedTypes
+            ? window.EduPortalTrustedTypes.createHTML(confirmationMarkup)
+            : confirmationMarkup;
+        confirmButton.addEventListener('click', () => EduPortal.hideLoader());
+        actions.appendChild(confirmButton);
+
+        container.append(icon, text, subtext, actions);
+        overlay.appendChild(container);
+        document.body.insertAdjacentElement('afterbegin', overlay);
+    };
+
+    const clearTimers = () => {
+        window.clearTimeout(hideTimer);
+        window.clearTimeout(fallbackTimer);
+        hideTimer = null;
+        fallbackTimer = null;
+    };
+
+    const resetOverlay = () => {
+        const overlay = document.getElementById('loaderOverlay');
+        const container = overlay?.querySelector('.loader-container');
+        const icon = document.getElementById('loaderIcon');
+        const actions = document.getElementById('loaderActions');
+        if (!overlay) {
+            return;
+        }
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        container?.setAttribute('aria-busy', 'false');
+        container?.setAttribute('role', 'status');
+        container?.removeAttribute('aria-modal');
+        if (icon) {
+            icon.className = 'edu-spinner';
+            icon.style.cssText = '';
+        }
+        if (actions) {
+            actions.style.display = 'none';
+        }
+    };
+
+    const showLoader = (title = 'Processing...', subtext = 'Please wait while we handle your request.', options = {}) => {
+        injectLoader();
+        setBackgroundInert(false);
+        clearTimers();
+        loaderVersion += 1;
+        loaderMode = options.mode || 'request';
+
+        const overlay = document.getElementById('loaderOverlay');
+        const icon = document.getElementById('loaderIcon');
+        const text = document.getElementById('loaderText');
+        const subtextElement = document.getElementById('loaderSubtext');
+        const actions = document.getElementById('loaderActions');
+        const container = overlay.querySelector('.loader-container');
+
+        icon.className = 'edu-spinner';
+        icon.style.cssText = '';
+        text.textContent = title;
+        subtextElement.textContent = subtext;
+        actions.style.display = 'none';
+        container.setAttribute('aria-busy', 'true');
+        container.setAttribute('role', 'status');
+        container.removeAttribute('aria-modal');
+        overlay.setAttribute('aria-hidden', 'false');
+        overlay.style.opacity = '1';
+        overlay.style.display = 'flex';
+        window.EduPortal.isProcessing = true;
+
+        const timeout = Number.isFinite(options.timeout) ? options.timeout : defaultTimeout;
+        fallbackTimer = window.setTimeout(() => {
+            EduPortal.hideLoader();
+            window.dispatchEvent(new CustomEvent('eduportal:loader-timeout', {
+                detail: { title, subtext }
+            }));
+        }, timeout);
+    };
+
+    const hideLoader = () => {
+        clearTimers();
+        loaderVersion += 1;
+        const version = loaderVersion;
+        const restoreFocus = loaderMode === 'success' ? focusBeforeModal : null;
+        const overlay = document.getElementById('loaderOverlay');
+        setBackgroundInert(false);
+        if (!overlay) {
+            window.EduPortal.isProcessing = false;
+            return;
+        }
+
+        window.EduPortal.isProcessing = false;
+        overlay.style.opacity = '0';
+        hideTimer = window.setTimeout(() => {
+            if (version !== loaderVersion) {
+                return;
+            }
+            resetOverlay();
+            if (restoreFocus?.isConnected) {
+                restoreFocus.focus();
+            }
+            focusBeforeModal = null;
+            hideTimer = null;
+            loaderMode = 'request';
+        }, 300);
+    };
+
+    const showSuccessModal = (title, message) => {
+        injectLoader();
+        setBackgroundInert(false);
+        clearTimers();
+        loaderVersion += 1;
+        loaderMode = 'success';
+
+        const overlay = document.getElementById('loaderOverlay');
+        const icon = document.getElementById('loaderIcon');
+        const text = document.getElementById('loaderText');
+        const subtext = document.getElementById('loaderSubtext');
+        const actions = document.getElementById('loaderActions');
+        const confirmButton = actions.querySelector('button');
+        const container = overlay.querySelector('.loader-container');
+        focusBeforeModal = document.activeElement;
+
+        icon.className = 'fas fa-check-circle';
+        icon.style.cssText = 'font-size: 4rem; color: #2ecc71; margin-bottom: 20px;';
+        text.textContent = title;
+        subtext.textContent = message;
+        actions.style.display = 'block';
+        container.setAttribute('aria-busy', 'false');
+        container.setAttribute('role', 'dialog');
+        container.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-hidden', 'false');
+        overlay.style.opacity = '1';
+        overlay.style.display = 'flex';
+        setBackgroundInert(true);
+        window.EduPortal.isProcessing = false;
+        window.requestAnimationFrame(() => confirmButton?.focus());
+    };
+
+    const confirmLogout = () => window.confirm('Log out of EduPortal?');
+
+    const isInternalNavigation = (anchor, event) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return false;
+        }
+        if (anchor.target && anchor.target !== '_self' || anchor.hasAttribute('download')) {
+            return false;
+        }
+
+        const href = anchor.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) {
+            return false;
+        }
+
+        try {
+            const destination = new URL(anchor.href, window.location.href);
+            return destination.origin === window.location.origin && ['http:', 'https:'].includes(destination.protocol);
+        } catch {
+            return false;
+        }
+    };
+
+    const initialize = () => {
+        injectLoader();
+
+        document.addEventListener('submit', event => {
+            if (window.EduPortal.isProcessing) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                return;
+            }
+            const form = event.target;
+            if (event.defaultPrevented) {
+                return;
+            }
+            if (!(form instanceof HTMLFormElement) || form.dataset.loader !== 'true') {
+                return;
+            }
+            if (form.dataset.logoutConfirm === 'true') {
+                event.preventDefault();
+                if (!confirmLogout()) {
+                    return;
+                }
+                EduPortal.showLoader('Logging out', 'Securely ending your session...');
+                form.submit();
+                return;
+            }
+            EduPortal.showLoader('Processing request', 'Connecting to the EduPortal core...');
+        });
+
+        document.addEventListener('click', event => {
+            const anchor = event.target.closest?.('a[href]');
+            if (!anchor || !isInternalNavigation(anchor, event)) {
+                return;
+            }
+
+            const destination = new URL(anchor.href, window.location.href);
+            const isDownload = destination.pathname.includes('/controllers/download') || destination.pathname.endsWith('/download_guide.php');
+            if (isDownload) {
+                const timeout = destination.pathname.endsWith('/download_all.php') ? 120000 : 15000;
+                EduPortal.showLoader('Preparing download', 'Your file is being prepared.', { mode: 'download', timeout });
+                return;
+            }
+
+            EduPortal.showLoader('Loading page', 'Please wait while we continue...');
+        });
+
+        window.addEventListener('pageshow', () => EduPortal.hideLoader());
+        window.addEventListener('focus', () => {
+            if (loaderMode === 'download') {
+                EduPortal.hideLoader();
+            }
+        });
+        document.addEventListener('keydown', event => {
+            const overlay = document.getElementById('loaderOverlay');
+            if (event.key === 'Escape' && loaderMode === 'success' && overlay?.getAttribute('aria-hidden') === 'false') {
+                EduPortal.hideLoader();
+            }
+        });
+        window.addEventListener('pagehide', () => {
+            if (loaderMode !== 'download') {
+                clearTimers();
+            }
+        });
+    };
+
+    window.EduPortal = {
+        isProcessing: false,
+        injectLoader,
+        showLoader,
+        hideLoader,
+        showSuccessModal,
+        confirmLogout
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialize, { once: true });
+    } else {
+        initialize();
+    }
+})();

@@ -8,6 +8,8 @@ function renderPortalNav(array $pages, string $currentPage, array $identity, str
     $statusIcon = (string) ($identity['status_icon'] ?? 'fas fa-circle');
     $logoutIcon = (string) ($identity['logout_icon'] ?? 'fas fa-right-from-bracket');
     ?>
+    <script src="../assets/js/trusted_types.js"></script>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <aside class="sidebar" id="<?php echo htmlspecialchars($sidebarId, ENT_QUOTES, 'UTF-8'); ?>">
         <div class="sidebar-header">
             <div class="sidebar-logo" aria-hidden="true">
@@ -46,23 +48,6 @@ function renderPortalNav(array $pages, string $currentPage, array $identity, str
                     <i class="<?php echo htmlspecialchars($logoutIcon, ENT_QUOTES, 'UTF-8'); ?>" aria-hidden="true"></i> Logout
                 </button>
             </form>
-            <script>
-                document.addEventListener('submit', event => {
-                    const form = event.target;
-                    if (!(form instanceof HTMLFormElement) || form.dataset.logoutConfirm !== 'true') {
-                        return;
-                    }
-                    if (form.dataset.logoutConfirmed === 'true') {
-                        return;
-                    }
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                    if (window.confirm('Log out of EduPortal?')) {
-                        form.dataset.logoutConfirmed = 'true';
-                        form.submit();
-                    }
-                }, true);
-            </script>
         </div>
     </aside>
 <?php
