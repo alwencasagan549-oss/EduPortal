@@ -98,7 +98,7 @@ require_once __DIR__ . '/nav.php';
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
+    <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">

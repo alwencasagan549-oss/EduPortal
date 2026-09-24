@@ -14,7 +14,7 @@ require_once 'config/database.php';
     <meta name="description" content="EduPortal LMS for Ruben E. Ecleo Sr. National High School. Manage assignments, grading, and classroom workflows online.">
     <title>EduPortal LMS | Ruben E. Ecleo Sr. National High School</title>
     <link rel="canonical" href="https://reesnhs.l.cd/">
-    <link rel="icon" href="assets/pwa-icon-192.svg" type="image/svg+xml">
+    <link rel="icon" href="assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">

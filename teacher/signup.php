@@ -8,16 +8,20 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
-    $subject = trim($_POST['subject']);
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
+    $name = trim($_POST['name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $subject = trim($_POST['subject'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
     
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid security token.';
     } elseif ($password !== $confirm_password) {
         $error = "Passwords do not match";
+    } elseif ($subject === '') {
+        $error = "Please provide a subject";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Please provide a valid professional email address";
     } elseif (strlen($password) < 8) {
         $error = "Password must be at least 8 characters long";
     } elseif (!preg_match('/[A-Z]/', $password)) {
@@ -27,20 +31,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $hashed_password = password_hash($password, PASSWORD_BCRYPT);
         
-        $conn = getDBConnection();
-        // Check if email + subject combination already exists
-        $check = $conn->prepare("SELECT id FROM teachers WHERE email = ? AND subject = ?");
-        $check->execute([$email, $subject]);
-        if ($check->get_result()->num_rows() > 0) {
-            $error = "You are already registered for this subject ($subject)";
-        } else {
-            $stmt = $conn->prepare("INSERT INTO teachers (name, email, subject, password) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$name, $email, $subject, $hashed_password]);
-
-            if ($stmt->rowCount() > 0) {
-                $success = "Registration successful! You can now login.";
+        try {
+            $conn = getDBConnection();
+            $check = $conn->prepare("SELECT id FROM teachers WHERE email = ?");
+            $check->execute([$email]);
+            if ($check->get_result()->num_rows() > 0) {
+                $error = "An account with this email already exists. Please log in instead.";
             } else {
-                $error = "Registration failed";
+                $stmt = $conn->prepare("INSERT INTO teachers (name, email, subject, password) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$name, $email, $subject, $hashed_password]);
+
+                if ($stmt->rowCount() > 0) {
+                    $success = "Registration successful! You can now login.";
+                } else {
+                    $error = "Registration failed";
+                }
+            }
+        } catch (PDOException $exception) {
+            $sqlState = (string) $exception->getCode();
+            $driverCode = isset($exception->errorInfo[1]) ? (int) $exception->errorInfo[1] : 0;
+            if ($sqlState === '23505' || $driverCode === 1062) {
+                $error = "An account with this email already exists. Please log in instead.";
+            } else {
+                error_log('Teacher registration failed: ' . $exception->getMessage());
+                $error = "Registration could not be completed. Please try again.";
             }
         }
     }
@@ -52,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Registration | EduPortal LMS</title>
-    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
+    <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="../manifest.webmanifest">
     <meta name="theme-color" content="#0a0b10">
     <meta name="mobile-web-app-capable" content="yes">

@@ -1,10 +1,10 @@
 const CACHE_PREFIX = 'eduportal-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v4`;
+const CACHE_NAME = `${CACHE_PREFIX}v5`;
 const scopeUrl = new URL(self.registration.scope);
 const staticPaths = [
   'offline.html',
   'manifest.webmanifest',
-  'assets/pwa-icon-192.svg',
+  'assets/favicon.ico?v=20260924-ico',
   'assets/style.min.css?v=20260924',
   'assets/js/pwa.js',
   'assets/js/trusted_types.js',

@@ -24,7 +24,7 @@ function renderDownloadError(string $title, string $message, string $backUrl, st
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $safeTitle ?> | EduPortal</title>
-    <link rel="icon" href="../assets/pwa-icon-192.svg" type="image/svg+xml">
+    <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
