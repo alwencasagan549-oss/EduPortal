@@ -4,9 +4,6 @@
  * Returns completed chunks and remaining presigned URLs for resumable uploads.
  */
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../src/ObjectStorageService.php';
-
-use EduPortal\ObjectStorageService;
 
 requireLogin();
 header('Content-Type: application/json');

@@ -32,11 +32,13 @@ ENV APACHE_DOCUMENT_ROOT /var/www/html
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Install PHP dependencies (after files are available)
-COPY composer.json composer.lock* ./
-RUN composer install --no-dev --no-interaction --optimize-autoloader
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-progress \
+    && test -f vendor/aws/aws-sdk-php/src/S3/S3Client.php
 
 # Copy remaining project files
 COPY . /var/www/html/
+RUN composer dump-autoload --no-dev --classmap-authoritative --no-interaction
 
 # Copy entrypoint script and make executable
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
