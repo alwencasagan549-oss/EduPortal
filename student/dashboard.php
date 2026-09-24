@@ -328,9 +328,11 @@ require_once __DIR__ . '/nav.php';
                                     </p>
                                 </div>
                                 <div class="student-assignment-item__actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                    <a href="../controllers/download_assignment.php?id=<?php echo $assignmentId; ?>" class="premium-btn premium-btn-primary student-assignment-item__action" aria-label="Download <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?> from <?php echo htmlspecialchars($assignmentTeacher, ENT_QUOTES, 'UTF-8'); ?>" download>
-                                        <i class="fas fa-download" aria-hidden="true"></i> Get copy
-                                    </a>
+                                    <?php if (!$isSubmitted): ?>
+                                        <a href="../controllers/download_assignment.php?id=<?php echo $assignmentId; ?>" class="premium-btn premium-btn-primary student-assignment-item__action" aria-label="Download <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?> from <?php echo htmlspecialchars($assignmentTeacher, ENT_QUOTES, 'UTF-8'); ?>" download>
+                                            <i class="fas fa-download" aria-hidden="true"></i> Get copy
+                                        </a>
+                                    <?php endif; ?>
                                     <?php if ($isSubmitted): ?>
                                         <span class="premium-badge badge-green" style="display: inline-flex; align-items: center; gap: 0.45rem;" role="status" aria-label="Submitted">
                                             <span aria-hidden="true" style="width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);"></span>

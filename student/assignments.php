@@ -122,9 +122,11 @@ require_once __DIR__ . '/nav.php';
                                         </div>
                                     </div>
                                     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                        <a href="../controllers/download_assignment.php?id=<?php echo (int) $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
-                                            <i class="fas fa-download"></i> Get Copy
-                                        </a>
+                                        <?php if (!$isSubmitted): ?>
+                                            <a href="../controllers/download_assignment.php?id=<?php echo $assignmentId; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
+                                                <i class="fas fa-download"></i> Get Copy
+                                            </a>
+                                        <?php endif; ?>
                                         <?php if ($isSubmitted): ?>
                                             <span class="premium-badge badge-green" style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.6rem 0.8rem;" role="status" aria-label="Submitted">
                                                 <span aria-hidden="true" style="width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);"></span>
