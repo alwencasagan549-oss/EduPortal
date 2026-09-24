@@ -381,29 +381,46 @@ if (!empty($assignment['file_content'])) {
 }
 
 // Fallback: serve from filesystem
-$base_dir = realpath(__DIR__ . '/../uploads');
+$baseDirectories = [];
+foreach ([__DIR__ . '/../uploads', __DIR__ . '/uploads'] as $basePath) {
+    $resolvedBase = realpath($basePath);
+    if ($resolvedBase !== false) {
+        $baseDirectories[$resolvedBase] = $resolvedBase;
+    }
+}
 
-if ($base_dir === false) {
+if ($baseDirectories === []) {
     renderDownloadError('Downloads are temporarily unavailable', 'The file storage area is not ready. Please try again in a moment.', $backUrl, $backLabel, 500);
     exit();
 }
 
 $relative = ltrim(str_replace('\\', '/', (string) $file_path), '/');
-if (strpos($relative, 'uploads/') === 0) {
-    $relative = substr($relative, strlen('uploads/'));
-}
-$candidate = $base_dir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+$relative = preg_replace('#^(?:controllers/)?uploads/#i', '', $relative) ?? $relative;
+$candidate = null;
+$resolved = false;
+$resolvedBase = null;
 
-if (!file_exists($candidate)) {
+foreach ($baseDirectories as $baseDirectory) {
+    $candidatePath = $baseDirectory . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+    if (!file_exists($candidatePath)) {
+        continue;
+    }
+
+    $candidate = $candidatePath;
+    $resolved = realpath($candidatePath);
+    $resolvedBase = $baseDirectory;
+    break;
+}
+
+if ($resolved === false || $resolvedBase === null) {
     renderDownloadError('Assignment file unavailable', 'This copy is no longer stored in the portal. Ask your teacher to publish a fresh copy.', $backUrl, $backLabel, 404);
     exit();
 }
 
-$resolved = realpath($candidate);
-$base_norm = rtrim(str_replace('\\', '/', $base_dir), '/') . '/';
-$resolved_norm = $resolved === false ? '' : str_replace('\\', '/', $resolved);
+$baseNorm = rtrim(str_replace('\\', '/', $resolvedBase), '/') . '/';
+$resolvedNorm = str_replace('\\', '/', $resolved);
 
-if ($resolved === false || !is_file($resolved) || strpos($resolved_norm, $base_norm) !== 0) {
+if (!is_file($resolved) || strpos($resolvedNorm, $baseNorm) !== 0) {
     renderDownloadError('Access denied', 'You do not have permission to download this assignment.', $backUrl, $backLabel, 403);
     exit();
 }

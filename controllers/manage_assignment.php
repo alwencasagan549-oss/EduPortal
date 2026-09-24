@@ -107,8 +107,14 @@ try {
         assignment_redirect('../teacher/edit_assignment.php?id=' . $assignmentId);
     }
 
+    $fileContent = null;
     if ($replacement) {
         try {
+            $fileData = file_get_contents($_FILES['assignment_file']['tmp_name']);
+            if ($fileData === false) {
+                throw new RuntimeException('The uploaded replacement could not be read.');
+            }
+            $fileContent = base64_encode($fileData);
             $storedUpload = assignment_store_upload($_FILES['assignment_file']);
         } catch (Throwable $exception) {
             error_log('EduPortal assignment replacement error: ' . $exception->getMessage());
@@ -135,8 +141,9 @@ try {
             $storageColumns = assignment_storage_columns($conn);
             $setParts[] = 'file_path = ?';
             $params[] = $storedUpload['path'];
-            if (isset($storageColumns['file_content'])) {
-                $setParts[] = 'file_content = NULL';
+            if (isset($storageColumns['file_content']) && $fileContent !== null) {
+                $setParts[] = 'file_content = ?';
+                $params[] = $fileContent;
             }
             if (isset($storageColumns['file_type'])) {
                 $setParts[] = 'file_type = ?';
