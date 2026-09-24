@@ -100,7 +100,7 @@ require_once __DIR__ . '/nav.php';
                                         <a href="../controllers/download_assignment.php?id=<?php echo (int) $a['id']; ?>" class="premium-btn premium-btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
                                             <i class="fas fa-download"></i> Get Copy
                                         </a>
-                                        <a href="dashboard.php?assignment_id=<?php echo (int) $a['id']; ?>&amp;subject=<?php echo rawurlencode((string) $a['subject']); ?>" class="premium-btn premium-btn-outline" style="padding: 0.6rem 1rem; font-size: 0.85rem;">
+                                        <a href="dashboard.php?assignment_id=<?php echo (int) $a['id']; ?>&amp;subject=<?php echo rawurlencode((string) $a['subject']); ?>#submissionModal" class="premium-btn premium-btn-outline" style="padding: 0.6rem 1rem; font-size: 0.85rem;" aria-label="Submit work for <?php echo htmlspecialchars((string) $a['title'], ENT_QUOTES, 'UTF-8'); ?>">
                                             <i class="fas fa-paper-plane"></i> Submit
                                         </a>
                                     </div>

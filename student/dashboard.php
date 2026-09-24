@@ -37,19 +37,6 @@ $stmt2 = $conn->prepare("SELECT id, subject, title, description, file_path, teac
 $stmt2->execute([$student_grade, $student_section, $student_strand]);
 $broadcasted = $stmt2->get_result()->fetch_all();
 
-$selectedAssignmentId = assignment_id($_GET['assignment_id'] ?? null);
-$selectedSubject = isset($_GET['subject']) && is_string($_GET['subject'])
-    ? assignment_normalize_subject($_GET['subject'])
-    : '';
-if ($selectedSubject === '' && $selectedAssignmentId !== null) {
-    foreach ($broadcasted as $postedAssignment) {
-        if ((int) ($postedAssignment['id'] ?? 0) === $selectedAssignmentId) {
-            $selectedSubject = assignment_normalize_subject($postedAssignment['subject'] ?? '');
-            break;
-        }
-    }
-}
-
 require_once __DIR__ . '/nav.php';
 ?>
 <!DOCTYPE html>
@@ -99,6 +86,96 @@ require_once __DIR__ . '/nav.php';
             color: var(--text-muted);
             opacity: 0.7;
             margin-top: 4px;
+        }
+        body.modal-open {
+            overflow: hidden;
+        }
+        .submission-modal[hidden] {
+            display: none;
+        }
+        .submission-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .submission-modal__backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 7, 13, 0.82);
+            backdrop-filter: blur(12px);
+        }
+        .submission-modal__panel {
+            position: relative;
+            z-index: 1;
+            width: min(100%, 620px);
+            max-height: calc(100vh - 2rem);
+            overflow-y: auto;
+            padding: clamp(1.25rem, 4vw, 2rem);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+        }
+        .submission-modal__header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .submission-modal__eyebrow {
+            margin: 0 0 0.35rem;
+            color: var(--primary-color);
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .submission-modal__title {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+        .submission-modal__context {
+            margin: 0.4rem 0 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .submission-modal__close {
+            flex: 0 0 auto;
+            width: 2.25rem;
+            height: 2.25rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 50%;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.25rem;
+        }
+        .submission-modal__close:hover,
+        .submission-modal__close:focus-visible {
+            border-color: var(--primary-color);
+            color: var(--text-main);
+        }
+        .submission-modal__actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .submission-drop-zone {
+            border: 2px dashed var(--glass-border);
+            border-radius: 16px;
+            padding: 1.6rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .submission-drop-zone:hover,
+        .submission-drop-zone:focus-within {
+            border-color: var(--primary-color);
+            background: rgba(78, 115, 223, 0.06);
         }
     </style>
 </head>
@@ -246,9 +323,9 @@ require_once __DIR__ . '/nav.php';
                                     <a href="../controllers/download_assignment.php?id=<?php echo $assignmentId; ?>" class="premium-btn premium-btn-primary student-assignment-item__action" aria-label="Download <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?> from <?php echo htmlspecialchars($assignmentTeacher, ENT_QUOTES, 'UTF-8'); ?>" download>
                                         <i class="fas fa-download" aria-hidden="true"></i> Get copy
                                     </a>
-                                    <a href="dashboard.php?assignment_id=<?php echo $assignmentId; ?>&amp;subject=<?php echo rawurlencode($assignmentSubject); ?>" class="premium-btn premium-btn-outline" aria-label="Submit work for <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <button type="button" class="premium-btn premium-btn-outline js-open-submission" data-assignment-id="<?php echo $assignmentId; ?>" data-subject="<?php echo rawurlencode($assignmentSubject); ?>" data-title="<?php echo rawurlencode($assignmentTitle); ?>" aria-label="Submit work for <?php echo htmlspecialchars($assignmentTitle, ENT_QUOTES, 'UTF-8'); ?>" aria-haspopup="dialog">
                                         <i class="fas fa-paper-plane" aria-hidden="true"></i> Submit
-                                    </a>
+                                    </button>
                                 </div>
                             </article>
                         <?php endforeach; ?>
@@ -256,60 +333,44 @@ require_once __DIR__ . '/nav.php';
                 <?php endif; ?>
             </section>
 
-            <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
-                <!-- Submit Form -->
-                <div class="glass-card">
-                    <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;"><i class="fas fa-cloud-arrow-up" style="color: var(--primary-color); margin-right: 10px;"></i> Submit Assignment</h2>
-                    
-                    <form action="../controllers/submit.php" method="POST" enctype="multipart/form-data" onsubmit="return validateForm()" data-loader="true">
+            <div class="submission-modal" id="submissionModal" role="dialog" aria-modal="true" aria-labelledby="submissionModalTitle" aria-describedby="submissionModalContext" hidden>
+                <div class="submission-modal__backdrop" data-close-submission></div>
+                <div class="submission-modal__panel glass-card animate-scale-up">
+                    <div class="submission-modal__header">
+                        <div>
+                            <p class="submission-modal__eyebrow">Assignment submission</p>
+                            <h2 class="submission-modal__title" id="submissionModalTitle">Submit your work</h2>
+                            <p class="submission-modal__context" id="submissionModalContext"></p>
+                        </div>
+                        <button type="button" class="submission-modal__close" data-close-submission aria-label="Close submission form">&times;</button>
+                    </div>
+                    <form id="submissionForm" action="../controllers/submit.php" method="POST" enctype="multipart/form-data" onsubmit="return validateForm()" data-loader="true">
                         <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                        <input type="hidden" name="assignment_id" id="submissionAssignmentId" value="">
+                        <input type="hidden" name="subject" id="submissionSubject" value="">
                         <div style="margin-bottom: 1.5rem;">
-                            <label for="assignment_id" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Posted assignment <span style="font-size: 0.75rem; color: var(--text-muted);">(optional)</span></label>
-                            <select id="assignment_id" name="assignment_id" class="premium-input">
-                                <option value="">Unlinked submission</option>
-                                <?php foreach ($broadcasted as $postedAssignment): ?>
-                                    <?php
-                                    $postedAssignmentId = (int) ($postedAssignment['id'] ?? 0);
-                                    $postedAssignmentSubject = (string) ($postedAssignment['subject'] ?? '');
-                                    $postedAssignmentTitle = (string) ($postedAssignment['title'] ?? 'Untitled assignment');
-                                    ?>
-                                    <option value="<?php echo $postedAssignmentId; ?>" data-subject="<?php echo htmlspecialchars($postedAssignmentSubject, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedAssignmentId === $postedAssignmentId ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($postedAssignmentSubject . ' — ' . $postedAssignmentTitle, ENT_QUOTES, 'UTF-8'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small style="display: block; margin-top: 0.4rem; color: var(--text-muted);">Select a posted assignment to enable duplicate protection; unlinked submissions remain separate.</small>
-                        </div>
-                        <div style="margin-bottom: 1.5rem;">
-                            <label for="subject" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Subject Name</label>
-                            <input type="text" id="subject" name="subject" required
-                                   value="<?php echo htmlspecialchars($selectedSubject, ENT_QUOTES, 'UTF-8'); ?>"
-                                   placeholder="e.g., Mathematics" class="premium-input">
-                        </div>
-                        
-                        <div style="margin-bottom: 2rem;">
-                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Assignment File</label>
-                            <div style="border: 2px dashed var(--glass-border); border-radius: 16px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s;" 
-                                 onclick="document.getElementById('assignment').click()"
-                                 id="dropZone">
-                                <input type="file" id="assignment" name="assignment" 
-                                       style="display: none;" accept=".pdf,.doc,.docx" 
-                                       onchange="updateFileName(this)">
+                            <label for="assignment" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Assignment file</label>
+                            <div class="submission-drop-zone" id="dropZone" onclick="document.getElementById('assignment').click()" role="button" tabindex="0" onkeydown="if (event.key === 'Enter' || event.key === ' ') document.getElementById('assignment').click();">
+                                <input type="file" id="assignment" name="assignment" style="display: none;" accept=".pdf,.doc,.docx" onchange="updateFileName(this)">
                                 <div id="fileInfo">
-                                    <i class="fas fa-file-arrow-up" style="font-size: 2.5rem; color: var(--primary-color); margin-bottom: 1rem; opacity: 0.5;"></i>
+                                    <i class="fas fa-file-arrow-up" style="font-size: 2.5rem; color: var(--primary-color); margin-bottom: 1rem; opacity: 0.5;" aria-hidden="true"></i>
                                     <p style="font-size: 0.9rem; font-weight: 500;">Select document</p>
                                     <p style="font-size: 0.75rem; color: var(--text-muted);">PDF or DOCX (Max 10MB)</p>
                                 </div>
                                 <div id="fileName" style="display: none; font-weight: 600; color: var(--text-main);"></div>
                             </div>
                         </div>
-                        
-                        <button type="submit" class="premium-btn premium-btn-primary" style="width: 100%;">
-                            <i class="fas fa-paper-plane"></i> Submit Now
-                        </button>
+                        <div class="submission-modal__actions">
+                            <button type="button" class="premium-btn premium-btn-outline" data-close-submission>Cancel</button>
+                            <button type="submit" class="premium-btn premium-btn-primary">
+                                <i class="fas fa-paper-plane" aria-hidden="true"></i> Submit Assignment
+                            </button>
+                        </div>
                     </form>
                 </div>
+            </div>
 
+            <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr; gap: 2rem;">
                 <!-- History Table -->
                 <div class="table-container" style="margin-top: 0; flex: 1; min-width: 0;">
                     <div class="table-header">
@@ -396,16 +457,89 @@ require_once __DIR__ . '/nav.php';
     </div>
     
     <script>
-    const assignmentInput = document.getElementById('assignment_id');
-    const subjectInput = document.getElementById('subject');
+    const submissionModal = document.getElementById('submissionModal');
+    const submissionAssignmentId = document.getElementById('submissionAssignmentId');
+    const submissionSubject = document.getElementById('submissionSubject');
+    const submissionModalContext = document.getElementById('submissionModalContext');
+    const submissionFileInput = document.getElementById('assignment');
+    let lastSubmissionTrigger = null;
 
-    if (assignmentInput && subjectInput) {
-        assignmentInput.addEventListener('change', () => {
-            const selectedOption = assignmentInput.options[assignmentInput.selectedIndex];
-            if (selectedOption && selectedOption.value) {
-                subjectInput.value = selectedOption.dataset.subject || '';
-            } else {
-                subjectInput.value = '';
+    function decodeSubmissionValue(value) {
+        try {
+            return decodeURIComponent(value || '');
+        } catch (error) {
+            return value || '';
+        }
+    }
+
+    function resetSubmissionFile() {
+        if (!submissionFileInput) {
+            return;
+        }
+        submissionFileInput.value = '';
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const dropZone = document.getElementById('dropZone');
+        if (fileInfo) {
+            fileInfo.style.display = 'block';
+        }
+        if (fileName) {
+            fileName.style.display = 'none';
+            fileName.innerHTML = '';
+        }
+        if (dropZone) {
+            dropZone.style.borderColor = '';
+        }
+    }
+
+    function openSubmissionModal(trigger) {
+        if (!submissionModal || !submissionAssignmentId || !submissionSubject) {
+            return;
+        }
+        const subject = decodeSubmissionValue(trigger.dataset.subject);
+        const title = decodeSubmissionValue(trigger.dataset.title) || subject || 'this assignment';
+        submissionAssignmentId.value = trigger.dataset.assignmentId || '';
+        submissionSubject.value = subject;
+        if (submissionModalContext) {
+            submissionModalContext.textContent = subject ? `${title} · ${subject}` : title;
+        }
+        resetSubmissionFile();
+        lastSubmissionTrigger = trigger;
+        submissionModal.hidden = false;
+        document.body.classList.add('modal-open');
+        window.setTimeout(() => submissionFileInput && submissionFileInput.focus(), 0);
+    }
+
+    function closeSubmissionModal() {
+        if (!submissionModal) {
+            return;
+        }
+        submissionModal.hidden = true;
+        document.body.classList.remove('modal-open');
+        if (lastSubmissionTrigger) {
+            lastSubmissionTrigger.focus();
+        }
+    }
+
+    document.querySelectorAll('.js-open-submission').forEach((trigger) => {
+        trigger.addEventListener('click', () => openSubmissionModal(trigger));
+    });
+
+    document.querySelectorAll('[data-close-submission]').forEach((control) => {
+        control.addEventListener('click', closeSubmissionModal);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && submissionModal && !submissionModal.hidden) {
+            closeSubmissionModal();
+        }
+    });
+
+    const queryAssignmentId = new URLSearchParams(window.location.search).get('assignment_id');
+    if (queryAssignmentId) {
+        document.querySelectorAll('.js-open-submission').forEach((trigger) => {
+            if (trigger.dataset.assignmentId === queryAssignmentId) {
+                openSubmissionModal(trigger);
             }
         });
     }
@@ -430,9 +564,14 @@ require_once __DIR__ . '/nav.php';
 
     function validateForm() {
         const fileInput = document.getElementById('assignment');
-        const subjectInput = document.getElementById('subject');
-        
-        if (!subjectInput.value.trim()) {
+        const assignmentInput = document.getElementById('submissionAssignmentId');
+        const subjectInput = document.getElementById('submissionSubject');
+
+        if (!assignmentInput || !assignmentInput.value) {
+            alert('Choose a posted assignment first');
+            return false;
+        }
+        if (!subjectInput || !subjectInput.value.trim()) {
             alert('Please specify the subject');
             return false;
         }
