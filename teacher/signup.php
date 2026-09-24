@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         try {
             $conn = getDBConnection();
-            $check = $conn->prepare("SELECT id FROM teachers WHERE subject = ?");
+            $check = $conn->prepare("SELECT id FROM teachers WHERE LOWER(TRIM(subject)) = LOWER(TRIM(?))");
             $check->execute([$subject]);
             if ($check->get_result()->num_rows() > 0) {
                 $error = "This subject is already registered. Please choose another.";
