@@ -151,6 +151,10 @@ class EduPortalStmt {
         return $this->stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    public function fetchColumn($column = 0) {
+        return $this->stmt->fetchColumn($column);
+    }
+
     public function fetch_all($style = PDO::FETCH_ASSOC) {
         return $this->stmt->fetchAll($style);
     }
