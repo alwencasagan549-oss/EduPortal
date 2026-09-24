@@ -1,63 +1,114 @@
-/**
- * EduPortal Responsive UI Controller
- * Handles mobile sidebar interactions and responsive layout adjustments.
- */
+document.documentElement.dataset.navigationReady = 'true';
 
 document.addEventListener('DOMContentLoaded', () => {
-    const sidebar = document.querySelector('.sidebar');
-    const menuToggle = document.querySelector('.menu-toggle');
-    
-    if (sidebar && menuToggle) {
-        // Create overlay if it doesn't exist
-        let overlay = document.querySelector('.sidebar-overlay');
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.className = 'sidebar-overlay';
-            document.body.appendChild(overlay);
-        }
-
-        const toggleSidebar = () => {
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-            document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
-        };
-
-        menuToggle.addEventListener('click', toggleSidebar);
-        overlay.addEventListener('click', toggleSidebar);
-
-        // Close sidebar when clicking a menu link on mobile
-        const menuLinks = sidebar.querySelectorAll('.menu-link');
-        menuLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                if (window.innerWidth <= 992) {
-                    toggleSidebar();
-                }
-            });
-        });
-
-        // Ensure sidebar is closed when resizing above mobile breakpoint
-        window.addEventListener('resize', () => {
-            if (window.innerWidth > 992 && sidebar.classList.contains('active')) {
-                sidebar.classList.remove('active');
-                overlay.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
+    const toggles = Array.from(document.querySelectorAll('.menu-toggle'));
+    if (toggles.length === 0) {
+        return;
     }
 
-    // Handle form grids - automatically stack on mobile if they have the specific class
-    const responsiveGrids = document.querySelectorAll('.responsive-grid-stack');
-    const handleGrids = () => {
-        const isMobile = window.innerWidth <= 768;
-        responsiveGrids.forEach(grid => {
-            if (isMobile) {
-                grid.style.gridTemplateColumns = '1fr';
-            } else {
-                // Restore original if needed, but CSS class should handle it
-            }
+    const findSidebar = toggle => {
+        const wrapper = toggle.closest('.layout-wrapper');
+        return (wrapper && wrapper.querySelector('.sidebar')) || document.querySelector('.sidebar');
+    };
+
+    const sidebar = findSidebar(toggles[0]);
+    if (!sidebar) {
+        return;
+    }
+
+    const relatedToggles = toggles.filter(toggle => findSidebar(toggle) === sidebar);
+    const overlay = document.querySelector('.sidebar-overlay') || (() => {
+        const element = document.createElement('div');
+        element.className = 'sidebar-overlay';
+        document.body.appendChild(element);
+        return element;
+    })();
+
+    if (!sidebar.id) {
+        sidebar.id = 'portal-sidebar';
+    }
+
+    const isMobile = () => window.matchMedia('(max-width: 992px)').matches;
+    const isAlwaysHidden = sidebar.classList.contains('home-sidebar');
+    let lastTrigger = relatedToggles[0] || null;
+
+    const setAccessibility = isOpen => {
+        const hidden = isAlwaysHidden ? !isOpen : (isMobile() && !isOpen);
+        sidebar.toggleAttribute('inert', hidden);
+        sidebar.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+        relatedToggles.forEach(toggle => {
+            toggle.setAttribute('aria-controls', sidebar.id);
+            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            toggle.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
         });
     };
 
-    window.addEventListener('resize', handleGrids);
-    handleGrids();
+    const setOpen = (isOpen, trigger = null) => {
+        if (isOpen && !isMobile()) {
+            return;
+        }
+
+        if (trigger) {
+            lastTrigger = trigger;
+        }
+
+        sidebar.classList.toggle('active', isOpen);
+        overlay.classList.toggle('active', isOpen);
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+        setAccessibility(isOpen);
+
+        if (isOpen) {
+            const firstLink = sidebar.querySelector('.menu-link');
+            if (firstLink) {
+                firstLink.focus();
+            }
+        } else if (sidebar.contains(document.activeElement) && lastTrigger) {
+            lastTrigger.focus();
+        }
+    };
+
+    relatedToggles.forEach(toggle => {
+        toggle.type = 'button';
+        toggle.setAttribute('aria-controls', sidebar.id);
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Open navigation');
+        toggle.addEventListener('click', event => {
+            event.stopPropagation();
+            setOpen(!sidebar.classList.contains('active'), toggle);
+        });
+    });
+
+    overlay.addEventListener('click', () => setOpen(false));
+
+    document.addEventListener('click', event => {
+        if (!isMobile() || !sidebar.classList.contains('active')) {
+            return;
+        }
+        if (!sidebar.contains(event.target) && !relatedToggles.some(toggle => toggle.contains(event.target))) {
+            setOpen(false);
+        }
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && sidebar.classList.contains('active')) {
+            setOpen(false);
+        }
+    });
+
+    sidebar.querySelectorAll('.menu-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (isMobile()) {
+                setOpen(false);
+            }
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        if (!isMobile() && sidebar.classList.contains('active')) {
+            setOpen(false);
+        }
+        setAccessibility(sidebar.classList.contains('active'));
+    });
+
+    setAccessibility(false);
 });

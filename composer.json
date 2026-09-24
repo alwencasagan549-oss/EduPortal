@@ -4,6 +4,9 @@
   "require": {
     "aws/aws-sdk-php": "^3.309"
   },
+  "scripts": {
+    "test": "php tests/assignment_management_test.php"
+  },
   "autoload": {
     "psr-4": {
       "EduPortal\\": "src/"

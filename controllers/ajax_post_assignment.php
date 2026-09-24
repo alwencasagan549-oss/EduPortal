@@ -16,7 +16,8 @@ if (getUserRole() !== 'teacher') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        $csrfToken = $_POST['csrf_token'] ?? '';
+        if (!is_string($csrfToken) || !validate_csrf($csrfToken)) {
         echo json_encode(['success' => false, 'error' => 'Invalid security token.']);
         exit();
     }

@@ -14,6 +14,8 @@ $teacher_id = $_SESSION['user_id'];
 $teacher_name = $_SESSION['user_name'];
 $teacher_subject = $_SESSION['user_subject'];
 
+require_once __DIR__ . '/nav.php';
+
 // Handle updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_grading'])) {
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
@@ -96,7 +98,6 @@ $pending_count = $total_submissions - $reviewed_count;
     <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="../assets/script.js" defer></script>
     <style>
         .notification-item {
             padding: 0.85rem 1rem;
@@ -134,65 +135,15 @@ $pending_count = $total_submissions - $reviewed_count;
 </head>
 
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="layout-wrapper">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <i class="fas fa-chalkboard-teacher"></i>
-                </div>
-                <div class="sidebar-brand">
-                    Edu<span>Portal</span>
-                </div>
-            </div>
-
-            <nav class="sidebar-menu">
-                <li class="menu-item">
-                    <a href="dashboard.php" class="menu-link active" onclick="EduPortal.navigate('Dashboard', 'Loading dashboard...', this)">
-                        <i class="fas fa-home"></i> Dashboard
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="post_assignment.php" class="menu-link" onclick="EduPortal.navigate('Post Assignment', 'Preparing assignment portal...', this)">
-                        <i class="fas fa-upload"></i> Post Assignment
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="profile.php" class="menu-link" onclick="EduPortal.navigate('Profile', 'Loading profile settings...', this)">
-                        <i class="fas fa-user-circle"></i> Profile
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="students.php" class="menu-link" onclick="EduPortal.navigate('My Students', 'Loading student directory...', this)">
-                        <i class="fas fa-user-graduate"></i> <?php echo htmlspecialchars($teacher_subject); ?> Students
-                    </a>
-                </li>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-snippet">
-                    <div class="avatar-small">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="user-snippet-info">
-                        <div class="user-name"><?php echo htmlspecialchars($teacher_name); ?></div>
-                        <div class="user-status"><i class="fas fa-circle" style="font-size: 0.5rem"></i> Online</div>
-                    </div>
-                </div>
-                <form method="POST" action="../logout.php" style="display:inline;" onsubmit="return EduPortal.confirmLogout(this)">
-                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                    <button type="submit" class="logout-link">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </button>
-                </form>
-            </div>
-        </aside>
+        <?php renderTeacherNav('dashboard', $teacher_subject, $teacher_name); ?>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content">
             <header class="top-bar">
-                <button class="menu-toggle">
-                    <i class="fas fa-bars"></i>
+                <button class="menu-toggle" type="button" aria-label="Open navigation" aria-controls="teacher-sidebar" aria-expanded="false">
+                    <i class="fas fa-bars" aria-hidden="true"></i>
                 </button>
                 <div class="page-title">
                     <h1>Teacher Portal</h1>
