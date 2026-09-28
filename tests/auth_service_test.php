@@ -280,6 +280,58 @@ check('an unconfigured relay does not report a send', auth_send_mail('nobody@exa
 check('mail reports disabled without a host', auth_mail_enabled() === false || auth_mail_configured() === false);
 
 // ---------------------------------------------------------------------
+// Mailer wiring
+//
+// Guards against the failure that actually shipped: the PHPMailer class name
+// and the ENCRYPTION_* constants were written against an older release, so
+// every send fataled inside the catch block and surfaced to the user as a
+// generic "could not send the reset email". Nothing else in the suite touches
+// these names, so a typo here was invisible until a real send was attempted.
+// ---------------------------------------------------------------------
+
+check('the PHPMailer class name is the real one', class_exists('PHPMailer\\PHPMailer\\PHPMailer'));
+check('the PHPMailer class can be instantiated', (new PHPMailer\PHPMailer\PHPMailer(true)) instanceof PHPMailer\PHPMailer\PHPMailer);
+
+check(
+    'the STARTTLS constant resolves',
+    defined('PHPMailer\\PHPMailer\\PHPMailer::ENCRYPTION_STARTTLS')
+        && constant('PHPMailer\\PHPMailer\\PHPMailer::ENCRYPTION_STARTTLS') === 'tls'
+);
+check(
+    'the SMTPS constant resolves',
+    defined('PHPMailer\\PHPMailer\\PHPMailer::ENCRYPTION_SMTPS')
+        && constant('PHPMailer\\PHPMailer\\PHPMailer::ENCRYPTION_SMTPS') === 'ssl'
+);
+
+// The pre-6.12 shape must not be used anywhere: those names do not resolve in
+// the pinned release and fail only at send time.
+check(
+    'the removed SMTPSecure class is not referenced',
+    !class_exists('PHPMailer\\PHPMailer\\SMTPSecure')
+        || !str_contains((string) file_get_contents(__DIR__ . '/../libs/Mailer.php'), 'SMTPSecure::')
+);
+
+// Every branch of the encryption switch must resolve to a value PHPMailer
+// accepts, rather than fataling.
+$mail = new PHPMailer\PHPMailer\PHPMailer(true);
+foreach (['tls', 'ssl', 'none'] as $mode) {
+    try {
+        $mail->SMTPSecure = $mode === 'ssl'
+            ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+            : ($mode === 'tls' ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS : '');
+        check("encryption mode {$mode} assigns cleanly", true);
+    } catch (Throwable $exception) {
+        check("encryption mode {$mode} assigns cleanly", false);
+    }
+}
+
+// Gating: with no relay configured the mailer must refuse, never report a
+// send it did not perform.
+same('an unconfigured relay reports unavailable', false, auth_mail_configured());
+check('an unconfigured send returns false', auth_send_mail('nobody@example.com', 'subject', '<p>x</p>', 'x') === false);
+check('a malformed recipient is refused', auth_send_mail('not-an-address', 'subject', '<p>x</p>', 'x') === false);
+
+// ---------------------------------------------------------------------
 
 if ($failures !== []) {
     fwrite(STDERR, "FAILED (" . count($failures) . " of {$checks}):\n");

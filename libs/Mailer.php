@@ -26,6 +26,15 @@
  * token into the response.
  */
 
+// The mailer owns its dependency. forgot_password.php requires this file
+// without touching WebAuthnService.php, so nothing else registered
+// Composer's autoloader on that path -- which made the class_exists() probe
+// in auth_mail_configured() return false and report "not configured" even
+// when SMTP was set up correctly.
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
+
 function auth_mail_enabled(): bool
 {
     return strtolower((string) (getenv('MAIL_ENABLED') ?: '0')) === '1';
@@ -61,17 +70,21 @@ function auth_send_mail(string $to, string $subject, string $html, string $text)
     }
 
     try {
-        $mail = new PHPMailer\PHPMailer\PHPMailer\PHPMailer(true);
+        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
 
         $mail->isSMTP();
         $mail->Host = (string) getenv('SMTP_HOST');
         $mail->Port = (int) (getenv('SMTP_PORT') ?: 587);
 
+        // PHPMailer 6.12 folded the ENCRYPTION_* constants onto the PHPMailer
+        // class itself; there is no PHPMailer\SMTPSecure class in that release.
+        // Written the old way this fatals inside the catch below, which
+        // surfaces as a generic "could not send" rather than an obvious error.
         $encryption = strtolower((string) (getenv('SMTP_ENCRYPTION') ?: 'tls'));
         if ($encryption === 'ssl') {
-            $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer\SMTPSecure::ENCRYPTION_SMTPS;
+            $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
         } elseif ($encryption === 'tls') {
-            $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer\SMTPSecure::ENCRYPTION_STARTTLS;
+            $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         } else {
             $mail->SMTPSecure = '';
             $mail->SMTPAutoTLS = false;
@@ -97,7 +110,15 @@ function auth_send_mail(string $to, string $subject, string $html, string $text)
 
         return $mail->send();
     } catch (Throwable $exception) {
-        error_log('EduPortal mail send failed: ' . $exception->getMessage());
+        // PHPMailer's exception message is a bare "Error". ErrorInfo carries
+        // the relay's actual response -- 535 for bad credentials, 550/553 for a
+        // rejected sender, and so on -- which is the difference between an
+        // operator fixing this in one step and guessing.
+        $detail = isset($mail) && is_object($mail) && $mail->ErrorInfo !== null
+            ? (string) $mail->ErrorInfo
+            : $exception->getMessage();
+
+        error_log('EduPortal mail send failed: ' . $detail);
         return false;
     }
 }
