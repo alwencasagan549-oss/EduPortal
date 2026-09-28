@@ -79,16 +79,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     try {
                         // Completing a reset proves control of the mailbox, so
                         // it is the natural moment to record that fact.
-                        $setVerified = auth_column_exists($conn, $table, 'email_verified_at')
-                            ? ', email_verified_at = ?'
-                            : '';
-                        $params = [$hashed, $userId];
-                        if ($setVerified !== '') {
-                            $params[] = auth_now();
-                        }
+                        $update = auth_password_reset_update(
+                            $table,
+                            $hashed,
+                            $userId,
+                            auth_column_exists($conn, $table, 'email_verified_at')
+                        );
 
-                        $stmt = $conn->prepare("UPDATE {$table} SET password = ?{$setVerified} WHERE id = ?");
-                        $stmt->execute($params);
+                        $stmt = $conn->prepare($update['sql']);
+                        $stmt->execute($update['params']);
                     } catch (Throwable $exception) {
                         error_log('EduPortal password reset update failed: ' . $exception->getMessage());
                         $error = 'The password could not be updated. Please try again later.';
