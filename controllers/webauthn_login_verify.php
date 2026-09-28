@@ -73,5 +73,10 @@ auth_record_event($conn, 'login', 'passkey_success', [
 echo json_encode([
     'ok' => true,
     'csrf_token' => csrf_token(),
-    'redirect' => $role === 'teacher' ? 'teacher/dashboard.php' : 'student/dashboard.php',
+    // Root-absolute, not relative. The caller is /teacher/login.php or
+    // /student/login.php, so a relative "teacher/dashboard.php" resolved
+    // against the login page's own directory and produced
+    // /teacher/teacher/dashboard.php. This matches the root-absolute form
+    // requireLogin() already uses.
+    'redirect' => $role === 'teacher' ? '/teacher/dashboard.php' : '/student/dashboard.php',
 ]);
