@@ -1,7 +1,17 @@
 FROM php:8.2-apache
 
-# Install PostgreSQL client libraries then PHP extensions
-RUN apt-get update && apt-get install -y libpq-dev libzip-dev && docker-php-ext-install pdo_pgsql pgsql zip opcache
+# Install PostgreSQL client libraries then PHP extensions.
+# ca-certificates is required explicitly: the transactional mail transport
+# verifies TLS against api.brevo.com over HTTPS, and without a trust store
+# every send fails with "unable to get local issuer certificate". The base
+# image may carry one transitively, which is not something to rely on for a
+# hard dependency.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libpq-dev \
+        libzip-dev \
+    && docker-php-ext-install pdo_pgsql pgsql zip opcache \
+    && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache modules
 RUN a2enmod rewrite headers deflate expires
