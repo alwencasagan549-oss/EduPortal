@@ -259,11 +259,16 @@
 
             return post(endpoints.verify, {
                 credential: JSON.stringify(serialise(assertion)),
-                // For teachers this chooses which of their subject rows to
-                // sign in as. The passkey has already proved who they are; one
-                // teacher teaching two subjects is two rows sharing an email
-                // and a password, and without this they always land on the one
-                // they enrolled from.
+                // Echoed back so the endpoint can re-check that the caller
+                // identified themselves. The ceremony was already scoped to the
+                // account these name, so this is defence in depth rather than
+                // the primary control.
+                role: role,
+                identifier: identifier || '',
+                // For teachers this chooses which of their subject rows to sign
+                // in as. A teacher teaching two subjects is two rows sharing an
+                // email and a password, and without this they always land on
+                // the one they enrolled from.
                 subject: subject || ''
             });
         },

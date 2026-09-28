@@ -63,6 +63,25 @@ if (strlen($credentialJson) > 16384) {
     exit();
 }
 
+$role_hint = ((string) ($_POST['role'] ?? 'student')) === 'teacher' ? 'teacher' : 'student';
+$identifier = trim((string) ($_POST['identifier'] ?? ''));
+
+// Both roles identify themselves before a credential is accepted. Re-checked
+// here so the endpoint is safe on its own, in case the options call is
+// bypassed; the ceremony is already scoped to the account those fields name,
+// so a credential belonging to anyone else fails verification regardless.
+if (($role_hint === 'teacher' && trim((string) ($_POST['subject'] ?? '')) === '')
+    || ($role_hint === 'student' && $identifier === '')) {
+    http_response_code(422);
+    echo json_encode([
+        'error' => $role_hint === 'teacher'
+            ? 'Enter the subject you are signing in as, then use your passkey.'
+            : 'Enter your LRN, then use your passkey.',
+        'csrf_token' => csrf_token(),
+    ]);
+    exit();
+}
+
 $result = webauthn_finish_authentication(
     $conn,
     $credentialJson,

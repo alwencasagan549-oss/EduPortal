@@ -163,11 +163,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const api = window.EduPortalWebAuthn;
         api.init(<?php echo json_encode(csrf_token()); ?>);
 
-        // Fields are used when present, because scoping the ceremony to the
-        // account is more precise and also works for credentials that are not
-        // discoverable. Left empty, the passkey identifies the account on its
-        // own, which is how passkey sign-in is normally experienced.
+        // The LRN is required. It names the student's account, and without it
+        // a mistyped or empty identifier could sign in as whichever account
+        // the device happens to hold a credential for. The server enforces
+        // this too; this only says so before the user reaches for their
+        // phone.
         button.addEventListener('click', async () => {
+            if (lrn.value.trim().length !== 12) {
+                status.textContent = 'Enter your 12-digit LRN, then use your passkey.';
+                lrn.focus();
+                return;
+            }
+
             button.disabled = true;
             status.textContent = 'Follow your device prompt...';
 
