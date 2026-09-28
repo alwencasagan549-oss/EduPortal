@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../libs/AuthService.php';
+require_once '../libs/WebAuthnService.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -138,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="../assets/js/trusted_types.js"></script>
     <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
-    <script src="../assets/js/webauthn.js"></script>
+    <script src="../assets/js/webauthn.js?v=<?php echo WEBAUTHN_JS_VERSION; ?>"></script>
     <script src="../assets/js/pwa.js"></script>
     <script>
     (() => {

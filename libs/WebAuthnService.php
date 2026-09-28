@@ -55,6 +55,16 @@ const WEBAUTHN_USER_HANDLE_BYTES = 32;
 const WEBAUTHN_CREDENTIAL_LABEL_MAX = 64;
 
 /**
+ * Cache-buster for assets/js/webauthn.js.
+ *
+ * The rest of the front end versions its assets (?v=20260924 on
+ * system_loader.js and style.min.css), but this file was loaded bare, so a
+ * returning user kept the copy their browser first cached and no change to it
+ * ever reached them. Bump this whenever the file's behaviour changes.
+ */
+const WEBAUTHN_JS_VERSION = '20260928-1';
+
+/**
  * Signature counter policy.
  *
  * The library ships ThrowExceptionIfInvalid as the default, which rejects any

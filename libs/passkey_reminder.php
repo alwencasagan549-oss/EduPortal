@@ -101,7 +101,7 @@ function render_passkey_reminder(string $base = '..'): void
 
         <div data-passkey-status role="status" aria-live="polite" style="margin-top: 1rem; display: none;"></div>
     </section>
-    <script src="<?php echo htmlspecialchars($base); ?>/assets/js/webauthn.js"></script>
+    <script src="<?php echo htmlspecialchars($base); ?>/assets/js/webauthn.js?v=<?php echo WEBAUTHN_JS_VERSION; ?>"></script>
     <script>
     (() => {
         const root = document.getElementById('passkey-reminder');
