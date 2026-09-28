@@ -1,6 +1,17 @@
-# Keep .htaccess out of this list: it is the Apache access-control layer for
-# config/, uploads/ and .sql files. Excluding it silently disabled every one of
-# those rules in the production container.
+# NOTE ON .htaccess
+#
+# It is deliberately NOT shipped in the image. Security for the container comes
+# from pwa-apache.conf, which is real server-level config: it denies config/,
+# data/, migrations/, uploads/ and .sql the same way. Shipping a duplicate of
+# those rules in a per-directory .htaccess added a fragile second layer that can
+# fail closed on every single request if it ever contains a directive Apache
+# rejects in that context. A server-level config error fails the build loudly
+# instead.
+#
+# The root .htaccess is still used by non-Docker Apache hosts (XAMPP,
+# shared hosting); it is just not part of the production image.
+.htaccess
+uploads/.htaccess
 
 # Dependencies are installed inside the image
 node_modules
