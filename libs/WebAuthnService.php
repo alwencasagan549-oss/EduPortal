@@ -531,9 +531,15 @@ function webauthn_creation_options(
         new PublicKeyCredentialUserEntity('eduportal', $handle, $displayName),
         $challenge,
         [
-            PublicKeyCredentialParameters::create(Algorithms::COSE_ALGORITHM_ES256, Algorithms::COSE_ALGORITHM_ES256),
-            PublicKeyCredentialParameters::create(Algorithms::COSE_ALGORITHM_RS256, Algorithms::COSE_ALGORITHM_RS256),
-            PublicKeyCredentialParameters::create(Algorithms::COSE_ALGORITHM_EDDSA, Algorithms::COSE_ALGORITHM_EDDSA),
+            // createPk() rather than create(): the latter takes (type, alg), so
+            // passing the algorithm first silently coerces -7 to the string
+            // "-7" and every descriptor ships an invalid type. Chrome then
+            // rejects the whole options object as "Required parameters missing
+            // in options.publicKey", which names neither the cause nor the
+            // side responsible.
+            PublicKeyCredentialParameters::createPk(Algorithms::COSE_ALGORITHM_ES256),
+            PublicKeyCredentialParameters::createPk(Algorithms::COSE_ALGORITHM_RS256),
+            PublicKeyCredentialParameters::createPk(Algorithms::COSE_ALGORITHM_EDDSA),
         ],
         // residentKey required makes the credential discoverable, so the same
         // passkey works on any device the user signs in from.
