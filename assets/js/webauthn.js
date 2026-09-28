@@ -192,10 +192,28 @@
                 );
             }
 
-            const credential = await navigator.credentials.create({
-                publicKey: toPublicKey(options)
-            });
+            const publicKey = toPublicKey(options);
 
+            // Chrome's "Required parameters missing in options.publicKey" names
+            // neither the field nor the type, and it is raised after this code
+            // has already reshaped the object. Log what actually crosses the
+            // boundary so the failure is readable from the console.
+            if (window.console && console.info) {
+                console.info('[EduPortal] passkey options as received', options);
+                console.info('[EduPortal] rp', publicKey.rp);
+                console.info('[EduPortal] user', publicKey.user);
+                console.info(
+                    '[EduPortal] challenge is ArrayBuffer',
+                    publicKey.challenge instanceof ArrayBuffer,
+                    'byteLength',
+                    publicKey.challenge && publicKey.challenge.byteLength
+                );
+                console.info('[EduPortal] publicKey keys', Object.keys(publicKey));
+            }
+
+            const credential = await navigator.credentials.create({
+                publicKey: publicKey
+            });
             if (!credential) {
                 throw new Error('No passkey was created.');
             }
