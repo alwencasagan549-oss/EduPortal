@@ -378,11 +378,16 @@ function webauthn_issue_challenge($conn, string $purpose, ?string $role, ?int $u
     $challenge = random_bytes(32);
     $now = time();
 
+    // Housekeeping only. Expired rows are already rejected on read, so a
+    // failure here must not be able to block issuing a new challenge -- which
+    // is what happened when this shared a try block with the insert.
     try {
-        // Opportunistic prune. A pending row is worthless once spent, and
-        // this table would otherwise grow without bound on a busy portal.
         $conn->exec('DELETE FROM webauthn_challenges WHERE expires_at < ' . gmdate('Y-m-d H:i:s', $now - 3600));
+    } catch (Throwable $exception) {
+        error_log('EduPortal WebAuthn challenge prune skipped: ' . $exception->getMessage());
+    }
 
+    try {
         $stmt = $conn->prepare(
             'INSERT INTO webauthn_challenges
                 (challenge, purpose, user_role, user_id, request_ip, created_at, expires_at)
