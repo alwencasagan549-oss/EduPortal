@@ -9,10 +9,11 @@ Options -Indexes
 # Set Index Page
 DirectoryIndex index.php
 
-# Allow Let's Encrypt SSL challenge files
-<LocationMatch "^/\.well-known/acme-challenge/.*">
-    Require all granted
-</LocationMatch>
+# NOTE: the Let's Encrypt ACME challenge exemption lives in pwa-apache.conf,
+# not here. <LocationMatch> is only valid in the main server config, never in
+# .htaccess; Apache treats it as a syntax error and answers every request with
+# a 500. That is why this file must not contain any <Location*> or
+# <Directory*> sections.
 
 # Block access to sensitive and hidden files
 <FilesMatch "(\.(sql|bak|inc|cfg|config|log|env|php\..*|.*~$|.*\.swp|.*\.bak|.*\.old)|^\.)">
