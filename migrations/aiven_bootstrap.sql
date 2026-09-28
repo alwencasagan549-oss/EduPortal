@@ -87,20 +87,27 @@ CREATE INDEX IF NOT EXISTS idx_posted_assignments_target_created ON posted_assig
 
 
 -- =====================================================================
--- ==== RUN 4 of 5 - REMAINING INDEXES + FOREIGN KEYS ====
+-- ==== RUN 4 of 5 - REMAINING INDEXES + FOREIGN KEYS + JOBS COLUMNS ====
 -- The MariaDB schema always had these constraints. PostgreSQL was missing
 -- them, so deleted students left dangling submissions and notifications.
 -- ON DELETE CASCADE removes a student's notifications with the account.
 -- ON DELETE SET NULL keeps a submission but detaches it from a deleted
 -- student or teacher. RUN 1 already proved there are no orphan rows.
 --
--- Note: these are plain ADD CONSTRAINT and will error if they already
--- exist. Skip this block if you have run it before.
+-- The three jobs columns are added because an existing jobs table predates
+-- the current schema and lacks them. Only jobs.status is read by the running
+-- code, so this is for schema consistency rather than a live breakage.
+--
+-- Note: the ADD CONSTRAINT lines are plain and will error if they already
+-- exist. Skip those five if you have run this block before.
 -- =====================================================================
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications (user_id) WHERE is_read = FALSE;
 CREATE INDEX IF NOT EXISTS idx_students_filter ON students (grade_level, strand, section);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs (status, created_at);
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS type VARCHAR(50) NOT NULL DEFAULT 'unknown';
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS payload TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS error_message TEXT;
 ALTER TABLE submissions ADD CONSTRAINT submissions_fk_student FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE SET NULL;
 ALTER TABLE submissions ADD CONSTRAINT submissions_fk_teacher FOREIGN KEY (teacher_id) REFERENCES teachers (id) ON DELETE SET NULL;
 ALTER TABLE submissions ADD CONSTRAINT submissions_fk_assignment FOREIGN KEY (assignment_id) REFERENCES posted_assignments (id) ON DELETE SET NULL;
