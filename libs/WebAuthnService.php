@@ -600,7 +600,21 @@ function webauthn_begin_registration($conn, string $role, $userId, array $accoun
             webauthn_excluded_credentials($conn, $role, $userId)
         );
 
-        return ['options' => $serializer->serialize($options, 'json')];
+        $serialised = json_decode($serializer->serialize($options, 'json'), true);
+
+        // The library emits authenticatorAttachment: null when no preference is
+        // expressed, and Chrome logs "Ignoring unknown
+        // publicKey.authenticatorSelection.authenticatorAttachment value" for
+        // it. The key has to be absent rather than null, not merely harmless.
+        if (is_array($serialised) && isset($serialised['authenticatorSelection'])
+            && is_array($serialised['authenticatorSelection'])) {
+            $serialised['authenticatorSelection'] = array_filter(
+                $serialised['authenticatorSelection'],
+                static fn ($value) => $value !== null
+            );
+        }
+
+        return ['options' => json_encode($serialised)];
     } catch (Throwable $exception) {
         error_log('EduPortal WebAuthn registration start failed: ' . $exception->getMessage());
         webauthn_record_error('registration could not be prepared: ' . $exception->getMessage());

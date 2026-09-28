@@ -179,8 +179,21 @@
 
             const started = await post(endpoints.options, { password: password });
 
+            // navigator.credentials.create() reports anything missing from the
+            // options as "Required parameters missing in options.publicKey",
+            // which names neither the field nor the side responsible. Checking
+            // here turns that into a message that points at the response.
+            const options = started && started.publicKey;
+            const missing = ['challenge', 'rp', 'user'].filter(key => !options || !options[key]);
+            if (missing.length > 0) {
+                throw new Error(
+                    'The server returned incomplete passkey options (missing: ' + missing.join(', ')
+                    + '). Open DevTools > Network > webauthn_register_options.php > Response.'
+                );
+            }
+
             const credential = await navigator.credentials.create({
-                publicKey: toPublicKey(started.publicKey)
+                publicKey: toPublicKey(options)
             });
 
             if (!credential) {
