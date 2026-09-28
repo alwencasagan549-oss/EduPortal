@@ -218,6 +218,35 @@ same(
 $weird = "\x00\x01\xfe\xff";
 same('a high-byte challenge re-encodes exactly', webauthn_base64url($weird), webauthn_base64url(webauthn_base64url_decode(webauthn_base64url($weird))));
 
+// The wire format the browser receives must carry a usable
+// PublicKeyCredentialParameters list. Checking only `alg` missed a real defect:
+// the descriptors shipped type "-7" instead of "public-key", which Chrome
+// rejects wholesale as "Required parameters missing in options.publicKey".
+$optionsSerializer = webauthn_serializer();
+$wireOptions = json_decode($optionsSerializer->serialize(
+    webauthn_creation_options('portal.example', random_bytes(32), random_bytes(32), 'Test User'),
+    'json'
+), true);
+
+$params = $wireOptions['pubKeyCredParams'] ?? [];
+check('the options carry algorithm descriptors', count($params) === 3);
+foreach ($params as $index => $entry) {
+    same('descriptor ' . $index . ' has type public-key', 'public-key', $entry['type'] ?? null);
+    check('descriptor ' . $index . ' has a numeric alg', isset($entry['alg']) && is_int($entry['alg']));
+}
+same(
+    'the offered algorithms are ES256, RS256 and EdDSA',
+    [-7, -257, -8],
+    array_map(static fn (array $entry) => $entry['alg'], $params)
+);
+
+// A descriptor with a non-numeric type is enough to invalidate the whole
+// options object, so the check is on the exact string, not on presence.
+check(
+    'no descriptor type is a numeric string',
+    !in_array('-7', array_column($params, 'type'), true)
+);
+
 // ---------------------------------------------------------------------
 // End-to-end ceremony against a software authenticator
 //
