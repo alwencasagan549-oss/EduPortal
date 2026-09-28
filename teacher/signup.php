@@ -60,14 +60,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         try {
             $conn = getDBConnection();
+
+            // Uniqueness is per (email, subject), not per either one alone.
+            // One teacher may hold several rows sharing an email, one per
+            // subject, which is what makes the same email able to sign in
+            // against different subjects at all. Two teachers may also share a
+            // subject. The previous check joined them with OR, so it refused
+            // both of those legitimate registrations.
+            //
+            // Both sides are trimmed and lowercased on the column as well as
+            // the parameter: "Math " and "math" are the same subject, and
+            // comparing raw values let case variants through.
             $check = $conn->prepare(
                 'SELECT id FROM teachers
-                 WHERE LOWER(TRIM(subject)) = LOWER(TRIM(?)) OR LOWER(email) = LOWER(?)'
+                 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+                   AND LOWER(TRIM(subject)) = LOWER(TRIM(?))'
             );
-            $check->execute([$subject, $email]);
+            $check->execute([$email, $subject]);
 
             if ($check->get_result()->num_rows() > 0) {
-                $error = 'This subject or email is already registered. Please choose another.';
+                $error = 'An account with this email and subject already exists.';
             } elseif (teacher_account_column_exists($conn, 'status')) {
                 $stmt = $conn->prepare(
                     "INSERT INTO teachers (name, email, subject, password, status) VALUES (?, ?, ?, ?, 'pending')"
@@ -90,7 +102,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $sqlState = (string) $exception->getCode();
             $driverCode = isset($exception->errorInfo[1]) ? (int) $exception->errorInfo[1] : 0;
             if ($sqlState === '23505' || $driverCode === 1062) {
-                $error = 'This subject or email is already registered. Please choose another.';
+                $error = 'An account with this email and subject already exists.';
             } else {
                 error_log('Teacher registration failed: ' . $exception->getMessage());
                 $error = 'Registration could not be completed. Please try again.';
