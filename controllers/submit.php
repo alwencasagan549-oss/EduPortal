@@ -68,13 +68,21 @@ if (assignment_subject_length($subject) > 255) {
 }
 
 if (!isset($_FILES['assignment']) || !is_array($_FILES['assignment']) || ($_FILES['assignment']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-    header('Location: ../student/dashboard.php?error=Please+select+a+file', true, 303);
+    // PHP discards $_POST and $_FILES entirely when the body exceeds
+    // post_max_size, which otherwise surfaced as a misleading "select a file".
+    $declaredLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+    $overLimit = $declaredLength > 0 && empty($_POST) && $declaredLength > 8 * 1024 * 1024;
+    header('Location: ../student/dashboard.php?error=' . ($overLimit
+        ? 'Upload+is+too+large.+The+maximum+file+size+is+9+MB.'
+        : 'Please+select+a+file'), true, 303);
     exit();
 }
 
 $file = $_FILES['assignment'];
 $allowedExtensions = ['pdf', 'doc', 'docx'];
-$maxSize = 10 * 1024 * 1024;
+// Matches assignment_upload_rules() and leaves room for multipart overhead
+// inside post_max_size, so a file at the limit is not silently discarded.
+$maxSize = 9 * 1024 * 1024;
 $fileExtension = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
 $fileSize = isset($file['size']) ? (int) $file['size'] : 0;
 
@@ -84,30 +92,28 @@ if (!in_array($fileExtension, $allowedExtensions, true)) {
 }
 
 if ($fileSize < 1 || $fileSize > $maxSize) {
-    header('Location: ../student/dashboard.php?error=File+size+exceeds+10MB+limit', true, 303);
+    header('Location: ../student/dashboard.php?error=File+size+exceeds+the+9MB+limit', true, 303);
     exit();
 }
 
+// Readiness check only. assignment_ensure_submission_schema() no longer runs
+// DDL unless EDUPORTAL_ALLOW_RUNTIME_MIGRATIONS is set, so this is a cheap
+// cached lookup rather than several information_schema round-trips.
 $submissionSchemaReady = assignment_ensure_submission_schema($conn);
-if ($assignmentId !== null && (!$submissionSchemaReady || !assignment_submission_has_column($conn, 'assignment_id'))) {
+if ($assignmentId !== null && !$submissionSchemaReady) {
     header('Location: ../student/dashboard.php?error=Submission+storage+is+not+ready', true, 303);
     exit();
 }
 if (!$submissionSchemaReady) {
-    try {
-        $knownSubmissionColumns = assignment_submission_column_names($conn);
-        foreach (['student_id', 'subject', 'file_path', 'submission_date'] as $requiredColumn) {
-            if (!isset($knownSubmissionColumns[$requiredColumn])) {
-                throw new RuntimeException('Required submission column is missing: ' . $requiredColumn);
-            }
+    $knownSubmissionColumns = assignment_submission_column_names($conn);
+    foreach (['student_id', 'subject', 'file_path', 'submission_date'] as $requiredColumn) {
+        if (!isset($knownSubmissionColumns[$requiredColumn])) {
+            error_log('EduPortal submission storage verification failed: missing ' . $requiredColumn);
+            header('Location: ../student/dashboard.php?error=Submission+storage+is+not+ready', true, 303);
+            exit();
         }
-    } catch (Throwable $exception) {
-        error_log('EduPortal submission storage verification failed: ' . $exception->getMessage());
-        header('Location: ../student/dashboard.php?error=Submission+storage+is+not+ready', true, 303);
-        exit();
     }
 }
-
 $uploadDirectory = __DIR__ . '/../uploads';
 if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0750, true) && !is_dir($uploadDirectory)) {
     header('Location: ../student/dashboard.php?error=Upload+storage+is+not+available', true, 303);
@@ -212,31 +218,28 @@ $discardLockedDuplicate = static function ($pdo, ?int $existingSubmissionId) use
 };
 
 try {
-    try {
-        $submissionColumns = assignment_submission_column_names($conn);
-    } catch (Throwable $exception) {
-        error_log('EduPortal submission column discovery failed: ' . $exception->getMessage());
-        $submissionColumns = [];
-    }
-    if ($assignmentId !== null && !isset($submissionColumns['assignment_id'])) {
+    // Cached per-request feature detection instead of a second
+    // information_schema round-trip.
+    $submissionFeatures = assignment_submission_features($conn);
+    if ($assignmentId !== null && !$submissionFeatures['assignment_id']) {
         throw new RuntimeException('Assignment identity column is unavailable.');
     }
 
     $insertFields = ['student_id', 'subject', 'file_path', 'submission_date'];
     $insertValues = [$studentId, $subject, $uploadPath, $currentDate];
-    if (isset($submissionColumns['file_content']) && $fileContentForStorage !== null) {
+    if ($submissionFeatures['file_content'] && $fileContentForStorage !== null) {
         $insertFields[] = 'file_content';
         $insertValues[] = $fileContentForStorage;
     }
-    if (isset($submissionColumns['file_type'])) {
+    if ($submissionFeatures['file_type']) {
         $insertFields[] = 'file_type';
         $insertValues[] = $verifiedMime;
     }
-    if ($assignmentId !== null && isset($submissionColumns['assignment_id'])) {
+    if ($assignmentId !== null && $submissionFeatures['assignment_id']) {
         $insertFields[] = 'assignment_id';
         $insertValues[] = $assignmentId;
     }
-    if ($assignmentId !== null && $postedAssignment !== null && isset($submissionColumns['teacher_id'])) {
+    if ($assignmentId !== null && $postedAssignment !== null && $submissionFeatures['teacher_id']) {
         $insertFields[] = 'teacher_id';
         $insertValues[] = $postedAssignment['teacher_id'];
     }

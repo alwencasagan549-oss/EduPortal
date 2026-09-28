@@ -36,14 +36,20 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)/$ /$1 [L,R=301]
 
-# Protect the config directory
-RewriteRule ^config/ - [F,L]
-
+# Protect directories that hold secrets or user documents.
+# (The Docker image enforces the same rules in pwa-apache.conf, so they hold
+#  even if this file is missing from a build context.)
+RewriteRule ^config(?:/|$) - [F,L]
+RewriteRule ^data(?:/|$) - [F,L]
+RewriteRule ^migrations(?:/|$) - [F,L]
 RewriteRule ^uploads(?:/|$) - [F,L]
 
-# Redirect to HTTPS
-RewriteCond %{HTTPS} off
-RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+# Canonical host + HTTPS.
+# %{HTTP_HOST} is taken from the client's Host header, so using it in a
+# redirect target let any caller mint a 301 to an attacker-controlled host
+# (open redirect + cache poisoning). Pin the canonical name instead.
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://%{SERVER_NAME}/$1 [R=301,L]
 
 # Security Headers
 AddType image/avif .avif

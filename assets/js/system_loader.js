@@ -426,6 +426,23 @@
             }
 
             EduPortal.showLoader('Loading page', 'Please wait while we continue...');
+
+            // If a later handler on this same click cancels the navigation
+            // (preventDefault, target swap, a route guard), nothing hides the
+            // loader again, so isProcessing stays true and every form submit is
+            // blocked for the full fallback timeout. Release it on the next
+            // task unless the document has actually begun unloading.
+            let navigationStarted = false;
+            const markStarted = () => { navigationStarted = true; };
+            window.addEventListener('beforeunload', markStarted, { once: true });
+            queueMicrotask(() => {
+                setTimeout(() => {
+                    window.removeEventListener('beforeunload', markStarted);
+                    if (!navigationStarted && window.EduPortal.isProcessing) {
+                        EduPortal.hideLoader();
+                    }
+                }, 250);
+            });
         });
 
         document.getElementById('loaderOverlay').addEventListener('click', event => {

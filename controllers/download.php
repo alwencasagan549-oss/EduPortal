@@ -1,136 +1,116 @@
 <?php
 /**
- * Secure Downloader with Row Level Security (RLS)
- * Bound to the authenticated Session ID.
- * Falls back to database-stored content for Render compatibility.
+ * Secure Downloader for student submissions.
+ *
+ * Visibility rules:
+ *   - a student may only download their own submission
+ *   - a teacher may download submissions assigned to them, plus legacy rows
+ *     (teacher_id IS NULL) that match their subject AND one of the classes
+ *     they actually teach
+ *
+ * Served from the database when content is stored there, otherwise from the
+ * uploads directory behind a realpath()-based traversal check.
  */
 
-// Load Secure Session & Database
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../libs/assignment_management.php';
 
 // session_start handled by database.php
 
-// RLS: Only allow authenticated users
 if (!isLoggedIn()) {
     header('Location: ../session_expired.php');
     exit();
 }
 
-if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+$id = assignment_id($_GET['id'] ?? null);
+if ($id === null) {
+    http_response_code(400);
     die('Invalid request');
 }
 
-$id = intval($_GET['id']);
-$user_id = $_SESSION['user_id'];
-$user_role = $_SESSION['user_role'];
-
+$user_id = (int) $_SESSION['user_id'];
+$user_role = (string) ($_SESSION['user_role'] ?? '');
 $conn = getDBConnection();
 
-try {
-    $submissionColumns = assignment_submission_column_names($conn);
-    if (!isset($submissionColumns['file_content'])) {
-        if ($conn->getDriverName() === 'mysql') {
-            $conn->exec('ALTER TABLE submissions ADD COLUMN file_content LONGTEXT');
-        } else {
-            $conn->exec('ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL');
-        }
-    }
-    if (!isset($submissionColumns['file_type'])) {
-        $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
-    }
-} catch (Throwable $e) {
-    error_log('EduPortal schema migration error in download.php: ' . $e->getMessage());
+// Report readiness rather than repairing the schema inline: a download is a
+// hot path and runtime DDL there cost an information_schema round-trip per
+// file. Run migrations/add_submission_storage_columns.php at deploy time.
+if (!assignment_submission_has_column($conn, 'file_type')) {
+    http_response_code(503);
+    die('Submission storage is not ready. Please contact the administrator.');
 }
 
-// Different queries based on user role
+$select = 'SELECT file_path, file_content, file_type FROM submissions WHERE id = ?';
+
 if ($user_role === 'teacher') {
-    if (isset($_SESSION['user_subject'])) {
-        $teacher_subject = $_SESSION['user_subject'];
-        $stmt = $conn->prepare("SELECT file_path, file_content, file_type FROM submissions WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))");
-        $stmt->execute([$id, $user_id, $teacher_subject]);
-    } else {
-        $stmt = $conn->prepare("SELECT file_path, file_content, file_type FROM submissions WHERE id = ? AND teacher_id = ?");
-        $stmt->execute([$id, $user_id]);
-    }
+    $teacherSubject = trim((string) ($_SESSION['user_subject'] ?? ''));
+    $scope = assignment_teacher_submission_scope('s', $user_id, $teacherSubject);
+    $stmt = $conn->prepare(
+        "SELECT s.file_path, s.file_content, s.file_type
+         FROM submissions s
+         WHERE s.id = ? AND " . $scope['sql']
+    );
+    $stmt->execute(array_merge([$id], $scope['params']));
 } else {
-    $stmt = $conn->prepare("SELECT file_path, file_content, file_type FROM submissions WHERE id = ? AND student_id = ?");
+    $stmt = $conn->prepare($select . ' AND student_id = ?');
     $stmt->execute([$id, $user_id]);
 }
 
-    $submission = $stmt->get_result()->fetch_assoc();
+$submission = $stmt->get_result()->fetch_assoc();
 
-    if (!$submission) {
-        die('File not found or you do not have permission to access this file');
-    }
-$file_path = $submission['file_path'];
-
-// Serve from database if content is stored there (Render compatibility)
-if (!empty($submission['file_content'])) {
-    $file_data = base64_decode($submission['file_content']);
-    $filename = basename($file_path);
-    $filetype = $submission['file_type'] ?: 'application/octet-stream';
-    $filesize = strlen($file_data);
-
-    header('Content-Description: File Transfer');
-    header('Content-Type: ' . $filetype);
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Content-Transfer-Encoding: binary');
-    header('Content-Length: ' . $filesize);
-    header('Cache-Control: private, no-store, max-age=0');
-    header('Pragma: no-cache');
-    header('Expires: 0');
-
-    if (ob_get_level()) {
-        ob_end_clean();
-    }
-
-    echo $file_data;
-    exit();
+if (!$submission) {
+    http_response_code(404);
+    die('File not found or you do not have permission to access this file');
 }
 
-// Fallback: serve from filesystem
-$base_dir = realpath(__DIR__ . '/../uploads');
+$file_path = (string) $submission['file_path'];
 
+$filename = assignment_safe_download_filename($file_path);
+$filetype = assignment_safe_download_mime($submission['file_type'] ?? '');
+
+if (!empty($submission['file_content'])) {
+    $file_data = base64_decode((string) $submission['file_content'], true);
+    if ($file_data === false) {
+        http_response_code(500);
+        die('The stored copy of this file could not be decoded.');
+    }
+
+    assignment_stream_download($file_data, $filename, $filetype);
+}
+
+$base_dir = realpath(__DIR__ . '/../uploads');
 if ($base_dir === false) {
+    http_response_code(500);
     die('Server configuration error: uploads directory not found');
 }
 
-$relative = ltrim(str_replace('\\', '/', (string) $file_path), '/');
+$relative = ltrim(str_replace('\\', '/', $file_path), '/');
 if (strpos($relative, 'uploads/') === 0) {
     $relative = substr($relative, strlen('uploads/'));
 }
-$resolved = $base_dir . DIRECTORY_SEPARATOR . $relative;
 
-$base_norm = rtrim(str_replace('\\', '/', $base_dir), '/') . '/';
-$resolved_norm = str_replace('\\', '/', $resolved);
+// realpath() first, then compare. The previous check compared a *string*
+// prefix on a non-canonical path, so a stored path containing "../" produced
+// a string that still started with the uploads prefix while file_exists()
+// resolved the traversal.
+$resolved = realpath($base_dir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
+$baseNorm = rtrim(str_replace('\\', '/', $base_dir), '/') . '/';
 
-if (strpos($resolved_norm, $base_norm) !== 0) {
-    die('Access denied: invalid file path');
-}
-
-if (!file_exists($resolved)) {
+if ($resolved === false
+    || strpos(str_replace('\\', '/', $resolved), $baseNorm) !== 0
+    || !is_file($resolved)) {
+    http_response_code(404);
     die('File not found on server');
 }
 
-$filename = basename($resolved);
-$filetype = function_exists('mime_content_type') ? mime_content_type($resolved) : 'application/octet-stream';
 $filesize = filesize($resolved);
-
-header('Content-Description: File Transfer');
-header('Content-Type: ' . $filetype);
-header('Content-Disposition: attachment; filename="' . $filename . '"');
-header('Content-Transfer-Encoding: binary');
-header('Content-Length: ' . $filesize);
-header('Cache-Control: private, no-store, max-age=0');
-header('Pragma: no-cache');
-header('Expires: 0');
-
-if (ob_get_level()) {
-    ob_end_clean();
+if ($filesize === false) {
+    http_response_code(500);
+    die('The stored copy of this file could not be read.');
 }
 
-readfile($resolved);
+$filetype = function_exists('mime_content_type')
+    ? assignment_safe_download_mime(mime_content_type($resolved))
+    : 'application/octet-stream';
 
-exit();
-?>
+assignment_stream_file($resolved, $filename, $filetype, $filesize);

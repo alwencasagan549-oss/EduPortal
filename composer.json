@@ -5,7 +5,10 @@
     "aws/aws-sdk-php": "^3.309"
   },
   "scripts": {
-    "test": "php tests/assignment_management_test.php"
+    "test": [
+      "@php tests/assignment_management_test.php",
+      "@php tests/upload_helpers_test.php"
+    ]
   },
   "autoload": {
     "psr-4": {

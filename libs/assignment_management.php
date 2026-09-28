@@ -1,5 +1,135 @@
 <?php
 
+/**
+ * Cached per-request check for the posted_assignments storage columns.
+ *
+ * Reports only. Repairing the schema is a deploy-time job
+ * (migrations/add_submission_storage_columns.php); doing it here put DDL on
+ * the download path.
+ */
+function assignment_storage_column_ready($conn): bool
+{
+    if (isset($GLOBALS['__eduportal_storage_columns'])) {
+        return $GLOBALS['__eduportal_storage_columns'];
+    }
+
+    $ready = false;
+    try {
+        $columns = assignment_storage_columns($conn);
+        $ready = isset($columns['file_content'], $columns['file_type']);
+    } catch (Throwable $exception) {
+        error_log('EduPortal assignment storage check failed: ' . $exception->getMessage());
+    }
+
+    $GLOBALS['__eduportal_storage_columns'] = $ready;
+    return $ready;
+}
+
+/**
+ * SQL fragment restricting `submissions` to what a teacher may see.
+ *
+ * Two classes of row exist:
+ *   - modern rows carry teacher_id, set at submission time from the assignment
+ *   - legacy rows have teacher_id IS NULL and are identifiable only by subject
+ *
+ * The legacy branch used to match on subject alone, so any teacher who claimed
+ * that subject could read every section's work. `teachers` has no
+ * grade/strand/section columns, so a legacy row's class scope is derived from
+ * the classes that teacher has actually published to. A teacher who has never
+ * posted an assignment keeps subject-only access, otherwise a brand-new teacher
+ * could never reach legacy work in their own subject.
+ *
+ * Returns ['sql' => '(<fragment>)', 'params' => [...]].
+ */
+function assignment_teacher_submission_scope(string $alias, $teacherId, $teacherSubject): array
+{
+    $a = trim($alias, '"`') !== '' ? trim($alias, '`') . '.' : '';
+
+    return [
+        'sql' => "(
+            {$a}teacher_id = ?
+            OR (
+                {$a}teacher_id IS NULL
+                AND LOWER(TRIM({$a}subject)) = LOWER(TRIM(?))
+                AND (
+                    NOT EXISTS (SELECT 1 FROM posted_assignments pa WHERE pa.teacher_id = ?)
+                    OR EXISTS (
+                        SELECT 1
+                        FROM posted_assignments pa
+                        JOIN students sc ON sc.id = {$a}student_id
+                        WHERE pa.teacher_id = ?
+                          AND pa.grade_level = sc.grade_level
+                          AND pa.strand = sc.strand
+                          AND pa.section = sc.section
+                    )
+                )
+            )
+        )",
+        'params' => [
+            (int) $teacherId,
+            (string) $teacherSubject,
+            (int) $teacherId,
+            (int) $teacherId,
+        ],
+    ];
+}
+
+/**
+ * Shared download helpers.
+ *
+ * download.php and download_assignment.php each carried their own copies of
+ * the filename/mime sanitising and header logic, and they had drifted.
+ */
+
+/** Strips directory components and anything that could break a header. */
+function assignment_safe_download_filename($filePath): string
+{
+    $name = basename(str_replace('\\', '/', (string) $filePath));
+    $name = preg_replace('/[^A-Za-z0-9._-]/', '_', $name);
+    return is_string($name) && $name !== '' && $name !== '.' && $name !== '..'
+        ? $name
+        : 'download';
+}
+
+/** Only well-formed MIME types are echoed into a Content-Type header. */
+function assignment_safe_download_mime($mimeType): string
+{
+    return is_string($mimeType) && preg_match('#^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$#', $mimeType) === 1
+        ? $mimeType
+        : 'application/octet-stream';
+}
+
+function assignment_download_headers(string $filename, string $mimeType, int $filesize): void
+{
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
+    header('Content-Description: File Transfer');
+    header('Content-Type: ' . $mimeType);
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Transfer-Encoding: binary');
+    header('Content-Length: ' . $filesize);
+    header('Cache-Control: private, no-store, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    header('X-Content-Type-Options: nosniff');
+}
+
+function assignment_stream_download(string $contents, string $filename, string $mimeType): void
+{
+    assignment_download_headers($filename, $mimeType, strlen($contents));
+    echo $contents;
+    exit();
+}
+
+function assignment_stream_file(string $path, string $filename, string $mimeType, int $filesize): void
+{
+    assignment_download_headers($filename, $mimeType, $filesize);
+    readfile($path);
+    exit();
+}
+
 function assignment_flash(string $type, string $message): void
 {
     $type = in_array($type, ['success', 'error'], true) ? $type : 'error';
@@ -448,15 +578,126 @@ function assignment_submission_subject_max_length($conn): ?int
     }
 }
 
+/**
+ * Whether controllers may ALTER TABLE at request time.
+ *
+ * Runtime DDL on a hot path costs extra information_schema round-trips, needs
+ * DDL privileges production should not grant, and takes an ACCESS EXCLUSIVE
+ * lock that blocks every concurrent submission. Set EDUPORTAL_ALLOW_RUNTIME_MIGRATIONS=1
+ * only for local development; deploys should run migrations/ instead.
+ */
+function assignment_runtime_migrations_enabled(): bool
+{
+    static $enabled = null;
+    if ($enabled === null) {
+        $enabled = filter_var(
+            getenv('EDUPORTAL_ALLOW_RUNTIME_MIGRATIONS') ?: '0',
+            FILTER_VALIDATE_BOOLEAN
+        );
+    }
+    return $enabled;
+}
+
+/**
+ * Cached per-request view of the optional submissions columns.
+ *
+ * Probing information_schema is a database round-trip; the answer cannot change
+ * within a request, so it is resolved once. The memo lives in $GLOBALS so a
+ * migration applied during the request can invalidate it.
+ */
+function assignment_submission_features($conn): array
+{
+    if (isset($GLOBALS['__eduportal_submission_features'])
+        && is_array($GLOBALS['__eduportal_submission_features'])) {
+        return $GLOBALS['__eduportal_submission_features'];
+    }
+
+    $features = [
+        'assignment_id' => false,
+        'file_content' => false,
+        'file_type' => false,
+        'teacher_id' => false,
+    ];
+
+    try {
+        foreach (assignment_submission_column_names($conn) as $column => $_) {
+            if (array_key_exists($column, $features)) {
+                $features[$column] = true;
+            }
+        }
+    } catch (Throwable $exception) {
+        error_log('EduPortal submission feature detection failed: ' . $exception->getMessage());
+    }
+
+    $GLOBALS['__eduportal_submission_features'] = $features;
+    return $features;
+}
+
+function assignment_reset_submission_feature_cache(): void
+{
+    unset($GLOBALS['__eduportal_submission_features']);
+}
+
 function assignment_submission_has_column($conn, string $column): bool
 {
+    $column = strtolower($column);
+    $features = assignment_submission_features($conn);
+    if (array_key_exists($column, $features)) {
+        return $features[$column];
+    }
+
     try {
         $columns = assignment_submission_column_names($conn);
-        return isset($columns[strtolower($column)]);
+        return isset($columns[$column]);
     } catch (Throwable $exception) {
         error_log('EduPortal submission schema check failed: ' . $exception->getMessage());
         return false;
     }
+}
+
+/**
+ * Reports whether the submissions table carries the columns the application
+ * needs. Does not modify the schema; see assignment_runtime_migrations_enabled().
+ */
+function assignment_ensure_submission_schema($conn): bool
+{
+    $features = assignment_submission_features($conn);
+
+    if ($features['assignment_id'] && $features['file_type']) {
+        return true;
+    }
+
+    if (!assignment_runtime_migrations_enabled()) {
+        error_log(
+            'EduPortal submissions schema is incomplete. Run migrations/add_submission_storage_columns.php. '
+            . 'Set EDUPORTAL_ALLOW_RUNTIME_MIGRATIONS=1 to auto-migrate in development only.'
+        );
+        return $features['assignment_id'];
+    }
+
+    try {
+        if (!$features['file_content']) {
+            if (assignment_driver_name($conn) === 'mysql') {
+                $conn->exec('ALTER TABLE submissions ADD COLUMN file_content LONGTEXT');
+            } else {
+                $conn->exec('ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL');
+            }
+        }
+        if (!$features['assignment_id']) {
+            $conn->exec('ALTER TABLE submissions ADD COLUMN assignment_id INTEGER DEFAULT NULL');
+        }
+        if (!$features['file_type']) {
+            $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
+        }
+    } catch (Throwable $exception) {
+        error_log('EduPortal submission schema migration failed: ' . $exception->getMessage());
+        return false;
+    }
+
+    // Reset the cached view so this request observes the new columns.
+    assignment_reset_submission_feature_cache();
+
+    return assignment_submission_has_column($conn, 'assignment_id');
 }
 
 function assignment_submission_unique_index_exists($conn): bool
@@ -523,109 +764,6 @@ function assignment_submission_unique_index_exists($conn): bool
     }
 }
 
-function assignment_ensure_submission_schema($conn): bool
-{
-    try {
-        $columns = assignment_submission_column_names($conn);
-
-        if (!isset($columns['file_content'])) {
-            try {
-                if (assignment_driver_name($conn) === 'mysql') {
-                    $conn->exec('ALTER TABLE submissions ADD COLUMN file_content LONGTEXT');
-                } else {
-                    $conn->exec('ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL');
-                }
-            } catch (Throwable $exception) {
-                $columns = assignment_submission_column_names($conn);
-                if (!isset($columns['file_content'])) {
-                    throw $exception;
-                }
-            }
-        } elseif (assignment_driver_name($conn) === 'mysql'
-            && assignment_submission_column_type($conn, 'file_content') !== 'longtext') {
-            try {
-                $conn->exec('ALTER TABLE submissions MODIFY file_content LONGTEXT');
-            } catch (Throwable $exception) {
-                if (assignment_submission_column_type($conn, 'file_content') !== 'longtext') {
-                    throw $exception;
-                }
-            }
-        }
-        if (!isset($columns['file_type'])) {
-            try {
-                $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
-            } catch (Throwable $exception) {
-                $columns = assignment_submission_column_names($conn);
-                if (!isset($columns['file_type'])) {
-                    throw $exception;
-                }
-            }
-        }
-        if (!isset($columns['assignment_id'])) {
-            try {
-                $conn->exec('ALTER TABLE submissions ADD COLUMN assignment_id INTEGER DEFAULT NULL');
-            } catch (Throwable $exception) {
-                $columns = assignment_submission_column_names($conn);
-                if (!isset($columns['assignment_id'])) {
-                    throw $exception;
-                }
-            }
-        }
-
-        $subjectMaxLength = assignment_submission_subject_max_length($conn);
-        if ($subjectMaxLength === -1) {
-            return false;
-        }
-        if ($subjectMaxLength !== null && $subjectMaxLength < 255) {
-            try {
-                if (assignment_driver_name($conn) === 'mysql') {
-                    $conn->exec('ALTER TABLE submissions MODIFY subject VARCHAR(255) NOT NULL');
-                } else {
-                    $conn->exec('ALTER TABLE submissions ALTER COLUMN subject TYPE VARCHAR(255)');
-                }
-            } catch (Throwable $exception) {
-                $subjectMaxLength = assignment_submission_subject_max_length($conn);
-                if ($subjectMaxLength !== null && $subjectMaxLength < 255) {
-                    throw $exception;
-                }
-            }
-        }
-
-        if (!assignment_submission_unique_index_exists($conn)) {
-            $indexSql = "CREATE UNIQUE INDEX idx_submissions_student_assignment_unique
-                         ON submissions (student_id, assignment_id)";
-            if (assignment_driver_name($conn) !== 'mysql') {
-                $indexSql .= ' WHERE assignment_id IS NOT NULL';
-            }
-            try {
-                $conn->exec($indexSql);
-            } catch (Throwable $exception) {
-                error_log('EduPortal submission uniqueness index could not be created: ' . $exception->getMessage());
-            }
-        }
-
-        if (!assignment_submission_unique_index_exists($conn)) {
-            return false;
-        }
-
-        if (assignment_driver_name($conn) !== 'mysql') {
-            try {
-                $conn->exec(
-                    'CREATE INDEX IF NOT EXISTS idx_submissions_student_subject_normalized
-                     ON submissions (student_id, LOWER(TRIM(subject)))
-                     WHERE assignment_id IS NULL'
-                );
-            } catch (Throwable $exception) {
-                error_log('EduPortal normalized submission index could not be created: ' . $exception->getMessage());
-            }
-        }
-
-        return assignment_submission_has_column($conn, 'assignment_id');
-    } catch (Throwable $exception) {
-        error_log('EduPortal submission schema migration failed: ' . $exception->getMessage());
-        return false;
-    }
-}
 
 function assignment_lock_posted_assignment($conn, $assignmentId, $gradeLevel = null, $strand = null, $section = null): array
 {
@@ -791,6 +929,18 @@ function assignment_audit_index_exists($conn): bool
 
 function assignment_ensure_audit_schema($conn): bool
 {
+    // Creating the audit table is a deploy-time concern. In production this
+    // only reports whether the table is present so a failure to write the audit
+    // row is logged rather than blocking the operation being audited.
+    if (!assignment_runtime_migrations_enabled()) {
+        try {
+            return assignment_audit_table_exists($conn);
+        } catch (Throwable $exception) {
+            error_log('EduPortal audit table check failed: ' . $exception->getMessage());
+            return false;
+        }
+    }
+
     try {
         if (assignment_audit_table_exists($conn)) {
             $columns = assignment_audit_table_column_names($conn);

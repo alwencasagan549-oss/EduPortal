@@ -4,27 +4,51 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /controllers/public_stats.php
     envVars:
       - key: PORT
         value: 10000
       - key: DB_HOST
-        value: eduportal-db-alwencasagann-f17b.a.aivencloud.com
+        sync: false
       - key: DB_PORT
         value: "17436"
       - key: DB_USER
-        value: avnadmin
+        sync: false
       - key: DB_PASS
         sync: false
       - key: DB_NAME
-        value: defaultdb
+        sync: false
       - key: DB_SSL_MODE
         value: require
       - key: SITE_URL
-        value: https://reesnhs.l.cd
+        sync: false
       - key: PLATFORM_NAME
         value: EduPortal LMS
+      # Runtime DDL on request paths is disabled in production. Schema changes
+      # are applied by running migrations/run.php as a one-off release command.
+      - key: EDUPORTAL_ALLOW_RUNTIME_MIGRATIONS
+        value: "0"
+      # Object storage (Cloudflare R2 / any S3-compatible endpoint). Without
+      # these the chunked upload endpoints return 503 and the feature is dead.
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_UPLOAD_PREFIX
+        value: uploads/
+      - key: S3_PRESIGNED_URL_EXPIRY
+        value: "900"
+      - key: S3_USE_PATH_STYLE
+        value: "false"
+      - key: S3_VERIFY_SSL
+        value: "true"
     disk:
       name: uploads
       mountPath: /var/www/html/uploads
       sizeGB: 1
-

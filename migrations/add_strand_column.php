@@ -1,6 +1,6 @@
 <?php
 // Migration: Add strand column to students and posted_assignments tables
-require_once 'config/database.php';
+require_once __DIR__ . '/../config/database.php';
 $conn = getDBConnection();
 
 $sql1 = "ALTER TABLE students ADD COLUMN IF NOT EXISTS strand VARCHAR(50) DEFAULT 'Academic'";

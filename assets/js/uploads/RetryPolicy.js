@@ -22,14 +22,22 @@ export class RetryPolicy {
   }
 
   async execute(fn, shouldRetry, signal) {
+    // Default predicate: only replay transport faults and server-side errors.
+    // Matching on error.name alone could never fire for the plain `Error`
+    // objects thrown by api.js, while the old `TypeError` clause actively
+    // retried genuine programming bugs three times with backoff.
     const retryCondition = shouldRetry ?? ((error) => {
-      return error.name === 'NetworkError' ||
-             error.name === 'TypeError' ||
-             error.name === 'TimeoutError' ||
-             error.status >= 500 ||
-             error.code === 'ECONNRESET' ||
-             error.code === 'ETIMEDOUT' ||
-             error.code === 'ENOTFOUND';
+      if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+        return false;
+      }
+      if (typeof error?.retryable === 'boolean') {
+        return error.retryable;
+      }
+      return error?.name === 'NetworkError'
+        || error?.code === 'ECONNRESET'
+        || error?.code === 'ETIMEDOUT'
+        || error?.code === 'ENOTFOUND'
+        || Number(error?.status) >= 500;
     });
 
     let lastError;

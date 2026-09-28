@@ -3,6 +3,11 @@
 
 # Config & Credentials (The Security Shield)
 config/credentials.php
+.env
+.env.*
+
+# Local dev seed (contains published passwords)
+data/dev_seed.sql
 
 # Local Environment Junk
 .vscode/

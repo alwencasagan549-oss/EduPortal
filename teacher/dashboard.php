@@ -22,13 +22,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['update_gradin
     if (!validate_csrf($_POST['csrf_token'] ?? '')) {
         die('Invalid security token.');
     }
-    $submission_id = intval($_POST['submission_id']);
+    $submission_id = assignment_id($_POST['submission_id'] ?? null);
     $marks = trim($_POST['marks'] ?? '');
     $remarks = trim($_POST['remarks'] ?? '');
 
+    // submissions.marks is VARCHAR(10) and remarks is unbounded TEXT: without
+    // these bounds an over-long grade raised an unhandled PDOException and the
+    // teacher's work was lost.
+    $gradeValid = $marks === '' || (preg_match('/^\d{1,3}(\.\d{1,2})?$/', $marks) === 1
+        && strlen($marks) <= 10);
+    if ($submission_id === null || !$gradeValid || assignment_subject_length($remarks) > 5000) {
+        header('Location: dashboard.php?error=Invalid+grade+or+feedback+length');
+        exit();
+    }
+
     $conn = getDBConnection();
-    $stmt = $conn->prepare("UPDATE submissions SET marks = ?, remarks = ? WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))");
-    $stmt->execute([$marks, $remarks, $submission_id, $teacher_id, $teacher_subject]);
+    // Same visibility rule as the list query: teacher_id first, then the
+    // class-scoped legacy branch. An inline subject-only predicate here let a
+    // teacher grade or delete another section's legacy work.
+    $gradeScope = assignment_teacher_submission_scope('', $teacher_id, $teacher_subject);
+    $stmt = $conn->prepare(
+        "UPDATE submissions SET marks = ?, remarks = ?
+         WHERE id = ? AND " . $gradeScope['sql']
+    );
+    $stmt->execute(array_merge([$marks, $remarks, $submission_id], $gradeScope['params']));
 
     header('Location: dashboard.php?updated=1');
     exit();
@@ -47,20 +64,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['delete_submis
         exit();
     }
 
-    $submissionColumns = [];
-    try {
-        $submissionColumns = assignment_submission_column_names($conn);
-    } catch (Throwable $exception) {
-        error_log('EduPortal submission column discovery failed: ' . $exception->getMessage());
-    }
-    $assignmentColumn = isset($submissionColumns['assignment_id']) ? 'assignment_id, ' : '';
+    // Cached per-request feature detection rather than a fresh
+    // information_schema round-trip on the delete path.
+    $submissionFeatures = assignment_submission_features($conn);
+    $assignmentColumn = $submissionFeatures['assignment_id'] ? 'assignment_id, ' : '';
+
+    $deleteScope = assignment_teacher_submission_scope('', $teacher_id, $teacher_subject);
 
     $lookup = $conn->prepare(
         "SELECT id, student_id, {$assignmentColumn}subject, file_path
          FROM submissions
-         WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))"
+         WHERE id = ? AND " . $deleteScope['sql']
     );
-    $lookup->execute([$submissionId, $teacher_id, $teacher_subject]);
+    $lookup->execute(array_merge([$submissionId], $deleteScope['params']));
     $submission = $lookup->fetch_assoc();
     if (!$submission) {
         header('Location: dashboard.php?deleted=1');
@@ -77,10 +93,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['delete_submis
         $lockedSubmission = $conn->prepare(
             "SELECT id, student_id, {$assignmentColumn}subject, file_path
              FROM submissions
-             WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))
+             WHERE id = ? AND " . $deleteScope['sql'] . "
              FOR UPDATE"
         );
-        $lockedSubmission->execute([$submissionId, $teacher_id, $teacher_subject]);
+        $lockedSubmission->execute(array_merge([$submissionId], $deleteScope['params']));
         $lockedSubmissionRow = $lockedSubmission->fetch_assoc();
         if (!$lockedSubmissionRow) {
             $pdo->rollBack();
@@ -88,8 +104,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['delete_submis
             exit();
         }
 
-        $delete = $conn->prepare('DELETE FROM submissions WHERE id = ? AND (teacher_id = ? OR (teacher_id IS NULL AND subject = ?))');
-        $delete->execute([$submissionId, $teacher_id, $teacher_subject]);
+        $delete = $conn->prepare(
+            'DELETE FROM submissions WHERE id = ? AND ' . $deleteScope['sql']
+        );
+        $delete->execute(array_merge([$submissionId], $deleteScope['params']));
         $pdo->commit();
 
         $fileRemoved = assignment_remove_stored_file($lockedSubmissionRow['file_path'] ?? '');
@@ -124,15 +142,22 @@ $filter_grade = $_GET['grade'] ?? '';
 $filter_section = trim($_GET['section'] ?? '');
 $filter_strand = $_GET['strand'] ?? '';
 
-// Get submissions for this teacher's subject with student details
+// Get submissions for this teacher's subject with student details.
+// Columns are listed explicitly: `submissions.file_content` holds the whole
+// file as base64, so a `SELECT s.*` over 200 rows would pull hundreds of
+// megabytes into a 256MB memory limit on a page that never renders it.
 $conn = getDBConnection();
 
-$query = "SELECT s.*, st.name as student_name, st.grade_level, st.section, st.strand
+$scope = assignment_teacher_submission_scope('s', $teacher_id, $teacher_subject);
+
+$query = "SELECT s.id, s.student_id, s.assignment_id, s.subject, s.marks, s.remarks,
+                 s.submission_date, s.submitted_at, s.file_path, s.file_type,
+                 st.name AS student_name, st.grade_level, st.section, st.strand
           FROM submissions s
           LEFT JOIN students st ON s.student_id = st.id
-          WHERE (s.teacher_id = ? OR (s.teacher_id IS NULL AND s.subject = ?))";
+          WHERE " . $scope['sql'];
 
-$params = [$teacher_id, $teacher_subject];
+$params = $scope['params'];
 
 if (!empty($filter_grade)) {
     $query .= " AND st.grade_level = ?";
@@ -145,8 +170,10 @@ if (!empty($filter_strand)) {
 }
 
 if (!empty($filter_section)) {
-    $query .= " AND st.section LIKE ?";
-    $params[] = "%$filter_section%";
+    // A leading wildcard cannot use a B-tree index and lets the user inject
+    // LIKE metacharacters, so anchor it and escape the wildcards.
+    $query .= " AND st.section = ?";
+    $params[] = $filter_section;
 }
 
 $query .= " ORDER BY s.submitted_at DESC LIMIT 200";
@@ -256,7 +283,12 @@ $pending_count = $total_submissions - $reviewed_count;
             </header>
 
             <!-- Status messages -->
-            <?php if (isset($_GET['updated'])): ?>
+            <?php if (isset($_GET['error'])): ?>
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-circle-exclamation"></i>
+                    <div><strong>Error:</strong> <?php echo htmlspecialchars(urldecode((string) $_GET['error']), ENT_QUOTES, 'UTF-8'); ?></div>
+                </div>
+            <?php elseif (isset($_GET['updated'])): ?>
                 <div class="alert alert-success">
                     <i class="fas fa-check-circle"></i>
                     <div><strong>Graded!</strong> Student marks and remarks have been saved.</div>
@@ -527,6 +559,13 @@ $pending_count = $total_submissions - $reviewed_count;
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         };
 
+        // State-changing notification calls require a CSRF token.
+        const notificationCsrfToken = () => {
+            const input = document.querySelector('input[name="csrf_token"]');
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            return meta?.content || input?.value || '';
+        };
+
         const requestNotifications = async (url, options = {}) => {
             const controller = new AbortController();
             const timeout = window.setTimeout(() => controller.abort(), 15000);
@@ -595,6 +634,7 @@ $pending_count = $total_submissions - $reviewed_count;
                             method: 'POST',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                             body: 'notification_id=' + encodeURIComponent(notification.id)
+                                + '&csrf_token=' + encodeURIComponent(notificationCsrfToken())
                         });
                         await loadNotifications({ showLoading: false });
                     } catch (error) {

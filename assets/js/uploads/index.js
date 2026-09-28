@@ -2,19 +2,21 @@
  * UploadManager
  * Public API for the upload system. Coordinates UI, validation, previews,
  * and the underlying chunked uploader.
+ *
+ * Rendering policy: untrusted values (file names, preview URLs, icons) are
+ * never interpolated into an HTML string. `innerHTML` is used only for the
+ * static shell plus values that pass through #escapeHtml; preview nodes are
+ * built with DOM APIs and assigned via properties.
  */
 
-import { ChunkedUploader } from './ChunkedUploader.js?v=20260924-uploads3';
-import { PreviewGenerator } from './PreviewGenerator.js?v=20260924-uploads3';
-import { performFullValidation } from './MagicBytesValidator.js?v=20260924-uploads3';
-
-const trustedHtml = markup => window.EduPortalTrustedTypes
-  ? window.EduPortalTrustedTypes.createHTML(markup)
-  : markup;
+import { ChunkedUploader } from './ChunkedUploader.js?v=20260924-uploads4';
+import { PreviewGenerator } from './PreviewGenerator.js?v=20260924-uploads4';
+import { performFullValidation } from './MagicBytesValidator.js?v=20260924-uploads4';
 
 export class UploadManager {
   #uploader;
   #previews = new Map();
+  #items = new Map();
   #container;
   #options = {
     allowedExtensions: ['pdf', 'doc', 'docx', 'zip', 'jpg', 'jpeg', 'png', 'mp4', 'txt'],
@@ -44,15 +46,9 @@ export class UploadManager {
     });
 
     this.#uploader.on('onComplete', upload => {
-      PreviewGenerator.generate(upload.file)
-        .then(preview => {
-          this.#previews.set(upload.id, preview);
-          this.#renderUploadItem(upload);
-          this.#triggerEvent('onUploadComplete', upload);
-        })
-        .catch(error => {
-          this.#triggerEvent('onUploadError', { upload, error: error.message, type: 'preview' });
-        });
+      this.#triggerEvent('onUploadComplete', upload);
+      // The file has left the browser; release any preview backing it.
+      this.#releasePreview(upload.id);
     });
 
     this.#uploader.on('onError', ({ upload, error, type }) => {
@@ -82,36 +78,51 @@ export class UploadManager {
     });
 
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+      dropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        event.stopPropagation();
       });
     });
 
-    ['dragenter', 'dragover'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => {
-        dropZone.classList.add('drag-over');
-      });
+    // dragenter/dragleave fire for every descendant the pointer crosses, so a
+    // plain class toggle strobes the highlight. Track nesting depth instead.
+    let dragDepth = 0;
+    dropZone.addEventListener('dragenter', () => {
+      dragDepth += 1;
+      dropZone.classList.add('drag-over');
     });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => {
+    dropZone.addEventListener('dragover', () => {
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) {
         dropZone.classList.remove('drag-over');
-      });
+      }
     });
 
-    dropZone.addEventListener('drop', (e) => {
-      const files = Array.from(e.dataTransfer.files);
-      this.handleFiles(files);
+    dropZone.addEventListener('drop', (event) => {
+      dragDepth = 0;
+      dropZone.classList.remove('drag-over');
+      this.#enqueue(Array.from(event.dataTransfer?.files ?? []));
     });
 
     if (fileInput) {
-      fileInput.addEventListener('change', (e) => {
-        const files = Array.from(e.target.files);
-        this.handleFiles(files);
+      fileInput.addEventListener('change', (event) => {
+        this.#enqueue(Array.from(event.target.files ?? []));
         fileInput.value = '';
       });
     }
+  }
+
+  /** handleFiles is async; without a caller-side catch any rejection became an
+   *  unhandled promise rejection with no UI feedback at all. */
+  #enqueue(files) {
+    if (files.length === 0) return;
+    this.handleFiles(files).catch(error => {
+      console.error('Upload queueing failed:', error);
+      this.#triggerEvent('onUploadError', { upload: null, error: error.message, type: 'queue' });
+    });
   }
 
   async handleFiles(files) {
@@ -138,27 +149,30 @@ export class UploadManager {
       maxSize: this.#options.maxSize
     });
 
+    // Render every row first with a placeholder so the queue never looks dead,
+    // then resolve previews in parallel. Preview generation has a multi-second
+    // timeout each; doing it sequentially before rendering left the drop zone
+    // apparently unresponsive for up to 30s on a ten-file drop.
     for (const upload of uploads) {
-      let preview;
-      try {
-        preview = await PreviewGenerator.generate(upload.file);
-      } catch (error) {
-        preview = {
-          type: 'file',
-          url: null,
-          metadata: PreviewGenerator.getFileMetadata(upload.file)
-        };
-        this.#triggerEvent('onUploadError', { upload, error: error.message, type: 'preview' });
-      }
-      this.#previews.set(upload.id, preview);
-      this.#createUploadItem(upload, preview);
-
+      this.#createUploadItem(upload);
       if (this.#options.autoStart) {
         this.startUpload(upload.id);
       }
     }
-
     this.#updateEmptyState();
+
+    await Promise.all(uploads.map(upload => this.#applyPreview(upload)));
+  }
+
+  async #applyPreview(upload) {
+    try {
+      const preview = await PreviewGenerator.generate(upload.file);
+      if (!this.#items.has(upload.id)) return; // cancelled while generating
+      this.#previews.set(upload.id, preview);
+      this.#renderPreviewNode(upload);
+    } catch (error) {
+      this.#triggerEvent('onUploadError', { upload, error: error.message, type: 'preview' });
+    }
   }
 
   startUpload(id) {
@@ -175,6 +189,7 @@ export class UploadManager {
 
   cancelUpload(id) {
     this.#uploader.cancelUpload(id);
+    this.#releasePreview(id);
     this.#removeUploadItem(id);
     this.#updateEmptyState();
   }
@@ -197,176 +212,197 @@ export class UploadManager {
     if (queue) {
       queue.replaceChildren();
     }
-    this.#previews.forEach(preview => {
-      if (preview.url?.startsWith('blob:')) {
-        URL.revokeObjectURL(preview.url);
-      }
-    });
+    this.#previews.forEach(preview => this.#revokePreviewUrl(preview));
     this.#previews.clear();
+    this.#items.clear();
     this.#updateEmptyState();
   }
 
-  #createUploadItem(upload, preview) {
+  /**
+   * A blob: URL pins the whole File in the renderer's blob store until it is
+   * revoked. Removing the <img> does not release it, so cancel, complete and
+   * clear must all revoke explicitly.
+   */
+  #revokePreviewUrl(preview) {
+    if (preview?.url && preview.url.startsWith('blob:')) {
+      URL.revokeObjectURL(preview.url);
+    }
+  }
+
+  #releasePreview(id) {
+    const preview = this.#previews.get(id);
+    if (preview) {
+      this.#revokePreviewUrl(preview);
+      this.#previews.delete(id);
+    }
+  }
+
+  #createUploadItem(upload) {
     const queue = this.#container.querySelector(this.#options.queueSelector);
     if (!queue) return;
 
     const item = document.createElement('div');
     item.className = `upload-item state-${upload.state}`;
     item.dataset.uploadId = upload.id;
-    item.innerHTML = trustedHtml(this.#buildUploadItemHTML(upload, preview));
+
+    const name = this.#escapeHtml(upload.file.name);
+    const size = this.#escapeHtml(PreviewGenerator.formatSize(upload.file.size));
+    item.innerHTML = `
+      <div class="upload-preview"></div>
+      <div class="upload-info">
+        <div class="upload-header">
+          <div class="upload-name" title="${name}">${name}</div>
+          <div class="upload-size">${size}</div>
+        </div>
+        <div class="progress-container" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Number(upload.progress) || 0}">
+          <div class="progress-bar" style="width: 0%"></div>
+        </div>
+        <div class="progress-text" aria-live="polite">0%</div>
+        <div class="upload-actions"></div>
+        <div class="upload-error" role="alert" aria-live="assertive" hidden></div>
+      </div>
+    `;
+
+    // One delegated listener per item instead of rebinding on every re-render.
+    const actions = item.querySelector('.upload-actions');
+    if (actions) {
+      actions.addEventListener('click', event => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.#handleAction(upload.id, button.dataset.action);
+      });
+    }
 
     queue.appendChild(item);
+    this.#items.set(upload.id, item);
     this.#renderUploadItem(upload);
   }
 
-  #buildUploadItemHTML(upload, preview) {
-    const previewHTML = this.#renderPreview(preview, upload.file.name);
-    const actionButtons = this.#renderActionButtons(upload);
-
-    return `
-      <div class="upload-preview">${previewHTML}</div>
-      <div class="upload-info">
-        <div class="upload-header">
-          <div class="upload-name" title="${this.#escapeHtml(upload.file.name)}">${this.#escapeHtml(upload.file.name)}</div>
-          <div class="upload-size">${PreviewGenerator.formatSize(upload.file.size)}</div>
-        </div>
-        <div class="progress-container" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${upload.progress}">
-          <div class="progress-bar" style="width: ${upload.progress}%"></div>
-        </div>
-        <div class="progress-text" aria-live="polite">${upload.progress}%</div>
-        <div class="upload-actions">${actionButtons}</div>
-        <div class="upload-error" role="alert" aria-live="assertive" style="display: none;"></div>
-      </div>
-    `;
-  }
-
-  #renderPreview(preview, filename) {
-    if (preview.type === 'image' && preview.url) {
-      return `<img src="${preview.url}" alt="${this.#escapeHtml(filename)}" loading="lazy">`;
-    }
-    if (preview.type === 'video' && preview.url) {
-      return `<img src="${preview.url}" alt="Video preview" loading="lazy">`;
-    }
-    const icon = preview.metadata?.icon || '📁';
-    return `<div class="file-icon">${icon}</div>`;
-  }
-
   #renderActionButtons(upload) {
-    if (upload.state === 'uploading') {
-      return `
-        <button type="button" class="btn-upload btn-pause" data-action="pause" title="Pause">
-          <i class="fas fa-pause"></i> Pause
-        </button>
-        <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
-          <i class="fas fa-times"></i>
-        </button>
-      `;
-    }
+    const button = (action, icon, label, extraClass = '') => `
+      <button type="button" class="btn-upload ${extraClass}" data-action="${action}" title="${label}" aria-label="${label}">
+        <i class="fas fa-${icon}" aria-hidden="true"></i> ${label}
+      </button>
+    `;
+    const cancel = (label = 'Cancel') => `
+      <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="${label}" aria-label="${label}">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    `;
 
-    if (upload.state === 'paused') {
-      return `
-        <button type="button" class="btn-upload btn-resume" data-action="resume" title="Resume">
-          <i class="fas fa-play"></i> Resume
-        </button>
-        <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
-          <i class="fas fa-times"></i>
-        </button>
-      `;
+    switch (upload.state) {
+      case 'uploading':
+        return button('pause', 'pause', 'Pause', 'btn-pause') + cancel();
+      case 'paused':
+        return button('resume', 'play', 'Resume', 'btn-resume') + cancel();
+      case 'pending':
+        return button('start', 'upload', 'Start upload', 'btn-start') + cancel();
+      case 'failed':
+        return button('retry', 'redo', 'Retry upload', 'btn-retry') + cancel('Remove');
+      case 'completed':
+        return '<span class="upload-success"><i class="fas fa-check-circle" aria-hidden="true"></i> Completed</span>';
+      default:
+        return '';
     }
-
-    if (upload.state === 'pending') {
-      return `
-        <button type="button" class="btn-upload btn-start" data-action="start" title="Start">
-          <i class="fas fa-upload"></i> Upload
-        </button>
-        <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="Cancel">
-          <i class="fas fa-times"></i>
-        </button>
-      `;
-    }
-
-    if (upload.state === 'failed') {
-      return `
-        <button type="button" class="btn-upload btn-retry" data-action="retry" title="Retry">
-          <i class="fas fa-redo"></i> Retry
-        </button>
-        <button type="button" class="btn-upload btn-cancel" data-action="cancel" title="Remove">
-          <i class="fas fa-trash"></i>
-        </button>
-      `;
-    }
-
-    if (upload.state === 'completed') {
-      return `<span class="upload-success"><i class="fas fa-check-circle"></i> Completed</span>`;
-    }
-
-    return '';
   }
 
   #renderUploadItem(upload) {
-    const item = this.#container.querySelector(`[data-upload-id="${upload.id}"]`);
+    const item = this.#items.get(upload.id);
     if (!item) return;
 
-    item.classList.remove('state-pending', 'state-uploading', 'state-paused', 'state-failed', 'state-completed', 'state-cancelled');
+    item.classList.remove(
+      'state-pending', 'state-uploading', 'state-paused',
+      'state-failed', 'state-completed', 'state-cancelled'
+    );
     item.classList.add(`state-${upload.state}`);
 
-    const actionsContainer = item.querySelector('.upload-actions');
-    if (actionsContainer) {
-      const preview = this.#previews.get(upload.id);
-      actionsContainer.innerHTML = trustedHtml(this.#renderActionButtons(upload));
-
-      actionsContainer.querySelectorAll('button').forEach(button => {
-        button.addEventListener('click', event => {
-          event.preventDefault();
-          event.stopPropagation();
-          const action = button.dataset.action;
-          this.#handleAction(upload.id, action);
-        });
-      });
+    const actions = item.querySelector('.upload-actions');
+    if (actions) {
+      const focusedAction = document.activeElement?.dataset?.action;
+      const next = this.#renderActionButtons(upload);
+      if (actions.innerHTML !== next) {
+        actions.innerHTML = next;
+        // Replacing innerHTML destroys the focused element; put focus back.
+        if (focusedAction) {
+          actions.querySelector(`[data-action="${focusedAction}"]`)?.focus();
+        }
+      }
     }
 
     const errorEl = item.querySelector('.upload-error');
     if (errorEl) {
-      if (upload.state === 'failed' && upload.error) {
-        errorEl.textContent = upload.error;
-        errorEl.style.display = 'block';
-      } else {
-        errorEl.style.display = 'none';
-      }
+      // A live region must be rendered before its content changes, so toggle
+      // `hidden` rather than display:none.
+      const failed = upload.state === 'failed' && Boolean(upload.error);
+      errorEl.textContent = failed ? upload.error : '';
+      errorEl.hidden = !failed;
     }
   }
 
-  #updateProgress(id, progress, loadedBytes, totalBytes, uploadedChunks, totalChunks) {
-    const item = this.#container.querySelector(`[data-upload-id="${id}"]`);
+  #renderPreviewNode(upload) {
+    const item = this.#items.get(upload.id);
     if (!item) return;
 
+    const host = item.querySelector('.upload-preview');
+    if (!host) return;
+
+    const preview = this.#previews.get(upload.id);
+    const filename = upload.file.name;
+
+    if (preview?.url && (preview.type === 'image' || preview.type === 'video')) {
+      const img = document.createElement('img');
+      img.src = preview.url;
+      img.alt = preview.type === 'video' ? 'Video preview' : filename;
+      img.loading = 'lazy';
+      host.replaceChildren(img);
+      return;
+    }
+
+    // Icons come from a plain-object lookup keyed by extension; a null
+    // prototype and a text node keep prototype keys from reaching innerHTML.
+    const icon = document.createElement('div');
+    icon.className = 'file-icon';
+    icon.textContent = preview?.metadata?.icon || '📁';
+    host.replaceChildren(icon);
+  }
+
+  #updateProgress(id, progress, loadedBytes, totalBytes, uploadedChunks, totalChunks) {
+    const item = this.#items.get(id);
+    if (!item) return;
+
+    const safeProgress = Number(progress) || 0;
     const progressContainer = item.querySelector('.progress-container');
     const progressBar = item.querySelector('.progress-bar');
     const progressText = item.querySelector('.progress-text');
 
     if (progressContainer) {
-      progressContainer.setAttribute('aria-valuenow', String(progress));
-      progressContainer.setAttribute('aria-valuetext', `${progress}% uploaded, ${uploadedChunks} of ${totalChunks} chunks`);
+      progressContainer.setAttribute('aria-valuenow', String(safeProgress));
+      progressContainer.setAttribute(
+        'aria-valuetext',
+        `${safeProgress}% uploaded, ${uploadedChunks} of ${totalChunks} chunks`
+      );
     }
 
     if (progressBar) {
-      progressBar.style.width = `${progress}%`;
+      progressBar.style.width = `${safeProgress}%`;
     }
 
     if (progressText) {
       const loaded = PreviewGenerator.formatSize(loadedBytes);
       const total = PreviewGenerator.formatSize(totalBytes);
-      progressText.textContent = `${progress}% (${loaded} / ${total})`;
+      progressText.textContent = `${safeProgress}% (${loaded} / ${total})`;
     }
   }
 
   #removeUploadItem(id) {
-    const item = this.#container.querySelector(`[data-upload-id="${id}"]`);
-    if (item) {
-      item.style.opacity = '0';
-      item.style.transform = 'translateX(20px)';
-      setTimeout(() => item.remove(), 300);
-    }
+    const item = this.#items.get(id);
+    if (!item) return;
+    this.#items.delete(id);
+    item.style.opacity = '0';
+    item.style.transform = 'translateX(20px)';
+    setTimeout(() => item.remove(), 300);
   }
 
   #updateEmptyState() {
@@ -374,8 +410,7 @@ export class UploadManager {
     const queue = this.#container.querySelector(this.#options.queueSelector);
     if (!emptyState || !queue) return;
 
-    const hasItems = queue.children.length > 0;
-    emptyState.style.display = hasItems ? 'none' : 'block';
+    emptyState.style.display = queue.children.length > 0 ? 'none' : 'block';
   }
 
   #handleAction(id, action) {

@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../libs/assignment_management.php';
 
 function renderDownloadError(string $title, string $message, string $backUrl, string $backLabel, int $status = 404): void
 {
@@ -267,15 +268,12 @@ function renderDownloadError(string $title, string $message, string $backUrl, st
 
 function assignmentDownloadFilename($filePath): string
 {
-    $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', basename(str_replace('\\', '/', (string) $filePath)));
-    return is_string($filename) && $filename !== '' ? $filename : 'assignment-file';
+    return assignment_safe_download_filename($filePath);
 }
 
 function assignmentDownloadMime($mimeType): string
 {
-    return is_string($mimeType) && preg_match('/^[A-Za-z0-9.+-]+\/[A-Za-z0-9.+-]+$/', $mimeType)
-        ? $mimeType
-        : 'application/octet-stream';
+    return assignment_safe_download_mime($mimeType);
 }
 
 if (!isLoggedIn()) {
@@ -296,43 +294,16 @@ if ($user_role === 'teacher') {
 }
 
 $idValue = $_GET['id'] ?? null;
-$id = is_string($idValue) || is_int($idValue)
-    ? filter_var($idValue, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2147483647]])
-    : false;
-if ($id === false) {
+$id = assignment_id($idValue);
+if ($id === null) {
     renderDownloadError('Invalid download request', 'This link does not include a valid assignment ID.', $backUrl, $backLabel, 400);
     exit();
 }
-$id = (int) $id;
 $conn = getDBConnection();
 
-// Auto-create file_content columns if they don't exist (self-healing, PostgreSQL + MySQL safe)
-$storageColumns = [];
-try {
-    $check = $conn->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'posted_assignments' AND column_name IN ('file_content', 'file_type')");
-    $check->execute();
-    $storageColumns = [];
-    $columnResult = $check->get_result();
-    while ($column = $columnResult->fetch_assoc()) {
-        $storageColumns[(string) $column['column_name']] = true;
-    }
-    if (!isset($storageColumns['file_content'])) {
-        if ($conn->getDriverName() === 'mysql') {
-            $conn->exec('ALTER TABLE posted_assignments ADD COLUMN file_content LONGTEXT');
-        } else {
-            $conn->exec('ALTER TABLE posted_assignments ADD COLUMN file_content TEXT DEFAULT NULL');
-        }
-        $storageColumns['file_content'] = true;
-    }
-    if (!isset($storageColumns['file_type'])) {
-        $conn->exec('ALTER TABLE posted_assignments ADD COLUMN file_type VARCHAR(100) DEFAULT \'application/octet-stream\'');
-        $storageColumns['file_type'] = true;
-    }
-} catch (Throwable $e) {
-    error_log('EduPortal schema migration error in download_assignment.php: ' . $e->getMessage());
-}
-
-if (!isset($storageColumns['file_content'], $storageColumns['file_type'])) {
+// Schema readiness is reported, not repaired: running ALTER TABLE on a
+// download path cost an information_schema round-trip per file served.
+if (!assignment_storage_column_ready($conn)) {
     renderDownloadError('Assignment storage is not ready', 'The assignment file service is temporarily unavailable.', $backUrl, $backLabel, 500);
     exit();
 }
@@ -355,7 +326,8 @@ if (!$assignment) {
     renderDownloadError('Assignment not found', 'This assignment may have been removed, or the link may be out of date.', $backUrl, $backLabel, 404);
     exit();
 }
-$file_path = $assignment['file_path'];
+$file_path = (string) $assignment['file_path'];
+$filename = assignmentDownloadFilename($file_path);
 
 // Serve from database if content is stored there (Render compatibility)
 if (!empty($assignment['file_content'])) {
@@ -364,24 +336,7 @@ if (!empty($assignment['file_content'])) {
         renderDownloadError('Assignment file unavailable', 'The stored copy of this file is invalid. Ask your teacher to publish a fresh copy.', $backUrl, $backLabel, 404);
         exit();
     }
-    $filename = assignmentDownloadFilename($file_path);
-    $filetype = assignmentDownloadMime($assignment['file_type'] ?? '');
-    $filesize = strlen($file_data);
-
-    header('Content-Description: File Transfer');
-    header('Content-Type: ' . $filetype);
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Content-Transfer-Encoding: binary');
-    header('Content-Length: ' . $filesize);
-    header('Cache-Control: private, no-store, max-age=0');
-    header('Pragma: no-cache');
-
-    if (ob_get_level()) {
-        ob_end_clean();
-    }
-
-    echo $file_data;
-    exit();
+    assignment_stream_download($file_data, $filename, assignmentDownloadMime($assignment['file_type'] ?? ''));
 }
 
 // Fallback: serve from filesystem
@@ -398,20 +353,29 @@ if ($baseDirectories === []) {
     exit();
 }
 
-$relative = ltrim(str_replace('\\', '/', (string) $file_path), '/');
+$relative = ltrim(str_replace('\\', '/', $file_path), '/');
 $relative = preg_replace('#^(?:controllers/)?uploads/#i', '', $relative) ?? $relative;
-$candidate = null;
+
 $resolved = false;
 $resolvedBase = null;
 
 foreach ($baseDirectories as $baseDirectory) {
     $candidatePath = $baseDirectory . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
-    if (!file_exists($candidatePath)) {
+
+    // realpath() before the prefix test, so a stored path containing "../"
+    // is canonicalised and rejected rather than merely looking like it starts
+    // inside the uploads directory.
+    $candidate = realpath($candidatePath);
+    if ($candidate === false || !is_file($candidate)) {
         continue;
     }
 
-    $candidate = $candidatePath;
-    $resolved = realpath($candidatePath);
+    $baseNorm = rtrim(str_replace('\\', '/', $baseDirectory), '/') . '/';
+    if (strpos(str_replace('\\', '/', $candidate), $baseNorm) !== 0) {
+        continue;
+    }
+
+    $resolved = $candidate;
     $resolvedBase = $baseDirectory;
     break;
 }
@@ -421,33 +385,15 @@ if ($resolved === false || $resolvedBase === null) {
     exit();
 }
 
-$baseNorm = rtrim(str_replace('\\', '/', $resolvedBase), '/') . '/';
-$resolvedNorm = str_replace('\\', '/', $resolved);
-
-if (!is_file($resolved) || strpos($resolvedNorm, $baseNorm) !== 0) {
-    renderDownloadError('Access denied', 'You do not have permission to download this assignment.', $backUrl, $backLabel, 403);
-    exit();
-}
-
-$filename = assignmentDownloadFilename($resolved);
-$filetype = assignmentDownloadMime(function_exists('mime_content_type') ? mime_content_type($resolved) : false);
 $filesize = filesize($resolved);
 if ($filesize === false) {
     renderDownloadError('Assignment file unavailable', 'The stored copy of this file could not be read.', $backUrl, $backLabel, 404);
     exit();
 }
 
-header('Content-Description: File Transfer');
-header('Content-Type: ' . $filetype);
-header('Content-Disposition: attachment; filename="' . $filename . '"');
-header('Content-Transfer-Encoding: binary');
-header('Content-Length: ' . $filesize);
-header('Cache-Control: private, no-store, max-age=0');
-header('Pragma: no-cache');
+$filetype = function_exists('mime_content_type')
+    ? assignmentDownloadMime(mime_content_type($resolved))
+    : 'application/octet-stream';
 
-if (ob_get_level()) {
-    ob_end_clean();
-}
+assignment_stream_file($resolved, assignmentDownloadFilename($resolved), $filetype, $filesize);
 
-readfile($resolved);
-exit();
