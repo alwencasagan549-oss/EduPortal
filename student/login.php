@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </p>
         </form>
 
-        <div id="passkey-login" hidden style="margin-top: 1.25rem; text-align: center;">
+        <div id="passkey-login" style="margin-top: 1.25rem; text-align: center;">
             <button type="button" id="passkey-login-button" class="premium-btn premium-btn-outline" style="width: 100%; justify-content: center;">
                 <i class="fas fa-fingerprint"></i> Sign in with a passkey
             </button>
@@ -155,15 +155,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const api = window.EduPortalWebAuthn;
         api.init(<?php echo json_encode(csrf_token()); ?>);
 
-        // Only offered once there is an identifier to look passkeys up by.
-        // Showing it on an empty form invites pointless round trips.
-        const sync = () => {
-            wrapper.hidden = lrn.value.trim().length !== 12;
-        };
-        lrn.addEventListener('input', sync);
-        sync();
-
+        // Always visible, for the same reason as the teacher form: a passkey
+        // is a first-class sign-in method, not something that appears only
+        // once the identifier happens to be typed.
         button.addEventListener('click', async () => {
+            if (lrn.value.trim().length !== 12) {
+                status.textContent = 'Enter your 12-digit LRN first, then use your passkey.';
+                return;
+            }
+
             button.disabled = true;
             status.textContent = 'Follow your device prompt...';
 

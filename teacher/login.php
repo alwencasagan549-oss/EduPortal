@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </p>
         </form>
 
-        <div id="passkey-login" hidden style="margin-top: 1.25rem; text-align: center;">
+        <div id="passkey-login" style="margin-top: 1.25rem; text-align: center;">
             <button type="button" id="passkey-login-button" class="premium-btn premium-btn-outline" style="width: 100%; justify-content: center;">
                 <i class="fas fa-fingerprint"></i> Sign in with a passkey
             </button>
@@ -160,16 +160,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const api = window.EduPortalWebAuthn;
         api.init(<?php echo json_encode(csrf_token()); ?>);
 
-        // Teachers sign in by email AND subject, so both are needed before a
-        // passkey lookup is meaningful.
-        const sync = () => {
-            wrapper.hidden = email.value.trim() === '' || subject.value.trim() === '';
-        };
-        email.addEventListener('input', sync);
-        subject.addEventListener('input', sync);
-        sync();
-
+        // The passkey option stays visible rather than appearing only once the
+        // credentials are typed. Teachers sign in with email AND subject, and
+        // hiding the button until both are filled means someone who has a
+        // passkey cannot use it unless they remember both exactly -- leaving
+        // them with no route to sign in at all.
         button.addEventListener('click', async () => {
+            if (email.value.trim() === '' || subject.value.trim() === '') {
+                status.textContent = 'Enter your email and subject first, then use your passkey.';
+                return;
+            }
+
             button.disabled = true;
             status.textContent = 'Follow your device prompt...';
 
