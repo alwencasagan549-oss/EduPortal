@@ -236,6 +236,13 @@ function auth_send_mail_via_api(string $to, string $subject, string $html, strin
         return false;
     }
 
+    // Record what the running container actually received, not the secret. A
+    // key that is present but wrong -- truncated on paste, or carrying an
+    // invisible character -- is otherwise indistinguishable from a revoked
+    // credential, and the only way to tell them apart is to compare a
+    // fingerprint the operator can read out of the provider UI.
+    $fingerprint = strlen($apiKey) . '/' . substr(hash('sha256', $apiKey), 0, 8);
+
     $payload = [
         'sender' => [
             'name' => (string) (getenv('SMTP_FROM_NAME') ?: 'EduPortal LMS'),
@@ -276,7 +283,7 @@ function auth_send_mail_via_api(string $to, string $subject, string $html, strin
         // The body names the field that failed, which is far more useful than
         // a bare status code: "unauthorized" and "sender not verified" look
         // identical from the outside.
-        auth_record_mail_error('Brevo API returned ' . $status . ': ' . (string) $body);
+        auth_record_mail_error('Brevo API returned ' . $status . ' (key ' . $fingerprint . '): ' . (string) $body);
         error_log('EduPortal mail send failed: ' . auth_last_mail_error());
         return false;
     }

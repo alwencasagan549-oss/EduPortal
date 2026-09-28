@@ -432,8 +432,30 @@ putenv('BREVO_API_KEY');
 putenv('SMTP_HOST');
 putenv('SMTP_FROM');
 
+// A key that is present but wrong must be diagnosable without exposing it.
+// Deliberately no send is attempted here: a non-empty key reaches the network,
+// and a unit test has no business calling out to a provider.
+putenv('MAIL_ENABLED=1');
+putenv('MAIL_TRANSPORT=api');
+putenv('SMTP_FROM=noreply@reesnhs.l.cd');
+putenv('BREVO_API_KEY=');
+auth_send_mail('a@b.com', 'subject', '<p>x</p>', 'x');
+check(
+    'a missing API key is reported rather than ignored',
+    str_contains(auth_last_mail_error(), 'BREVO_API_KEY')
+);
+check(
+    'the missing-key path records no credential material',
+    !str_contains(auth_last_mail_error(), 'xkeysib')
+);
+
 // Gating: with no relay configured the mailer must refuse, never report a
 // send it did not perform.
+putenv('MAIL_ENABLED');
+putenv('MAIL_TRANSPORT');
+putenv('SMTP_FROM');
+putenv('BREVO_API_KEY');
+putenv('SMTP_HOST');
 same('an unconfigured relay reports unavailable', false, auth_mail_configured());
 check('an unconfigured send returns false', auth_send_mail('nobody@example.com', 'subject', '<p>x</p>', 'x') === false);
 check('a malformed recipient is refused', auth_send_mail('not-an-address', 'subject', '<p>x</p>', 'x') === false);
