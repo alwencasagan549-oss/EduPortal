@@ -729,9 +729,16 @@ function auth_find_teacher($conn, string $email, string $subject): ?array
     }
 
     try {
+        // Normalised on both sides, matching the signup and profile checks.
+        // Sign-in was previously an exact match on email, so a teacher
+        // registered as Teacher@school.com could not sign in as
+        // teacher@school.com -- the form accepted the case, the login refused
+        // it.
         $stmt = $conn->prepare(
             'SELECT id, name, email, subject, password
-             FROM teachers WHERE email = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?))'
+             FROM teachers
+             WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+               AND LOWER(TRIM(subject)) = LOWER(TRIM(?))'
         );
         $stmt->execute([$email, $subject]);
         $account = $stmt->get_result()->fetch_assoc();
