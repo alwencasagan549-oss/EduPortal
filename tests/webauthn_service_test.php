@@ -127,11 +127,49 @@ check('a device-bound credential rejects a decreasing counter', $threw);
 
 $threw = false;
 try {
-    $counter->check(credential(10, false), 0);
+    $counter->check(credential(10, false), 11);
 } catch (CounterException $exception) {
     $threw = true;
 }
-check('a device-bound credential rejects a reset to zero', $threw);
+check('a device-bound credential accepts an increasing counter', !$threw);
+
+// A zero counter carries no information: it cannot be distinguished from an
+// authenticator that does not maintain one, and several never increment it.
+// Rejecting a non-increasing pair of zeros locks those users out of their own
+// accounts, which is why the library's default checker skips enforcement
+// whenever either side is zero.
+$threw = false;
+try {
+    $counter->check(credential(0, false), 0);
+} catch (CounterException $exception) {
+    $threw = true;
+}
+check('a device-bound credential tolerates zero against zero', !$threw);
+
+$threw = false;
+try {
+    $counter->check(credential(0, false), 0);
+} catch (CounterException $exception) {
+    $threw = true;
+}
+check('the first assertion on a fresh credential is accepted', !$threw);
+
+$threw = false;
+try {
+    $counter->check(credential(7, false), 0);
+} catch (CounterException $exception) {
+    $threw = true;
+}
+check('a zero reading against a real counter is not a clone signal', !$threw);
+
+// Real clone detection still applies once both sides carry a count.
+$threw = false;
+try {
+    $counter->check(credential(10, false), 4);
+} catch (CounterException $exception) {
+    $threw = true;
+}
+check('a genuine decrease is still rejected', $threw);
 
 $threw = false;
 try {
@@ -139,17 +177,7 @@ try {
 } catch (CounterException $exception) {
     $threw = true;
 }
-check('a device-bound credential accepts an increasing counter', !$threw);
-
-// An unknown backup state is treated as device-bound, which is the safe
-// direction: enforcing rather than ignoring.
-$threw = false;
-try {
-    $counter->check(credential(5, null), 5);
-} catch (CounterException $exception) {
-    $threw = true;
-}
-check('an unknown backup state enforces the counter', $threw);
+check('a genuine increase is still accepted', !$threw);
 
 // ---------------------------------------------------------------------
 // Relying Party ID and origins
@@ -512,10 +540,16 @@ if ($authenticator === null) {
 
     // --- the checks that must reject -----------------------------------
 
+    // A rejection test is only meaningful if the ceremony was actually
+    // exercised. Previously a null-method Error inside the closure was caught
+    // and counted as a correct rejection, so these could pass while never
+    // reaching the validator. An Error is a broken test, not a rejection.
     $rejects = static function (string $label, callable $attempt): void {
         try {
             $attempt();
-            check($label, false);
+            check($label . ' (no exception thrown)', false);
+        } catch (Error $programmingError) {
+            check($label . ' (threw ' . get_class($programmingError) . ': ' . $programmingError->getMessage() . ')', false);
         } catch (Throwable $exception) {
             check($label, true);
         }
@@ -525,7 +559,7 @@ if ($authenticator === null) {
     // is the account-takeover case: without it, a credential proved for one
     // user could be accepted as proof for another.
     $rejects('an assertion with the wrong user handle is rejected', static function () use (
-        $assertionValidator, $authenticator, $descriptor, $assertion
+        $assertionValidator, $authenticator, $descriptor, $assertion, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_request_options(FAKE_RP_ID, $challenge, [$descriptor]);
@@ -539,7 +573,7 @@ if ($authenticator === null) {
     });
 
     $rejects('an assertion for a different challenge is rejected', static function () use (
-        $assertionValidator, $authenticator, $descriptor
+        $assertionValidator, $authenticator, $descriptor, $serializer
     ) {
         $signed = random_bytes(32);
         $offered = random_bytes(32);
@@ -553,7 +587,7 @@ if ($authenticator === null) {
     });
 
     $rejects('an assertion from a foreign origin is rejected', static function () use (
-        $assertionValidator, $authenticator, $descriptor
+        $assertionValidator, $authenticator, $descriptor, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_request_options(FAKE_RP_ID, $challenge, [$descriptor]);
@@ -566,7 +600,7 @@ if ($authenticator === null) {
     });
 
     $rejects('an assertion bound to a different RP ID is rejected', static function () use (
-        $assertionValidator, $authenticator, $descriptor
+        $assertionValidator, $authenticator, $descriptor, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_request_options(FAKE_RP_ID, $challenge, [$descriptor]);
@@ -579,7 +613,7 @@ if ($authenticator === null) {
     });
 
     $rejects('an assertion without user verification is rejected', static function () use (
-        $assertionValidator, $authenticator, $descriptor
+        $assertionValidator, $authenticator, $descriptor, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_request_options(FAKE_RP_ID, $challenge, [$descriptor]);
@@ -592,7 +626,7 @@ if ($authenticator === null) {
     });
 
     $rejects('a tampered signature is rejected', static function () use (
-        $assertionValidator, $authenticator, $descriptor
+        $assertionValidator, $authenticator, $descriptor, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_request_options(FAKE_RP_ID, $challenge, [$descriptor]);
@@ -605,7 +639,7 @@ if ($authenticator === null) {
     });
 
     $rejects('a device-bound credential with a decreasing counter is rejected', static function () use (
-        $assertionValidator, $authenticator, $descriptor
+        $assertionValidator, $authenticator, $descriptor, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_request_options(FAKE_RP_ID, $challenge, [$descriptor]);
@@ -620,7 +654,7 @@ if ($authenticator === null) {
     // Registration must reject an authenticator that skipped user verification:
     // without UV there is no biometric, only device possession.
     $rejects('a registration without user verification is rejected', static function () use (
-        $attestationValidator, $authenticator, $handle
+        $attestationValidator, $authenticator, $handle, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_creation_options(FAKE_RP_ID, $handle, $challenge, 'Juan Dela Cruz');
@@ -630,7 +664,7 @@ if ($authenticator === null) {
     });
 
     $rejects('a registration from a foreign origin is rejected', static function () use (
-        $attestationValidator, $authenticator, $handle
+        $attestationValidator, $authenticator, $handle, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_creation_options(FAKE_RP_ID, $handle, $challenge, 'Juan Dela Cruz');
@@ -640,7 +674,7 @@ if ($authenticator === null) {
     });
 
     $rejects('a registration using an unoffered algorithm is rejected', static function () use (
-        $attestationValidator, $authenticator, $handle
+        $attestationValidator, $authenticator, $handle, $serializer
     ) {
         $challenge = random_bytes(32);
         $options = webauthn_creation_options(FAKE_RP_ID, $handle, $challenge, 'Juan Dela Cruz');
