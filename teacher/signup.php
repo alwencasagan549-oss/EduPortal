@@ -79,7 +79,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $check->execute([$email, $subject]);
 
             if ($check->get_result()->num_rows() > 0) {
-                $error = 'An account with this email and subject already exists.';
+                $error = 'A teacher with this email already teaches this subject. Sign in to that account, or choose a different subject.';
             } elseif (teacher_account_column_exists($conn, 'status')) {
                 $stmt = $conn->prepare(
                     "INSERT INTO teachers (name, email, subject, password, status) VALUES (?, ?, ?, ?, 'pending')"
@@ -102,7 +102,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $sqlState = (string) $exception->getCode();
             $driverCode = isset($exception->errorInfo[1]) ? (int) $exception->errorInfo[1] : 0;
             if ($sqlState === '23505' || $driverCode === 1062) {
-                $error = 'An account with this email and subject already exists.';
+                $error = 'A teacher with this email already teaches this subject. Sign in to that account, or choose a different subject.';
             } else {
                 error_log('Teacher registration failed: ' . $exception->getMessage());
                 $error = 'Registration could not be completed. Please try again.';
