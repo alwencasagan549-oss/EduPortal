@@ -475,6 +475,38 @@ function auth_password_hash(string $password): string
 }
 
 /**
+ * Builds the password-reset UPDATE and its parameters in a single pass.
+ *
+ * The SET list is conditional, and assembling the SQL and the parameter array
+ * separately let the two drift out of order: the account id was bound to the
+ * timestamp column while the timestamp was bound to WHERE id. PostgreSQL
+ * rejects that as a type error, so the reset silently failed with a generic
+ * "could not be updated" rather than reporting a wrong-row update.
+ *
+ * Returning both together, with the id always appended last, makes the
+ * mismatch unrepresentable.
+ *
+ * @return array{sql: string, params: array}
+ */
+function auth_password_reset_update(string $table, string $hashed, int $userId, bool $setVerified): array
+{
+    $assignments = ['password = ?'];
+    $params = [$hashed];
+
+    if ($setVerified) {
+        $assignments[] = 'email_verified_at = ?';
+        $params[] = auth_now();
+    }
+
+    $params[] = $userId;
+
+    return [
+        'sql' => 'UPDATE ' . $table . ' SET ' . implode(', ', $assignments) . ' WHERE id = ?',
+        'params' => $params,
+    ];
+}
+
+/**
  * Rehashes on successful sign-in when the stored cost is below target.
  * The previous codebase never called password_needs_rehash(), so a cost
  * increase would never have reached existing accounts.

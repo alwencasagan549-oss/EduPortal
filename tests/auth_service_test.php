@@ -460,6 +460,43 @@ same('an unconfigured relay reports unavailable', false, auth_mail_configured())
 check('an unconfigured send returns false', auth_send_mail('nobody@example.com', 'subject', '<p>x</p>', 'x') === false);
 check('a malformed recipient is refused', auth_send_mail('not-an-address', 'subject', '<p>x</p>', 'x') === false);
 
+// Password-reset UPDATE: the SQL and its parameters are built together
+// because the SET list is conditional. Assembled separately they drifted out
+// of order, binding the account id to the timestamp column and the timestamp
+// to WHERE id, which PostgreSQL reports as a type error.
+$withVerified = auth_password_reset_update('teachers', 'HASH', 42, true);
+same(
+    'the verified variant sets both columns',
+    'UPDATE teachers SET password = ?, email_verified_at = ? WHERE id = ?',
+    $withVerified['sql']
+);
+same('the verified variant binds three parameters', 3, count($withVerified['params']));
+same('the hash binds first', 'HASH', $withVerified['params'][0]);
+check('the account id binds last', $withVerified['params'][2] === 42);
+check(
+    'the timestamp sits in the timestamp position',
+    is_string($withVerified['params'][1]) && str_contains($withVerified['params'][1], '-')
+);
+same(
+    'placeholder count always matches parameter count',
+    substr_count($withVerified['sql'], '?'),
+    count($withVerified['params'])
+);
+
+$withoutVerified = auth_password_reset_update('students', 'HASH', 7, false);
+same(
+    'the unverified variant sets only the password',
+    'UPDATE students SET password = ? WHERE id = ?',
+    $withoutVerified['sql']
+);
+same('the unverified variant binds two parameters', 2, count($withoutVerified['params']));
+check('the account id still binds last', $withoutVerified['params'][1] === 7);
+same(
+    'placeholder count matches for the unverified variant too',
+    substr_count($withoutVerified['sql'], '?'),
+    count($withoutVerified['params'])
+);
+
 // ---------------------------------------------------------------------
 
 if ($failures !== []) {
