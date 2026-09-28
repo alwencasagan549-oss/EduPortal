@@ -622,6 +622,82 @@ $revokeBadId = webauthn_revoke_passkey(null, 'student', 1, 0);
 check('revoking an invalid passkey id is refused', $revokeBadId['ok'] === false);
 same('a refused revoke reports nothing remaining', 0, $revokeBadId['remaining']);
 
+// ---------------------------------------------------------------------
+// The EduPortalResult contract
+//
+// The passkey service reads scalars through the EduPortalResult wrapper, and
+// it did so through a fetchColumn() the wrapper never declared. Because a
+// missing method raises an Error -- which is a Throwable -- each of those call
+// sites sat inside a catch (Throwable) that swallowed it and let the caller
+// carry on with a zero value. The step-up password check answered "wrong
+// password" to a correct one, every ceremony reported itself expired, and this
+// suite stayed green the whole time, since none of it touches a database.
+//
+// So the invariant is checked against the source instead of against a live
+// connection: every method the application calls on a result wrapper has to be
+// declared on the wrapper. That is the one thing that can be verified without
+// the schema this suite deliberately does not require.
+// ---------------------------------------------------------------------
+
+$root = dirname(__DIR__);
+$databaseSource = (string) file_get_contents($root . '/config/database.php');
+
+$classStart = strpos($databaseSource, 'class EduPortalResult');
+check('EduPortalResult is declared in config/database.php', $classStart !== false);
+
+if ($classStart !== false) {
+    $classEnd = strpos($databaseSource, 'function getDBConnection(', $classStart);
+    $classBody = $classEnd === false
+        ? substr($databaseSource, $classStart)
+        : substr($databaseSource, $classStart, $classEnd - $classStart);
+
+    preg_match_all('/public function (\w+)\s*\(/', $classBody, $declared);
+    $declaredMethods = array_flip($declared[1]);
+
+    check(
+        'the result wrapper declares fetchColumn'
+            . ' (declared: ' . implode(', ', $declared[1]) . ')',
+        isset($declaredMethods['fetchColumn'])
+    );
+
+    // Every get_result()->method() in the application, resolved against the
+    // wrapper. Chained calls are not matched, and there are none.
+    $missing = [];
+    $callSites = 0;
+
+    $roots = [$root . '/libs', $root . '/controllers'];
+    $files = new AppendIterator();
+
+    foreach ($roots as $directory) {
+        $files->append(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)));
+    }
+
+    foreach ($files as $file) {
+        if (!$file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        preg_match_all('/->get_result\(\)\s*->\s*(\w+)\s*\(/', (string) file_get_contents($file->getPathname()), $calls);
+        foreach ($calls[1] as $method) {
+            $callSites++;
+            if (!isset($declaredMethods[$method])) {
+                $missing[] = $file->getFilename() . '()->' . $method . '()';
+            }
+        }
+    }
+
+    check(
+        'the result wrapper is actually used (call sites found: ' . $callSites . ')',
+        $callSites > 0
+    );
+
+    check(
+        'every method called on the result wrapper is declared'
+            . ($missing === [] ? '' : ' (missing: ' . implode(', ', $missing) . ')'),
+        $missing === []
+    );
+}
+
 same('listing passkeys without the table yields an empty list', [], webauthn_list_passkeys(null, 'student', 1));
 same('descriptors without the table yield an empty list', [], webauthn_passkey_descriptors(null, 'student', 1));
 check('an account with no schema has no passkeys', webauthn_has_passkeys(null, 'student', 1) === false);

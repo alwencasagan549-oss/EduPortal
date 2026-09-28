@@ -311,6 +311,18 @@ check(
         || !str_contains((string) file_get_contents(__DIR__ . '/../libs/Mailer.php'), 'SMTPSecure::')
 );
 
+// A mis-qualified class name resolves to nothing and fatals on first use, so
+// scan the source for the over-qualified form. This was written wrong twice by
+// hand, which is exactly the kind of slip a grep should own rather than a
+// reviewer's eye.
+foreach (['../libs/Mailer.php', __FILE__] as $relative) {
+    $source = (string) file_get_contents(__DIR__ . '/' . $relative);
+    check(
+        'no over-qualified PHPMailer reference in ' . basename($relative),
+        !str_contains($source, 'PHPMailer\\PHPMailer\\PHPMailer\\PHPMailer')
+    );
+}
+
 // Every branch of the encryption switch must resolve to a value PHPMailer
 // accepts, rather than fataling.
 $mail = new PHPMailer\PHPMailer\PHPMailer(true);
@@ -324,6 +336,16 @@ foreach (['tls', 'ssl', 'none'] as $mode) {
         check("encryption mode {$mode} assigns cleanly", false);
     }
 }
+
+// Bounded SMTP timeouts. The 300 second PHPMailer default turns a blocked
+// port 587 into a five-minute hang with the request form's loader spinning,
+// which is exactly the symptom reported from the hosted deployment.
+$probe = new PHPMailer\PHPMailer\PHPMailer(true);
+$probe->isSMTP();
+$defaultTimeout = (int) (getenv('SMTP_TIMEOUT') ?: 10);
+check('the SMTP timeout is bounded and short', $defaultTimeout > 0 && $defaultTimeout <= 30);
+check('SMTP keepalive is off by default', $probe->SMTPKeepAlive === false);
+check('the timeout is well under the loader fallback', $defaultTimeout < 30);
 
 // Gating: with no relay configured the mailer must refuse, never report a
 // send it did not perform.

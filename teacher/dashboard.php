@@ -16,6 +16,7 @@ $teacher_name = $_SESSION['user_name'];
 $teacher_subject = $_SESSION['user_subject'];
 
 require_once __DIR__ . '/nav.php';
+require_once __DIR__ . '/../libs/passkey_reminder.php';
 
 // Handle updates
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['update_grading'])) {
@@ -281,6 +282,8 @@ $pending_count = $total_submissions - $reviewed_count;
                     </div>
                 </div>
             </header>
+
+            <?php render_passkey_reminder('..'); ?>
 
             <!-- Status messages -->
             <?php if (isset($_GET['error'])): ?>

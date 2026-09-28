@@ -47,6 +47,7 @@ $stmt2->execute([$student_grade, $student_section, $student_strand]);
 $broadcasted = $stmt2->get_result()->fetch_all();
 
 require_once __DIR__ . '/nav.php';
+require_once __DIR__ . '/../libs/passkey_reminder.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -230,6 +231,8 @@ require_once __DIR__ . '/nav.php';
                     </div>
                 </div>
             </header>
+
+            <?php render_passkey_reminder('..'); ?>
 
             <!-- Success/Error Messages -->
             <?php if (isset($_GET['success'])): ?>
