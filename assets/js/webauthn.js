@@ -195,20 +195,17 @@
             const publicKey = toPublicKey(options);
 
             // Chrome's "Required parameters missing in options.publicKey" names
-            // neither the field nor the type, and it is raised after this code
-            // has already reshaped the object. Log what actually crosses the
-            // boundary so the failure is readable from the console.
+            // neither the field nor the type, and is raised after this code has
+            // already reshaped the object. One line of JSON is the only
+            // faithful record of what crossed the boundary.
             if (window.console && console.info) {
-                console.info('[EduPortal] passkey options as received', options);
-                console.info('[EduPortal] rp', publicKey.rp);
-                console.info('[EduPortal] user', publicKey.user);
+                console.info('[EduPortal] PASSKEY_OPTIONS_JSON ' + JSON.stringify(options));
                 console.info(
                     '[EduPortal] challenge is ArrayBuffer',
                     publicKey.challenge instanceof ArrayBuffer,
-                    'byteLength',
+                    'bytes',
                     publicKey.challenge && publicKey.challenge.byteLength
                 );
-                console.info('[EduPortal] publicKey keys', Object.keys(publicKey));
             }
 
             const credential = await navigator.credentials.create({
