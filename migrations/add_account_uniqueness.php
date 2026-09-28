@@ -13,16 +13,19 @@
  *             sharing an email. Two people may also share a subject. Only
  *             the same email with the same subject is a duplicate.
  *
- *   students  An LRN and an email each identify exactly one student, so both
- *             are constrained independently.
+ *   students  The LRN is the identity, and it is constrained. The email is
+ *             deliberately NOT constrained: students sign in by LRN, the
+ *             column is nullable, and siblings in one family routinely share
+ *             a mailbox. Forcing uniqueness there would break a legitimate
+ *             case to guard nothing, since a reset link is bound to the
+ *             account and not to the address it was mailed to. The signup
+ *             form still refuses a duplicate email, which is the useful
+ *             guard; this index is the backstop for the one that matters.
  *
  * Both indexes are case- and whitespace-insensitive, matching the
  * normalisation the application performs. A raw index on (email, subject)
  * would let "Math" and "math" both be registered for the same person, which
  * is the same account under two spellings.
- *
- * student emails are nullable, and a unique index treats NULLs as distinct in
- * PostgreSQL, so students with no address on file are still allowed.
  *
  * Idempotent: re-running reports the indexes as already present and exits 0.
  */
@@ -59,14 +62,10 @@ function account_unique_index_exists($conn, string $schemaExpression, bool $isMy
     }
 }
 
-function account_migration_duplicates($conn, string $table): int
+function account_migration_duplicates($conn, string $table, string $columns): int
 {
-    $normalised = $table === 'teachers'
-        ? 'LOWER(TRIM(email)), LOWER(TRIM(subject))'
-        : 'LOWER(TRIM(email))';
-
     try {
-        $stmt = $conn->prepare("SELECT COUNT(*) FROM (SELECT {$normalised} FROM {$table} GROUP BY 1 HAVING COUNT(*) > 1) AS dupes");
+        $stmt = $conn->prepare("SELECT COUNT(*) FROM (SELECT {$columns} FROM {$table} GROUP BY 1 HAVING COUNT(*) > 1) AS dupes");
         $stmt->execute();
         return (int) ($stmt->get_result()->fetchColumn() ?: 0);
     } catch (Throwable $exception) {
@@ -75,10 +74,31 @@ function account_migration_duplicates($conn, string $table): int
     }
 }
 
+/**
+ * True when the table already has a unique index that guarantees the given
+ * column, however it happens to be spelled. Avoids adding a second index on
+ * something the schema already covers.
+ */
+function account_column_already_unique($conn, string $table, string $column): bool
+{
+    try {
+        $stmt = $conn->prepare(
+            'SELECT 1 FROM pg_indexes
+             WHERE schemaname = current_schema() AND tablename = ? AND indexdef ILIKE ? LIMIT 1'
+        );
+        $stmt->execute([$table, '%UNIQUE%' . $column . '%']);
+        return $stmt->fetchColumn() !== false;
+    } catch (Throwable $exception) {
+        // MySQL has no pg_indexes; the name probe in the caller covers it.
+        return false;
+    }
+}
+
 $indexes = [
     [
         'name' => 'idx_teachers_email_subject_unique',
         'table' => 'teachers',
+        'group_by' => 'LOWER(TRIM(email)), LOWER(TRIM(subject))',
         // MySQL has no expression indexes before 8.0.13 and they are limited
         // even after it, so that dialect gets a plain column index and relies
         // on the application check for case-insensitivity.
@@ -87,11 +107,11 @@ $indexes = [
             : 'UNIQUE (LOWER(TRIM(email)), LOWER(TRIM(subject)))',
     ],
     [
-        'name' => 'idx_students_email_unique',
+        'name' => 'idx_students_lrn_unique',
         'table' => 'students',
-        'definition' => $isMysql
-            ? 'UNIQUE (email)'
-            : 'UNIQUE (LOWER(TRIM(email)))',
+        'group_by' => 'lrn',
+        'skip_if' => 'lrn',
+        'definition' => 'UNIQUE (lrn)',
     ],
 ];
 
@@ -103,7 +123,12 @@ foreach ($indexes as $index) {
         continue;
     }
 
-    $duplicates = account_migration_duplicates($conn, $index['table']);
+    if (isset($index['skip_if']) && !$isMysql && account_column_already_unique($conn, $index['table'], $index['skip_if'])) {
+        echo "  = {$index['table']}.{$index['skip_if']} is already uniquely indexed\n";
+        continue;
+    }
+
+    $duplicates = account_migration_duplicates($conn, $index['table'], $index['group_by']);
     if ($duplicates > 0) {
         echo "  ! {$index['table']} has {$duplicates} duplicate group(s); resolve them before adding {$name}\n";
         $failed = true;
