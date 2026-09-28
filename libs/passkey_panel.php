@@ -63,7 +63,7 @@ function render_passkey_panel(string $base = '..'): void
             <i class="fas fa-plus"></i> Add a passkey
         </button>
     </section>
-    <script src="<?php echo htmlspecialchars($base); ?>/assets/js/webauthn.js"></script>
+    <script src="<?php echo htmlspecialchars($base); ?>/assets/js/webauthn.js?v=<?php echo WEBAUTHN_JS_VERSION; ?>"></script>
     <script>
     (() => {
         const panel = document.getElementById('passkey-panel');
