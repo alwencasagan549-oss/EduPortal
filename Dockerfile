@@ -11,10 +11,20 @@ RUN a2enconf eduportal-pwa
 # PHP INI settings
 RUN { \
         echo "memory_limit = 256M"; \
-        echo "upload_max_filesize = 10M"; \
-        echo "post_max_size = 10M"; \
+        # The application caps assignment uploads at 9MB so that the multipart
+        # envelope still fits inside post_max_size. Setting post_max_size to the
+        # same 10M as the old upload_max_filesize meant any large file silently
+        # discarded $_POST and $_FILES, and the user saw "Please select a file".
+        echo "upload_max_filesize = 9M"; \
+        echo "post_max_size = 12M"; \
         echo "max_execution_time = 30"; \
-        echo "session.gc_maxlifetime = 1440"; \
+        # Assignment drafts live in $_SESSION. A 1440s GC lifetime deleted them
+        # mid-edit, losing unsaved teacher and student work.
+        echo "session.gc_maxlifetime = 86400"; \
+        echo "session.use_strict_mode = 1"; \
+        echo "session.cookie_httponly = 1"; \
+        echo "session.cookie_samesite = Lax"; \
+        echo "expose_php = Off"; \
     } > /usr/local/etc/php/conf.d/zz-eduportal.ini
 
 # OPcache configuration
@@ -47,7 +57,13 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set permissions
-RUN chown -R www-data:www-data /var/www/html/
+# uploads/ is excluded from the build context, so `COPY .` no longer creates
+# it implicitly. Create it explicitly with the right ownership; PHP reads and
+# writes these files directly, and HTTP access to the directory is denied by
+# pwa-apache.conf and uploads/.htaccess.
+RUN mkdir -p /var/www/html/uploads \
+    && chown -R www-data:www-data /var/www/html/ \
+    && chmod 0750 /var/www/html/uploads
 
 EXPOSE 80
 

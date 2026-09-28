@@ -2,6 +2,9 @@
     --primary-color: #4e73df;
     --primary-gradient: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
     --accent-gradient: linear-gradient(135deg, #4e73df 0%, #a259ff 100%);
+    /* Referenced by .edu-spinner::after and .blob-2 but never defined, so both
+       resolved to `unset` and rendered nothing. */
+    --accent-color: #a259ff;
     --bg-dark: #0a0b10;
     --bg-sidebar: #11121a;
     --bg-card: rgba(20, 22, 30, 0.7);
@@ -960,8 +963,12 @@ input:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .edu-spinner {
-        animation-duration: 2s;
+    .edu-spinner,
+    .edu-spinner::after {
+        /* !important is required: the blanket reduce block further down the
+           file sets animation-duration with !important and would otherwise
+           win, freezing the spinner into an invisible static state. */
+        animation-duration: 2s !important;
     }
 }
 

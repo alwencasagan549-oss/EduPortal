@@ -27,9 +27,17 @@ require_once 'config/database.php';
             --primary-color: #4e73df;
             --primary-gradient: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
             --bg-dark: #0a0b10;
+            --bg-sidebar: #11121a;
             --glass-border: rgba(255, 255, 255, .08);
             --text-main: #f0f2f5;
             --text-muted: #94a3b8;
+            /* These are referenced by inline styles later in this document but
+               were only defined in the async stylesheet, so they resolved to
+               `unset`/`inherit` on first paint and then snapped. */
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --header-height: 80px;
+            --sidebar-width: 260px;
         }
         * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
@@ -74,18 +82,29 @@ require_once 'config/database.php';
         .premium-badge { display: inline-flex; align-items: center; padding: .4rem .7rem; border-radius: 999px; font-size: .75rem; font-weight: 700; }
         .badge-blue { background: rgba(78, 115, 223, .15); color: #91a8ff; border: 1px solid rgba(78, 115, 223, .25); }
         .gradient-text { background: linear-gradient(135deg, #91a8ff, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        /* Only the shell is critical. The .floating-blob / .blob-* visuals are
+           owned solely by style.min.css; duplicating them here with different
+           values caused a size-and-paint jump when the async sheet arrived. */
         .blob-container { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
-        .floating-blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .18; }
-        .blob-1 { width: 420px; height: 420px; top: -150px; right: -120px; background: #4e73df; }
-        .blob-2 { width: 360px; height: 360px; bottom: -180px; left: -120px; background: #a259ff; }
+        /* The off-canvas sidebar must be positioned in the critical block too,
+           otherwise ~500px of markup renders in normal flow and pushes the
+           hero down until style.min.css applies. */
+        .sidebar { position: fixed; inset: 0 auto 0 0; width: var(--sidebar-width); height: 100vh; z-index: 1000; }
+        .home-sidebar { display: none; }
         .nav-desktop { display: flex; align-items: center; }
         .menu-toggle { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--glass-border); border-radius: 10px; background: transparent; color: var(--text-main); cursor: pointer; }
         .glass-card, .glass-card-premium { border: 1px solid var(--glass-border); background: rgba(20, 22, 30, .7); backdrop-filter: blur(18px); }
         .loader-overlay { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(10, 11, 16, .92); }
         .loader-container { color: #fff; text-align: center; }
-        @media (max-width: 768px) {
+        /* Breakpoint must match style.css (992px). The critical block used
+           768px, so between 769-992px the layout flipped the moment the async
+           stylesheet arrived. */
+        @media (max-width: 992px) {
             .nav-desktop { display: none; }
             .menu-toggle { display: inline-flex; }
+            .home-sidebar { display: flex; }
+        }
+        @media (max-width: 768px) {
             .section-container { padding: 4rem 1.25rem; }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -93,8 +112,20 @@ require_once 'config/database.php';
         }
     </style>
     <link rel="preload" as="style" href="assets/style.min.css?v=20260924" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="assets/style.min.css?v=20260924"></noscript>
+    <noscript>
+        <link rel="stylesheet" href="assets/style.min.css?v=20260924">
+        <!-- The mobile nav lives in the sidebar and is only reachable via JS.
+             Without script, surface the desktop nav so the links stay usable. -->
+        <style>
+            .nav-desktop { display: flex !important; flex-wrap: wrap; gap: 1rem; }
+            .menu-toggle, .home-sidebar { display: none !important; }
+        </style>
+    </noscript>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <!-- Hint the preload scanner at the real LCP candidate instead of making it
+         parse the <picture> to discover the AVIF. -->
+    <link rel="preload" as="image" type="image/avif"
+        href="assets/dashboard_modern-1024.avif" fetchpriority="high">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <script src="assets/js/trusted_types.js"></script>
@@ -268,8 +299,12 @@ require_once 'config/database.php';
                         <source type="image/webp"
                             srcset="assets/dashboard_modern-320.webp 320w, assets/dashboard_modern-640.webp 640w, assets/dashboard_modern-1024.webp 1024w"
                             sizes="(max-width: 1050px) 100vw, 1050px">
-                        <img src="assets/dashboard_modern.png?v=1.1" width="1024" height="1024" sizes="(max-width: 1050px) 100vw, 1050px" alt="EduPortal Premium Dashboard"
-                            loading="lazy" decoding="async"
+                        <!-- This is the LCP element. It must not be lazy: deferring
+                             the largest above-the-fold image gated LCP on scroll
+                             heuristics. The PNG fallback is 431KB versus 38KB for
+                             the AVIF, so the picture sources matter. -->
+                        <img src="assets/dashboard_modern.png?v=1.1" width="1050" height="656" sizes="(max-width: 1050px) 100vw, 1050px" alt="EduPortal Premium Dashboard"
+                            fetchpriority="high" decoding="async"
                             style="width: 100%; height: 100%; object-fit: cover; opacity: 0.95;">
                     </picture>
                     <div
@@ -402,7 +437,7 @@ require_once 'config/database.php';
                 style="color: var(--text-muted); font-size: clamp(1rem, 2.5vw, 1.25rem); margin-bottom: 3rem; max-width: 650px; margin: 0 auto 3rem;">
                 Join thousands of students and teachers already using EduPortal to redefine the digital classroom.</p>
             <div style="display: flex; gap: 1.5rem; justify-content: center;">
-                <button onclick="document.getElementById('signupModal').style.display='flex'"
+                <button type="button" id="signupModalOpen" aria-haspopup="dialog" aria-controls="signupModal"
                     class="premium-btn premium-btn-primary" style="padding: 1.2rem 3.5rem; border-radius: 16px;">Create
                     Account</button>
             </div>
@@ -411,26 +446,27 @@ require_once 'config/database.php';
     </main>
 
     <!-- Sign Up Selection Modal -->
-    <div id="signupModal" class="loader-overlay" style="display: none; background: rgba(10, 11, 16, 0.9);">
+    <div id="signupModal" class="loader-overlay" role="dialog" aria-modal="true" aria-labelledby="signupModalTitle"
+        style="display: none; background: rgba(10, 11, 16, 0.9);">
         <div class="glass-card animate-scale-up"
             style="padding: 3rem; max-width: 500px; width: 90%; text-align: center; border: 1px solid var(--glass-border);">
             <div
                 style="display: flex; justify-content: flex-end; margin-top: -1.5rem; margin-right: -1.5rem; margin-bottom: 1rem;">
-                <button onclick="document.getElementById('signupModal').style.display='none'"
+                <button type="button" id="signupModalClose" aria-label="Close dialog"
                     style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
-            <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">Get Started</h2>
+            <h2 id="signupModalTitle" style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">Get Started</h2>
             <p style="color: var(--text-muted); margin-bottom: 2.5rem;">Choose your account type to begin your journey
                 with EduPortal.</p>
 
             <div style="display: flex; flex-direction: column; gap: 1.2rem;">
                 <a href="teacher/signup.php" class="premium-btn premium-btn-outline"
                     style="padding: 1.2rem; justify-content: center;">
-                    <i class="fas fa-chalkboard-user"></i> Sign up as Teacher
+                    <i class="fas fa-chalkboard-user" aria-hidden="true"></i> Sign up as Teacher
                 </a>
                 <a href="student/signup.php" class="premium-btn premium-btn-primary"
                     style="padding: 1.2rem; justify-content: center;">
-                    <i class="fas fa-user-graduate"></i> Sign up as Student
+                    <i class="fas fa-user-graduate" aria-hidden="true"></i> Sign up as Student
                 </a>
             </div>
         </div>
@@ -496,6 +532,56 @@ require_once 'config/database.php';
             } else {
                 window.setTimeout(loadStats, 0);
             }
+        })();
+    </script>
+    <script>
+        (() => {
+            // Sign-up dialog: previously toggled by inline onclick handlers with
+            // no dialog semantics, no focus management, no Escape, and no
+            // background isolation, so Tab walked the page behind the overlay.
+            const modal = document.getElementById('signupModal');
+            const openButton = document.getElementById('signupModalOpen');
+            const closeButton = document.getElementById('signupModalClose');
+            if (!modal || !openButton || !closeButton) {
+                return;
+            }
+
+            const pageContent = Array.from(document.body.children).filter(element => element !== modal);
+            let restoreFocusTo = null;
+
+            const isOpen = () => modal.style.display === 'flex';
+
+            const setOpen = (open, trigger = null) => {
+                if (open === isOpen()) {
+                    return;
+                }
+                if (open) {
+                    restoreFocusTo = trigger || document.activeElement;
+                }
+
+                modal.style.display = open ? 'flex' : 'none';
+                pageContent.forEach(element => element.toggleAttribute('inert', open));
+
+                if (open) {
+                    modal.querySelector('a, button')?.focus();
+                } else if (restoreFocusTo && restoreFocusTo.isConnected) {
+                    restoreFocusTo.focus();
+                    restoreFocusTo = null;
+                }
+            };
+
+            openButton.addEventListener('click', () => setOpen(true, openButton));
+            closeButton.addEventListener('click', () => setOpen(false));
+            modal.addEventListener('click', event => {
+                if (event.target === modal) {
+                    setOpen(false);
+                }
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && isOpen()) {
+                    setOpen(false);
+                }
+            });
         })();
     </script>
     <script src="assets/js/system_loader.js?v=20260924-loader4" defer></script>

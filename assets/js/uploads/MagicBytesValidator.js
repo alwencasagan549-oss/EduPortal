@@ -1,6 +1,12 @@
 /**
  * Magic Bytes Validator
- * Validates file signatures to prevent MIME-type spoofing.
+ * Validates file signatures to reduce MIME-type spoofing.
+ *
+ * IMPORTANT: this is a client-side convenience check, not a security boundary.
+ * Several signatures are shared across formats (50 4B 03 04 is both zip and
+ * docx; D0 CF 11 E0 covers doc/xls/ppt) and only the first few bytes are
+ * compared. The authoritative check is the server-side `finfo` verification in
+ * controllers/ajax_upload_finalize.php.
  */
 
 const MAGIC_SIGNATURES = {
@@ -8,10 +14,18 @@ const MAGIC_SIGNATURES = {
   'image/png': [0x89, 0x50, 0x4E, 0x47],
   'application/pdf': [0x25, 0x50, 0x44, 0x46],
   'application/zip': [0x50, 0x4B, 0x03, 0x04],
-  'video/mp4': [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70],
   'application/msword': [0xD0, 0xCF, 0x11, 0xE0],
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [0x50, 0x4B, 0x03, 0x04]
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [0x50, 0x4B, 0x03, 0x04],
+  'application/x-zip-compressed': [0x50, 0x4B, 0x03, 0x04]
 };
+
+// ISO base media brands seen in the wild. The ftyp box *size* varies with the
+// number of compatible brands (0x18 for a bare box, 0x20 for four), so the size
+// must never be compared; only the box type and the major brand are stable.
+const MP4_BRANDS = new Set([
+  'isom', 'iso2', 'iso4', 'iso5', 'iso6',
+  'mp41', 'mp42', 'avc1', 'dash', 'M4V ', 'qt  '
+]);
 
 const EXTENSION_TO_MIME = {
   'pdf': 'application/pdf',
@@ -25,9 +39,45 @@ const EXTENSION_TO_MIME = {
   'txt': 'text/plain'
 };
 
+const hex = bytes => Array.from(bytes)
+  .map(b => '0x' + b.toString(16).padStart(2, '0'))
+  .join(' ');
+
+/**
+ * ISO base media (MP4/MOV): bytes 4-7 are the 'ftyp' box type, bytes 8-11 the
+ * major brand. Validating the box size, as a fixed byte array would, rejected
+ * essentially every real video file.
+ */
+async function validateMp4(file) {
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const actualBytes = hex(bytes.slice(0, 12));
+  if (bytes.length < 12) {
+    return { valid: false, detectedType: 'unknown', actualBytes, error: 'File is too short to be an MP4' };
+  }
+
+  const boxType = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
+  const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]).trim();
+  const valid = boxType === 'ftyp' && MP4_BRANDS.has(brand);
+
+  return {
+    valid,
+    detectedType: valid ? 'video/mp4' : 'unknown',
+    actualBytes,
+    note: valid ? undefined : `ftyp box ${boxType === 'ftyp' ? 'present' : 'missing'}, brand "${brand}"`
+  };
+}
+
 export async function validateMagicBytes(file, expectedType) {
   if (!expectedType) {
     return { valid: true, detectedType: file.type || 'unknown' };
+  }
+
+  if (expectedType === 'video/mp4') {
+    try {
+      return await validateMp4(file);
+    } catch (error) {
+      return { valid: false, error: error.message };
+    }
   }
 
   const signature = MAGIC_SIGNATURES[expectedType];
@@ -41,15 +91,12 @@ export async function validateMagicBytes(file, expectedType) {
     const bytes = new Uint8Array(buffer);
 
     const matches = signature.every((byte, index) => bytes[index] === byte);
-    const actualBytes = Array.from(bytes.slice(0, signature.length))
-      .map(b => '0x' + b.toString(16).padStart(2, '0'))
-      .join(' ');
 
     return {
       valid: matches,
       detectedType: matches ? expectedType : 'unknown',
-      actualBytes,
-      expectedSignature: signature.map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')
+      actualBytes: hex(bytes.slice(0, signature.length)),
+      expectedSignature: hex(signature)
     };
   } catch (error) {
     return { valid: false, error: error.message };
@@ -68,13 +115,15 @@ export function validateFileExtension(file, allowedExtensions) {
 }
 
 export function validateFileSize(file, maxSizeBytes) {
-  const isValid = file.size <= maxSizeBytes;
+  const isValid = file.size > 0 && file.size <= maxSizeBytes;
 
   return {
     valid: isValid,
     size: file.size,
     maxSize: maxSizeBytes,
-    error: isValid ? null : `File size ${formatBytes(file.size)} exceeds limit of ${formatBytes(maxSizeBytes)}`
+    error: file.size === 0
+      ? 'The selected file is empty.'
+      : (isValid ? null : `File size ${formatBytes(file.size)} exceeds limit of ${formatBytes(maxSizeBytes)}`)
   };
 }
 
@@ -114,10 +163,20 @@ export async function performFullValidation(file, options = {}) {
   const expectedType = EXTENSION_TO_MIME[extensionValidation.extension] || file.type;
   const magicValidation = await validateMagicBytes(file, expectedType);
 
+  // A read failure is not a signature mismatch; reporting it as one told users
+  // their file was corrupt when the real problem was an unreadable handle.
+  if (magicValidation.error) {
+    return {
+      valid: false,
+      error: `Could not read "${file.name}" to verify its type: ${magicValidation.error}`
+    };
+  }
+
   if (!magicValidation.valid) {
     return {
       valid: false,
-      error: `Invalid file signature. Expected ${expectedType}, got ${magicValidation.actualBytes}`
+      error: `Invalid file signature. Expected ${expectedType}, got ${magicValidation.actualBytes || 'no data'}`
+        + (magicValidation.note ? ` (${magicValidation.note})` : '')
     };
   }
 

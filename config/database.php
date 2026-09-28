@@ -41,21 +41,47 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Bind session to IP + User-Agent to prevent hijacking
-if (!empty($_SESSION['user_id'])) {
-    $_SESSION['_ip_fingerprint'] = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+/**
+ * Fingerprint used to detect a session cookie replayed from a different
+ * client. Computed on demand so it always reflects the current request.
+ */
+function session_fingerprint(): string
+{
+    return hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . '|' . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
 }
 
-function verifySessionBinding() {
-    if (empty($_SESSION['_ip_fingerprint']) || empty($_SESSION['user_id'])) {
+/**
+ * Compares the stored fingerprint against the current request.
+ *
+ * The previous implementation rewrote $_SESSION['_ip_fingerprint'] on every
+ * request and then compared it against a freshly computed value, so the check
+ * was always hash(x) === hash(x) and detected nothing. The fingerprint is now
+ * written exactly once, at bindSession() during login.
+ *
+ * Binds on IP + User-Agent. Note that mobile carriers rotate IP addresses, so
+ * a strict IP match will sign students out; widen this deliberately if that
+ * becomes a problem rather than dropping the check entirely.
+ */
+function verifySessionBinding(): bool
+{
+    if (empty($_SESSION['user_id'])) {
+        return false;
+    }
+
+    $stored = $_SESSION['_ip_fingerprint'] ?? null;
+    if (!is_string($stored) || $stored === '') {
+        // Session predates the binding (or the column was cleared): adopt the
+        // current client rather than signing everyone out on deploy.
+        bindSession();
         return true;
     }
-    $current = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
-    return hash_equals($_SESSION['_ip_fingerprint'], $current);
+
+    return hash_equals($stored, session_fingerprint());
 }
 
-function bindSession() {
-    $_SESSION['_ip_fingerprint'] = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+function bindSession(): void
+{
+    $_SESSION['_ip_fingerprint'] = session_fingerprint();
 }
 
 // Send HTTP security headers
@@ -184,6 +210,7 @@ class EduPortalStmt {
 class EduPortalResult {
     private $stmt;
     private $cached_rows = null;
+    private int $cursor = 0;
 
     public function __construct($stmt) {
         $this->stmt = $stmt;
@@ -191,7 +218,11 @@ class EduPortalResult {
 
     public function fetch_assoc() {
         if ($this->cached_rows !== null) {
-            $row = array_shift($this->cached_rows);
+            // Integer cursor rather than array_shift: shift() is O(n) and
+            // reindexes the whole array, so mixing num_rows() with
+            // fetch_assoc() turned every row loop into O(n^2).
+            $row = $this->cached_rows[$this->cursor] ?? null;
+            $this->cursor++;
             return $row === null ? false : $row;
         }
         return $this->stmt->fetch(PDO::FETCH_ASSOC);
@@ -199,7 +230,7 @@ class EduPortalResult {
 
     public function fetch_all($style = PDO::FETCH_ASSOC) {
         if ($this->cached_rows !== null) {
-            return $this->cached_rows;
+            return array_slice($this->cached_rows, $this->cursor);
         }
         return $this->stmt->fetchAll($style);
     }
@@ -222,12 +253,6 @@ function getDBConnection() {
 
 function isLoggedIn() {
     return isset($_SESSION['user_id']) && verifySessionBinding();
-}
-
-function base_path($path = '') {
-    $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-    $depth = substr_count($base, '/');
-    return str_repeat('../', max(0, $depth - 0)) . ltrim($path, '/');
 }
 
 function requireLogin() {

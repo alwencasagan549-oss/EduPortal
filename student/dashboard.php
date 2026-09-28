@@ -660,6 +660,14 @@ require_once __DIR__ . '/nav.php';
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         };
 
+        // State-changing notification calls require a CSRF token; keep the
+        // cached value fresh from any rotated token the server returns.
+        const notificationCsrfToken = () => {
+            const input = document.querySelector('input[name="csrf_token"]');
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            return meta?.content || input?.value || '';
+        };
+
         const requestNotifications = async (url, options = {}) => {
             const controller = new AbortController();
             const timeout = window.setTimeout(() => controller.abort(), 15000);
@@ -728,6 +736,7 @@ require_once __DIR__ . '/nav.php';
                             method: 'POST',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                             body: 'notification_id=' + encodeURIComponent(notification.id)
+                                + '&csrf_token=' + encodeURIComponent(notificationCsrfToken())
                         });
                         await loadNotifications({ showLoading: false });
                     } catch (error) {

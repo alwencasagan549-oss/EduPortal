@@ -1,93 +1,155 @@
 <?php
+/**
+ * Bulk download of a teacher's submissions as a ZIP.
+ *
+ * Deliberately bounded: building the archive in a request thread meant one
+ * long-lived request held every submission (and its base64 copy) in memory,
+ * which exceeds the 256MB memory_limit well before a full class size.
+ */
+
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../libs/assignment_management.php';
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Check if teacher is logged in
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'teacher') {
+if (!isLoggedIn() || ($_SESSION['user_role'] ?? '') !== 'teacher') {
     header('Location: /teacher/login.php');
     exit();
 }
 
-$teacher_id = $_SESSION['user_id'];
-$teacher_subject = $_SESSION['user_subject'] ?? '';
+$teacher_id = (int) $_SESSION['user_id'];
+$teacher_subject = trim((string) ($_SESSION['user_subject'] ?? ''));
 
-// Get submissions for teacher's subject (Auth Shield: RLS Check)
 $conn = getDBConnection();
 
-try {
-    $submissionColumns = assignment_submission_column_names($conn);
-    if (!isset($submissionColumns['file_content'])) {
-        if ($conn->getDriverName() === 'mysql') {
-            $conn->exec('ALTER TABLE submissions ADD COLUMN file_content LONGTEXT');
-        } else {
-            $conn->exec('ALTER TABLE submissions ADD COLUMN file_content TEXT DEFAULT NULL');
-        }
-    }
-    if (!isset($submissionColumns['file_type'])) {
-        $conn->exec("ALTER TABLE submissions ADD COLUMN file_type VARCHAR(100) DEFAULT 'application/octet-stream'");
-    }
-} catch (Throwable $e) {
-    error_log('EduPortal schema migration error in download_all.php: ' . $e->getMessage());
+if (!assignment_submission_has_column($conn, 'file_type')) {
+    http_response_code(503);
+    die('Submission storage is not ready. Please contact the administrator.');
 }
 
-$stmt = $conn->prepare("SELECT s.file_path, s.file_content, s.file_type, st.name as student_name
-                       FROM submissions s
-                       LEFT JOIN students st ON s.student_id = st.id
-                       WHERE (s.teacher_id = ? OR (s.teacher_id IS NULL AND s.subject = ?))");
-$stmt->execute([$teacher_id, $teacher_subject]);
-$result = $stmt->get_result();
-$submissions = $result->fetch_all(PDO::FETCH_ASSOC);
+// Cap the export so one request cannot exhaust memory. Callers needing more
+// should page through the archive endpoint.
+const DOWNLOAD_ALL_LIMIT = 150;
 
-if (empty($submissions)) {
-    die('No submissions found for subject: ' . htmlspecialchars($teacher_subject));
-}
+$scope = assignment_teacher_submission_scope('s', $teacher_id, $teacher_subject);
+$stmt = $conn->prepare(
+    "SELECT s.id, s.file_path, s.file_content, s.file_type, st.name AS student_name
+     FROM submissions s
+     LEFT JOIN students st ON s.student_id = st.id
+     WHERE " . $scope['sql'] . "
+     ORDER BY s.submitted_at DESC
+     LIMIT " . DOWNLOAD_ALL_LIMIT
+);
+$stmt->execute($scope['params']);
+$submissions = $stmt->get_result()->fetch_all(PDO::FETCH_ASSOC);
 
-// Create ZIP file
-$zip = new ZipArchive();
-$zip_filename = $teacher_subject . '_submissions_' . date('Y-m-d') . '.zip';
-$temp_zip = tempnam(sys_get_temp_dir(), 'zip');
-unlink($temp_zip);
-
-if ($zip->open($temp_zip, ZipArchive::CREATE) !== TRUE) {
-    die('Cannot create ZIP file');
+if ($submissions === []) {
+    http_response_code(404);
+    die('No submissions found for subject: ' . htmlspecialchars($teacher_subject, ENT_QUOTES, 'UTF-8'));
 }
 
 $base_dir = realpath(__DIR__ . '/../uploads');
+$baseNorm = $base_dir === false ? null : rtrim(str_replace('\\', '/', $base_dir), '/') . '/';
 
-foreach ($submissions as $submission) {
-    $file_name = basename($submission['file_path']);
-    $student_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $submission['student_name']);
-    $new_name = $student_name . '_' . $file_name;
+$temp_zip = tempnam(sys_get_temp_dir(), 'eduportal_zip_');
+if ($temp_zip === false) {
+    http_response_code(500);
+    die('Cannot create a temporary file for the archive.');
+}
 
-    if (!empty($submission['file_content'])) {
-        // Serve from database (for Render compatibility)
-        $file_data = base64_decode($submission['file_content']);
-        $zip->addFromString($new_name, $file_data);
-    } else {
-        // Fallback: serve from filesystem
+$zip = new ZipArchive();
+if ($zip->open($temp_zip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+    @unlink($temp_zip);
+    http_response_code(500);
+    die('Cannot create ZIP file');
+}
+
+$added = 0;
+$usedNames = [];
+
+try {
+    foreach ($submissions as $submission) {
+        $storedName = basename(str_replace('\\', '/', (string) $submission['file_path']));
+        $studentName = preg_replace('/[^A-Za-z0-9._-]/', '_', (string) ($submission['student_name'] ?? 'student'));
+
+        // Keep names unique; two students can share a filename.
+        $base = $studentName . '_' . $storedName;
+        $entryName = $base;
+        $suffix = 1;
+        while (isset($usedNames[$entryName])) {
+            $entryName = $base . '_' . $suffix++;
+        }
+        $usedNames[$entryName] = true;
+
+        $entryPath = null;
+
+        if (!empty($submission['file_content'])) {
+            // addFromString needs the bytes in memory; skip rather than risk
+            // an OOM on a single oversized row.
+            $decoded = base64_decode((string) $submission['file_content'], true);
+            if ($decoded === false) {
+                continue;
+            }
+            if ($zip->addFromString($entryName, $decoded) === true) {
+                $added++;
+            }
+            unset($decoded);
+            continue;
+        }
+
         $relative = ltrim(str_replace('\\', '/', (string) $submission['file_path']), '/');
         if (strpos($relative, 'uploads/') === 0) {
             $relative = substr($relative, strlen('uploads/'));
         }
-        $resolved = $base_dir === false ? false : realpath($base_dir . DIRECTORY_SEPARATOR . $relative);
-        if ($resolved !== false && $base_dir !== false && strpos(str_replace('\\', '/', $resolved), rtrim(str_replace('\\', '/', $base_dir), '/') . '/') === 0) {
-            $zip->addFile($resolved, $new_name);
+
+        if ($baseNorm === null) {
+            continue;
+        }
+
+        $resolved = realpath($base_dir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
+        if ($resolved === false
+            || !is_file($resolved)
+            || strpos(str_replace('\\', '/', $resolved), $baseNorm) !== 0) {
+            continue;
+        }
+
+        // addFile streams from disk instead of loading the file into PHP.
+        if ($zip->addFile($resolved, $entryName) === true) {
+            $added++;
         }
     }
+
+    $zip->close();
+} catch (Throwable $exception) {
+    @$zip->close();
+    @unlink($temp_zip);
+    error_log('EduPortal download_all failed: ' . $exception->getMessage());
+    http_response_code(500);
+    die('The archive could not be built.');
 }
 
-$zip->close();
+if ($added === 0) {
+    @unlink($temp_zip);
+    http_response_code(404);
+    die('None of the matching submission files could be read.');
+}
 
-// Send to browser
-header('Content-Type: application/zip');
-header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
-header('Content-Length: ' . filesize($temp_zip));
+$zipFilename = assignment_safe_download_filename(
+    ($teacher_subject !== '' ? $teacher_subject : 'submissions') . '_submissions_' . date('Y-m-d')
+) . '.zip';
+
+$size = filesize($temp_zip);
+if ($size === false) {
+    @unlink($temp_zip);
+    http_response_code(500);
+    die('The archive could not be read.');
+}
+
+if (ob_get_level() > 0) {
+    ob_end_clean();
+}
 readfile($temp_zip);
-
-// Clean up
-unlink($temp_zip);
+@unlink($temp_zip);
 exit();
-?>

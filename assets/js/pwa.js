@@ -7,6 +7,7 @@
     const secureContext = window.isSecureContext || ['localhost', '127.0.0.1'].includes(window.location.hostname);
     let deferredPrompt = null;
     let installButton = null;
+    let registered = false;
 
     const removeInstallButton = () => {
         if (installButton) {
@@ -52,17 +53,17 @@
     };
 
     const registerServiceWorker = () => {
-        if (!secureContext || !('serviceWorker' in navigator)) {
+        if (registered || !secureContext || !('serviceWorker' in navigator)) {
             return Promise.resolve(null);
         }
+        registered = true;
 
         return navigator.serviceWorker.register(serviceWorkerUrl, {
             scope: scopeUrl.pathname,
             updateViaCache: 'none'
         }).then(registration => {
-            if (document.visibilityState === 'visible') {
-                registration.update().catch(() => {});
-            }
+            // register() already revalidates sw.js byte-for-byte; an immediate
+            // registration.update() doubles that request on every navigation.
             return registration;
         }).catch(() => null);
     };

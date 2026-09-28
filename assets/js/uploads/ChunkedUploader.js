@@ -4,8 +4,15 @@
  * pause/resume, and progress tracking.
  */
 
-import { initiateUpload, finalizeUpload, getUploadStatus } from './api.js?v=20260924-uploads3';
-import { RetryPolicy } from './RetryPolicy.js?v=20260924-uploads3';
+import { initiateUpload, finalizeUpload, getUploadStatus, reportUploadProgress } from './api.js?v=20260924-uploads4';
+import { RetryPolicy } from './RetryPolicy.js?v=20260924-uploads4';
+
+/** crypto.randomUUID is [SecureContext]-only; fall back outside secure contexts. */
+const newUploadKey = () => (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+  ? crypto.randomUUID()
+  : `up_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`);
+
+const isTransient = error => error?.retryable === true || error?.name === 'NetworkError';
 
 export class ChunkedUploader {
   #queue = new Map();
@@ -80,7 +87,7 @@ export class ChunkedUploader {
         continue;
       }
 
-      const id = crypto.randomUUID();
+      const id = newUploadKey();
       const chunkSize = this.#calculateChunkSize(file.size);
       const totalChunks = Math.ceil(file.size / chunkSize);
 
@@ -159,10 +166,10 @@ export class ChunkedUploader {
     this.#emit('onStateChange', upload);
 
     try {
-      if (!resume || upload.completedChunks.length === 0) {
+      if (!resume || upload.completedChunks.length === 0 || !upload.uploadId) {
         const initResult = await this.#retryPolicy.execute(
           () => initiateUpload(upload.file, { signal: upload.abortController.signal }),
-          error => error.name === 'NetworkError' || error.name === 'TypeError' || error.name === 'TimeoutError' || error.status >= 500,
+          isTransient,
           upload.abortController.signal
         );
 
@@ -173,7 +180,11 @@ export class ChunkedUploader {
 
         upload.uploadId = initResult.uploadId;
         upload.s3UploadId = initResult.s3UploadId;
-        upload.presignedUrls = initResult.presignedUrls;
+        // Fresh initiate returns a bare URL list aligned with part 1..N.
+        upload.presignedUrls = (initResult.presignedUrls || []).map((url, index) => ({
+          partNumber: index + 1,
+          url
+        }));
         upload.presignedUrlsAreRemaining = false;
         upload.chunkSize = initResult.chunkSize || upload.chunkSize;
         upload.totalChunks = initResult.totalChunks || upload.totalChunks;
@@ -184,7 +195,22 @@ export class ChunkedUploader {
         if (!status.success) {
           throw new Error(status.error || 'Failed to get upload status');
         }
-        upload.presignedUrls = status.remainingPresignedUrls;
+        if (status.status === 'expired' || status.status === 'aborted') {
+          throw new Error('This upload session has expired. Start the upload again.');
+        }
+
+        // The server is authoritative on which parts landed, and it tags each
+        // remaining URL with its part number. Re-deriving part numbers from
+        // array position would silently attach ETags to the wrong parts.
+        upload.completedChunks = (status.completedChunks || []).slice().sort((a, b) => a - b);
+        upload.completedParts = Object.fromEntries(
+          upload.completedChunks
+            .filter(part => upload.completedParts[part])
+            .map(part => [part, upload.completedParts[part]])
+        );
+        upload.chunkSize = status.chunkSize || upload.chunkSize;
+        upload.totalChunks = status.totalChunks || upload.totalChunks;
+        upload.presignedUrls = status.remainingPresignedUrls || [];
         upload.presignedUrlsAreRemaining = true;
       }
 
@@ -213,47 +239,53 @@ export class ChunkedUploader {
 
   async #uploadChunks(upload) {
     const { id, file, chunkSize, presignedUrls, abortController, totalChunks } = upload;
-    const completedCount = upload.completedChunks.length;
 
-    if (completedCount >= totalChunks) {
+    if (upload.completedChunks.length >= totalChunks) {
       await this.#finalizeUpload(upload);
       return;
     }
 
-    const remainingPresignedUrls = upload.presignedUrlsAreRemaining ? presignedUrls : presignedUrls.slice(completedCount);
-    const startChunkNumber = completedCount + 1;
+    const completedSet = new Set(upload.completedChunks);
+    const pending = presignedUrls.filter(entry =>
+      Number.isInteger(entry?.partNumber)
+      && entry.partNumber >= 1
+      && !completedSet.has(entry.partNumber));
 
-    for (let i = 0; i < remainingPresignedUrls.length; i++) {
+    let sinceLastReport = 0;
+
+    for (const { partNumber, url: presignedUrl } of pending) {
       this.#assertActive(upload);
 
-      const chunkNumber = startChunkNumber + i;
-      const presignedUrl = remainingPresignedUrls[i];
-      const start = (chunkNumber - 1) * chunkSize;
+      const start = (partNumber - 1) * chunkSize;
+      if (start >= file.size) continue;
       const end = Math.min(start + chunkSize, file.size);
       const chunkBlob = file.slice(start, end);
 
       try {
         const etag = await this.#retryPolicy.execute(
           () => this.#uploadChunk(presignedUrl, chunkBlob, abortController.signal),
-          error => error.name === 'NetworkError' || error.name === 'TypeError' || error.name === 'TimeoutError' || error.status >= 500,
+          isTransient,
           abortController.signal
         );
 
         if (!etag) {
-          throw new Error(`Storage service did not return an ETag for chunk ${chunkNumber}`);
+          throw new Error(`Storage service did not return an ETag for chunk ${partNumber}`);
         }
 
-        upload.completedParts[chunkNumber] = etag;
-        upload.completedChunks.push(chunkNumber);
-        upload.loadedBytes = end;
-        upload.progress = Math.round((upload.loadedBytes / file.size) * 100);
+        upload.completedParts[partNumber] = etag;
+        if (!completedSet.has(partNumber)) {
+          upload.completedChunks.push(partNumber);
+          completedSet.add(partNumber);
+        }
+        upload.loadedBytes = Math.max(upload.loadedBytes, end);
+        upload.progress = Math.min(100, Math.round((upload.loadedBytes / file.size) * 100));
 
         this.#emit('onProgress', {
           id,
           progress: upload.progress,
           loadedBytes: upload.loadedBytes,
           totalBytes: file.size,
-          chunkIndex: chunkNumber,
+          chunkIndex: partNumber,
           totalChunks,
           uploadedChunks: upload.completedChunks.length
         });
@@ -261,19 +293,45 @@ export class ChunkedUploader {
         if (error.name === 'AbortError') {
           throw error;
         }
-        upload.error = `Chunk ${chunkNumber} failed: ${error.message}`;
+        upload.error = `Chunk ${partNumber} failed: ${error.message}`;
+        // Persist whatever landed before the failure so resume starts here.
+        await this.#reportProgress(upload);
         throw error;
       }
+
+      // Checkpoint periodically so an interrupted large upload resumes from
+      // roughly where it stopped rather than from the beginning.
+      if (++sinceLastReport >= 3) {
+        sinceLastReport = 0;
+        await this.#reportProgress(upload);
+      }
     }
+
+    // Persist which parts landed so a later resume resumes instead of restarting.
+    await this.#reportProgress(upload);
 
     await this.#finalizeUpload(upload);
   }
 
+  async #reportProgress(upload) {
+    if (!upload.uploadId || upload.completedChunks.length === 0) return;
+    try {
+      await reportUploadProgress(upload.uploadId, upload.completedChunks, {
+        signal: upload.abortController?.signal
+      });
+    } catch {
+      // Best effort only: finalizeUpload is the authoritative completion step.
+    }
+  }
+
   async #finalizeUpload(upload) {
-    const chunks = upload.completedChunks.map((partNumber) => ({
-      partNumber,
-      etag: upload.completedParts?.[partNumber] || ''
-    }));
+    const chunks = upload.completedChunks
+      .slice()
+      .sort((a, b) => a - b)
+      .map(partNumber => ({
+        partNumber,
+        etag: upload.completedParts?.[partNumber] || ''
+      }));
 
     const missingPart = chunks.find(({ etag }) => !etag);
     if (missingPart) {

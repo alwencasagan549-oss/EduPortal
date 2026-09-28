@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../libs/teacher_account.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -18,43 +19,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim($_POST['email'] ?? '');
         $subject = normalize_teacher_subject($_POST['subject'] ?? $_POST['teacher_type'] ?? '');
         $password = $_POST['password'] ?? '';
-        
+
         $conn = getDBConnection();
         $stmt = $conn->prepare("SELECT id, name, email, subject, password FROM teachers WHERE email = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?))");
         $stmt->execute([$email, $subject]);
         $result = $stmt->get_result();
 
         $login_success = false;
+        $pending_status = null;
         if ($result->num_rows() === 1) {
             $teacher = $result->fetch_assoc();
             if (password_verify($password, $teacher['password'])) {
-                $login_success = true;
-                
-                // Auth Shield: Regenerate Session for Security
-                session_regenerate_id(true);
-                bindSession();
-                
-                $_SESSION['user_id'] = $teacher['id'];
-                $_SESSION['user_name'] = $teacher['name'];
-                $_SESSION['user_email'] = $teacher['email'];
-                $_SESSION['user_subject'] = $teacher['subject'];
-                $_SESSION['user_role'] = 'teacher';
-                
-                // Clear attempts on success
-                unset($_SESSION['login_attempts']);
-                unset($_SESSION['login_timeout']);
-                
-                header('Location: dashboard.php');
-                exit();
+                $accountStatus = teacher_account_status($conn, $teacher['id']);
+                if ($accountStatus === 'approved') {
+                    $login_success = true;
+
+                    // Auth Shield: Regenerate Session for Security
+                    session_regenerate_id(true);
+                    bindSession();
+
+                    $_SESSION['user_id'] = $teacher['id'];
+                    $_SESSION['user_name'] = $teacher['name'];
+                    $_SESSION['user_email'] = $teacher['email'];
+                    $_SESSION['user_subject'] = $teacher['subject'];
+                    $_SESSION['user_role'] = 'teacher';
+
+                    // Clear attempts on success
+                    unset($_SESSION['login_attempts']);
+                    unset($_SESSION['login_timeout']);
+
+                    header('Location: dashboard.php');
+                    exit();
+                }
+
+                $pending_status = $accountStatus;
             }
         }
 
         if (!$login_success) {
             // Auth Shield: 5-Strike Throttling
             $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
-            if ($_SESSION['login_attempts'] >= 5) {
-                $_SESSION['login_timeout'] = time() + 30; // 30-second cooldown
-                $error = "Too many failed attempts. Please wait 30 seconds.";
+            if ($pending_status !== null) {
+                // Credentials were correct; do not consume a strike for an approval hold.
+                $_SESSION['login_attempts']--;
+                $error = teacher_account_status_message($pending_status);
+            } elseif ($_SESSION['login_attempts'] >= 5) {
+                $_SESSION['login_timeout'] = time() + 60; // 60-second cooldown
+                $error = "Too many failed attempts. Please wait 60 seconds.";
             } else {
                 $error = "Invalid Email or Password."; // Generic Error
             }

@@ -119,6 +119,73 @@ class ObjectStorageService
         }
     }
 
+    /**
+     * Real server-side content sniffing.
+     *
+     * The declared Content-Type on createMultipartUpload comes from the client
+     * and is not trustworthy, so the stored object's own bytes must be
+     * inspected before it is treated as an accepted upload. Reads at most
+     * $length bytes from the head of the object.
+     */
+    public function detectContentType(string $objectKey, int $length = 4096): string
+    {
+        try {
+            $result = $this->s3->getObject([
+                'Bucket' => $this->bucket,
+                'Key' => $objectKey,
+                'Range' => 'bytes=0-' . max(0, $length - 1),
+            ]);
+
+            $stream = $result['Body'];
+            $bytes = $stream->read($length);
+            if (is_resource($bytes)) {
+                $bytes = stream_get_contents($bytes);
+            }
+            $bytes = (string) $bytes;
+        } catch (AwsException $e) {
+            throw new \RuntimeException('Failed to inspect uploaded object: ' . $e->getMessage());
+        }
+
+        if ($bytes === '') {
+            return 'application/x-empty';
+        }
+
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo !== false) {
+                $detected = finfo_buffer($finfo, $bytes);
+                finfo_close($finfo);
+                return is_string($detected) && $detected !== '' ? $detected : 'application/octet-stream';
+            }
+        }
+
+        return 'application/octet-stream';
+    }
+
+    public function headObject(string $objectKey): array
+    {
+        try {
+            return $this->s3->headObject([
+                'Bucket' => $this->bucket,
+                'Key' => $objectKey,
+            ]);
+        } catch (AwsException $e) {
+            throw new \RuntimeException('Failed to stat uploaded object: ' . $e->getMessage());
+        }
+    }
+
+    public function deleteObject(string $objectKey): void
+    {
+        try {
+            $this->s3->deleteObject([
+                'Bucket' => $this->bucket,
+                'Key' => $objectKey,
+            ]);
+        } catch (AwsException $e) {
+            error_log('EduPortal: Failed to delete object: ' . $e->getMessage());
+        }
+    }
+
     public function getObjectUrl(string $objectKey): string
     {
         return $this->s3->getObjectUrl($this->bucket, ltrim($objectKey, '/'));

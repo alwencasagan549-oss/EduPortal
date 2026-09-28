@@ -2,7 +2,7 @@
 /**
  * Database Migration: Job Queue Table
  */
-require_once 'config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 $conn = getDBConnection();
 

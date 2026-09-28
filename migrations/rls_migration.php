@@ -1,6 +1,6 @@
 <?php
 // rls_migration.php - Row Level Security migration
-require_once 'config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 $conn = getDBConnection();
 

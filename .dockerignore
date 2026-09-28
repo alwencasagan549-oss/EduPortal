@@ -1,9 +1,27 @@
+# Keep .htaccess out of this list: it is the Apache access-control layer for
+# config/, uploads/ and .sql files. Excluding it silently disabled every one of
+# those rules in the production container.
+
+# Dependencies are installed inside the image
 node_modules
 vendor
+
+# Version control and agent state
 .git
-.htaccess
-uploads/*
-uploads/.*
+.kilo
+
+# Uploaded student documents must never be baked into an image layer
+uploads
+
+# Secrets
+config/credentials.php
+.env
+.env.*
+
+# Development-only seed data (contains published passwords)
+data/dev_seed.sql
+
+# Local env junk
 *.log
 .idea
 .vscode
