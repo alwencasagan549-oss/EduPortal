@@ -5,8 +5,10 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Check if student is logged in
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'student') {
+// Route through the shared guard rather than testing $_SESSION directly:
+// isLoggedIn() also applies the session fingerprint binding and the idle
+// timeout, both of which a bare isset() skipped on this page.
+if (!isLoggedIn() || ($_SESSION['user_role'] ?? '') !== 'student') {
     header('Location: /session_expired.php');
     exit();
 }

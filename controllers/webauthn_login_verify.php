@@ -1,0 +1,77 @@
+<?php
+/**
+ * AJAX: WebAuthn authentication verification.
+ *
+ * Consumes the assertion and establishes a session. The session lifecycle is
+ * identical to a password sign-in: ID regeneration, fingerprint binding, and
+ * the activity stamps the idle timeout reads.
+ */
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../libs/AuthService.php';
+require_once __DIR__ . '/../libs/WebAuthnService.php';
+
+header('Content-Type: application/json');
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    header('Allow: POST');
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed']);
+    exit();
+}
+
+if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Invalid security token.', 'csrf_token' => csrf_token()]);
+    exit();
+}
+rotate_csrf();
+
+$conn = getDBConnection();
+
+if (isLoggedIn()) {
+    http_response_code(409);
+    echo json_encode(['error' => 'You are already signed in.']);
+    exit();
+}
+
+$credentialJson = (string) ($_POST['credential'] ?? '');
+
+if (strlen($credentialJson) > 16384) {
+    http_response_code(422);
+    echo json_encode(['error' => 'Invalid passkey response.']);
+    exit();
+}
+
+$result = webauthn_finish_authentication($conn, $credentialJson);
+
+if (!$result['ok']) {
+    auth_record_event($conn, 'login', 'passkey_failure', [
+        'user_role' => $result['user_role'] !== '' ? $result['user_role'] : null,
+        'user_id' => $result['user_id'] > 0 ? $result['user_id'] : null,
+    ]);
+    http_response_code(401);
+    echo json_encode(['error' => $result['error'], 'csrf_token' => csrf_token()]);
+    exit();
+}
+
+$role = $result['user_role'];
+$account = $result['account'];
+
+// A successful passkey sign-in clears the account's strike counter exactly as
+// a password sign-in does. auth_account_login_buckets() rebuilds the same key
+// the login path would have written, so this is not a silent no-op.
+auth_rate_limit_clear($conn, auth_account_login_buckets($role, $account));
+
+auth_establish_session($account, $role);
+
+auth_record_event($conn, 'login', 'passkey_success', [
+    'user_role' => $role,
+    'user_id' => $result['user_id'],
+]);
+
+echo json_encode([
+    'ok' => true,
+    'csrf_token' => csrf_token(),
+    'redirect' => $role === 'teacher' ? 'teacher/dashboard.php' : 'student/dashboard.php',
+]);

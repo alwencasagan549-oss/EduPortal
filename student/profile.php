@@ -32,6 +32,7 @@ $email_row = $email_stmt->fetch_assoc();
 $student_email = is_array($email_row) ? ($email_row['email'] ?? ($_SESSION['user_email'] ?? '')) : ($_SESSION['user_email'] ?? '');
 
 require_once __DIR__ . '/nav.php';
+require_once __DIR__ . '/../libs/passkey_panel.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -110,12 +111,16 @@ require_once __DIR__ . '/nav.php';
                             <i class="fas fa-shield-halved" style="color: var(--primary-color)"></i> Security
                         </h2>
                         <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
-                            For security reasons, password changes must be requested through your teacher or system administrator.
+                            You can reset your own password from the
+                            <a href="../forgot_password.php?role=student" style="color: var(--primary-color);">password reset page</a>,
+                            or ask your teacher or system administrator.
                         </p>
                         <a href="dashboard.php" class="premium-btn premium-btn-outline">
                             <i class="fas fa-arrow-left"></i> Back to Dashboard
                         </a>
                     </div>
+
+                    <?php render_passkey_panel('..'); ?>
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 2rem;">

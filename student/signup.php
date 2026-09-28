@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../libs/AuthService.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -23,17 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "LRN must be exactly 12 digits";
         } elseif (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = "Please provide a valid email address";
-        } elseif (strlen($password) < 8) {
-            $error = "Password must be at least 8 characters long";
-        } elseif (!preg_match('/[A-Z]/', $password)) {
-            $error = "Password must contain at least one uppercase letter";
-        } elseif (!preg_match('/[0-9]/', $password)) {
-            $error = "Password must contain at least one number";
+        } elseif (($policyProblem = auth_password_problem($password)) !== null) {
+            $error = $policyProblem;
         } else {
         $section = trim($_POST['section'] ?? '');
         $grade_level = trim($_POST['grade_level'] ?? 'Grade 11');
         $strand = trim($_POST['strand'] ?? 'Academic');
-        $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+        $hashed_password = auth_password_hash($password);
 
         try {
             $conn = getDBConnection();

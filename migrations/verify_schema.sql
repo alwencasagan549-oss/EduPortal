@@ -18,7 +18,9 @@
 WITH expected(name) AS (
     VALUES ('students'), ('teachers'), ('submissions'), ('posted_assignments'),
            ('notifications'), ('jobs'), ('upload_sessions'),
-           ('submission_deletion_audit'), ('admin')
+           ('submission_deletion_audit'), ('admin'),
+           ('auth_events'), ('auth_rate_limits'), ('auth_tokens'),
+           ('passkeys'), ('webauthn_challenges')
 )
 SELECT e.name AS table_name,
        CASE WHEN to_regclass('public.' || e.name) IS NULL THEN 'MISSING'
@@ -37,9 +39,11 @@ WITH expected(tbl, col) AS (
     VALUES
       ('students','id'), ('students','lrn'), ('students','name'), ('students','email'),
       ('students','grade_level'), ('students','section'), ('students','strand'),
-      ('students','password'), ('students','created_at'),
+      ('students','password'), ('students','created_at'), ('students','email_verified_at'),
+      ('students','passkey_user_handle'),
       ('teachers','id'), ('teachers','name'), ('teachers','email'), ('teachers','subject'),
       ('teachers','password'), ('teachers','status'), ('teachers','created_at'),
+      ('teachers','email_verified_at'), ('teachers','passkey_user_handle'),
       ('submissions','id'), ('submissions','student_id'), ('submissions','assignment_id'),
       ('submissions','teacher_id'), ('submissions','student_name'), ('submissions','subject'),
       ('submissions','file_path'), ('submissions','file_content'), ('submissions','file_type'),
@@ -70,8 +74,27 @@ WITH expected(tbl, col) AS (
       ('submission_deletion_audit','reason'), ('submission_deletion_audit','submission_id'),
       ('submission_deletion_audit','student_id'), ('submission_deletion_audit','assignment_id'),
       ('submission_deletion_audit','subject'), ('submission_deletion_audit','file_path'),
-      ('submission_deletion_audit','file_removed'), ('submission_deletion_audit','actor_id'),
-      ('submission_deletion_audit','created_at')
+      ('submission_deletion_audit','file_removed'),       ('submission_deletion_audit','actor_id'),
+      ('submission_deletion_audit','created_at'),
+      ('auth_events','event'), ('auth_events','outcome'), ('auth_events','user_role'),
+      ('auth_events','user_id'), ('auth_events','identifier'), ('auth_events','ip_address'),
+      ('auth_events','user_agent'), ('auth_events','detail'), ('auth_events','created_at'),
+      ('auth_rate_limits','bucket_key'), ('auth_rate_limits','attempt_count'),
+      ('auth_rate_limits','window_started_at'), ('auth_rate_limits','locked_until'),
+      ('auth_rate_limits','updated_at'),
+      ('auth_tokens','token_hash'), ('auth_tokens','purpose'), ('auth_tokens','user_role'),
+      ('auth_tokens','user_id'), ('auth_tokens','expires_at'), ('auth_tokens','consumed_at'),
+      ('auth_tokens','request_ip'), ('auth_tokens','created_at'),
+      ('passkeys','id'), ('passkeys','user_role'), ('passkeys','user_id'),
+      ('passkeys','user_handle'), ('passkeys','credential_id'), ('passkeys','credential_record'),
+      ('passkeys','aaguid'), ('passkeys','transports'), ('passkeys','sign_count'),
+      ('passkeys','backup_eligible'), ('passkeys','backup_status'), ('passkeys','label'),
+      ('passkeys','created_at'), ('passkeys','last_used_at'), ('passkeys','revoked_at'),
+      ('webauthn_challenges','id'), ('webauthn_challenges','challenge'),
+      ('webauthn_challenges','purpose'), ('webauthn_challenges','user_role'),
+      ('webauthn_challenges','user_id'), ('webauthn_challenges','request_ip'),
+      ('webauthn_challenges','created_at'), ('webauthn_challenges','expires_at'),
+      ('webauthn_challenges','consumed_at')
 )
 SELECT e.tbl AS table_name, e.col AS column_name,
        CASE WHEN c.column_name IS NULL THEN 'MISSING' ELSE 'ok' END AS status
@@ -91,7 +114,12 @@ UNION ALL SELECT 'posted_assignments', COUNT(*) FROM posted_assignments
 UNION ALL SELECT 'notifications', COUNT(*) FROM notifications
 UNION ALL SELECT 'jobs', COUNT(*) FROM jobs
 UNION ALL SELECT 'upload_sessions', COUNT(*) FROM upload_sessions
-UNION ALL SELECT 'submission_deletion_audit', COUNT(*) FROM submission_deletion_audit;
+UNION ALL SELECT 'submission_deletion_audit', COUNT(*) FROM submission_deletion_audit
+UNION ALL SELECT 'auth_events', COUNT(*) FROM auth_events
+UNION ALL SELECT 'auth_rate_limits', COUNT(*) FROM auth_rate_limits
+UNION ALL SELECT 'auth_tokens', COUNT(*) FROM auth_tokens
+UNION ALL SELECT 'passkeys', COUNT(*) FROM passkeys
+UNION ALL SELECT 'webauthn_challenges', COUNT(*) FROM webauthn_challenges;
 
 
 -- =====================================================================
@@ -105,8 +133,10 @@ UNION ALL SELECT 'submission_deletion_audit', COUNT(*) FROM submission_deletion_
 SELECT tablename, indexname, pg_size_pretty(pg_relation_size(indexname::regclass)) AS size
   FROM pg_indexes
  WHERE schemaname = 'public'
-   AND tablename IN ('submissions','posted_assignments','notifications',
-                     'students','teachers','jobs','upload_sessions')
+    AND tablename IN ('submissions','posted_assignments','notifications',
+                      'students','teachers','jobs','upload_sessions',
+                      'auth_events','auth_rate_limits','auth_tokens',
+                      'passkeys','webauthn_challenges')
  ORDER BY tablename, indexname;
 
 -- 2b. Foreign keys. Expect 3 on submissions, 1 on posted_assignments,

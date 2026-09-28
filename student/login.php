@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../libs/AuthService.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -7,61 +8,26 @@ if (session_status() === PHP_SESSION_NONE) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Auth Shield: Throttling Logic
-    if (isset($_SESSION['login_timeout']) && time() < $_SESSION['login_timeout']) {
-        $wait = $_SESSION['login_timeout'] - time();
-        $error = "Too many failed attempts. Please wait $wait seconds.";
+    $conn = getDBConnection();
+
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        // A CSRF failure on the login form is a signal in its own right, not
+        // just a form error, so it is recorded rather than silently dropped.
+        auth_record_event($conn, 'login', 'csrf_failure', ['user_role' => 'student']);
+        $error = 'Invalid security token.';
     } else {
-        if (!validate_csrf($_POST['csrf_token'] ?? '')) {
-            $error = 'Invalid security token.';
-        } else {
-        $lrn = $_POST['lrn'];
-        $password = $_POST['password'];
-        
-        $conn = getDBConnection();
-        $stmt = $conn->prepare("SELECT id, lrn, name, email, grade_level, section, strand, password FROM students WHERE lrn = ?");
-        $stmt->execute([$lrn]);
-        $result = $stmt->get_result();
+        $result = auth_attempt_password_login($conn, 'student', [
+            'identifier' => $_POST['lrn'] ?? '',
+            'password' => $_POST['password'] ?? '',
+        ]);
 
-        $login_success = false;
-        if ($result->num_rows() === 1) {
-            $student = $result->fetch_assoc();
-            if (password_verify($password, $student['password'])) {
-                $login_success = true;
-                
-                // Auth Shield: Regenerate Session for Security
-                session_regenerate_id(true);
-                bindSession();
-                
-                $_SESSION['user_id'] = $student['id'];
-                $_SESSION['user_name'] = $student['name'];
-                $_SESSION['user_lrn'] = $student['lrn'];
-                $_SESSION['user_email'] = $student['email'];
-                $_SESSION['user_grade'] = $student['grade_level'];
-                $_SESSION['user_section'] = $student['section'];
-                $_SESSION['user_strand'] = $student['strand'] ?? 'Academic';
-                $_SESSION['user_role'] = 'student';
-                
-                // Clear attempts on success
-                unset($_SESSION['login_attempts']);
-                unset($_SESSION['login_timeout']);
-                
-                header('Location: dashboard.php');
-                exit();
-            }
+        if ($result['ok']) {
+            auth_establish_session($result['account'], 'student');
+            header('Location: dashboard.php');
+            exit();
         }
 
-        if (!$login_success) {
-            // Auth Shield: 5-Strike Throttling
-            $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
-            if ($_SESSION['login_attempts'] >= 5) {
-                $_SESSION['login_timeout'] = time() + 30; // 30-second cooldown
-                $error = "Too many failed attempts. Please wait 30 seconds.";
-            } else {
-                $error = "Invalid LRN or Password."; // Generic Error
-            }
-        }
-        }
+        $error = $result['error'];
     }
 }
 ?>
@@ -95,6 +61,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p class="auth-subtitle">Welcome to your learning journey!</p>
         </div>
 
+        <?php if (isset($_GET['reset']) && $_GET['reset'] === '1'): ?>
+            <div class="alert alert-success">
+                <i class="fas fa-circle-check"></i>
+                <div>Your password has been updated. Sign in with your new password.</div>
+            </div>
+            <?php if (isset($_GET['passkeys']) && (int) $_GET['passkeys'] > 0): ?>
+                <div class="alert alert-warning">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <div>
+                        For your security, <?php echo (int) $_GET['passkeys']; ?>
+                        passkey<?php echo (int) $_GET['passkeys'] === 1 ? ' was' : 's were'; ?> removed.
+                        Sign in and add a passkey again from your profile page.
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+
         <?php if ($error): ?>
             <div class="alert alert-danger">
                 <i class="fas fa-triangle-exclamation"></i>
@@ -124,7 +107,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="premium-btn premium-btn-primary" style="width: 100%; justify-content: center; padding: 1rem;">
                 <i class="fas fa-right-to-bracket"></i> Login to Portal
             </button>
+
+            <p style="text-align: center; margin-top: 1rem;">
+                <a href="../forgot_password.php?role=student" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">
+                    <i class="fas fa-key"></i> Forgot your password?
+                </a>
+            </p>
         </form>
+
+        <div id="passkey-login" hidden style="margin-top: 1.25rem; text-align: center;">
+            <button type="button" id="passkey-login-button" class="premium-btn premium-btn-outline" style="width: 100%; justify-content: center;">
+                <i class="fas fa-fingerprint"></i> Sign in with a passkey
+            </button>
+            <p id="passkey-login-status" role="status" aria-live="polite" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;"></p>
+        </div>
 
         <div style="margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem; text-align: center;">
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Don't have an account yet?</p>
@@ -142,6 +138,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="../assets/js/trusted_types.js"></script>
     <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
+    <script src="../assets/js/webauthn.js"></script>
     <script src="../assets/js/pwa.js"></script>
+    <script>
+    (() => {
+        const wrapper = document.getElementById('passkey-login');
+        const button = document.getElementById('passkey-login-button');
+        const status = document.getElementById('passkey-login-status');
+        const lrn = document.getElementById('lrn');
+
+        if (!wrapper || typeof window.EduPortalWebAuthn === 'undefined' || !window.EduPortalWebAuthn.isSupported()) {
+            return;
+        }
+
+        const api = window.EduPortalWebAuthn;
+        api.init(<?php echo json_encode(csrf_token()); ?>);
+
+        // Only offered once there is an identifier to look passkeys up by.
+        // Showing it on an empty form invites pointless round trips.
+        const sync = () => {
+            wrapper.hidden = lrn.value.trim().length !== 12;
+        };
+        lrn.addEventListener('input', sync);
+        sync();
+
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            status.textContent = 'Follow your device prompt...';
+
+            try {
+                const result = await api.authenticate({
+                    role: 'student',
+                    identifier: lrn.value.trim(),
+                    endpoints: {
+                        options: '../controllers/webauthn_login_options.php',
+                        verify: '../controllers/webauthn_login_verify.php'
+                    }
+                });
+                window.location.href = result.redirect;
+            } catch (error) {
+                status.textContent = error.message || api.explain(error);
+                button.disabled = false;
+            }
+        });
+    })();
+    </script>
 </body>
 </html>

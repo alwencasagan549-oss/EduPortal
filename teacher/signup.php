@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../libs/AuthService.php';
 require_once '../libs/teacher_account.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -22,14 +23,8 @@ function teacher_signup_problem(array $input): ?string
     if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
         return 'Please provide a valid professional email address';
     }
-    if (strlen($input['password']) < 8) {
-        return 'Password must be at least 8 characters long';
-    }
-    if (!preg_match('/[A-Z]/', $input['password'])) {
-        return 'Password must contain at least one uppercase letter';
-    }
-    if (!preg_match('/[0-9]/', $input['password'])) {
-        return 'Password must contain at least one number';
+    if (($passwordProblem = auth_password_problem((string) $input['password'])) !== null) {
+        return $passwordProblem;
     }
     if (assignment_subject_length($input['name']) > 100) {
         return 'Name must be 100 characters or fewer';
@@ -61,7 +56,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     ]);
 
     if ($error === null) {
-        $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+        $hashed_password = auth_password_hash($password);
 
         try {
             $conn = getDBConnection();
