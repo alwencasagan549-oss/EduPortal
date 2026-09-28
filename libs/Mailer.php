@@ -55,6 +55,27 @@ function auth_mail_configured(): bool
 }
 
 /**
+ * The relay's response to the most recent send attempt on this request.
+ *
+ * auth_send_mail() keeps its boolean return so callers stay simple, but a
+ * boolean alone leaves an operator guessing. Exposing the reason lets the
+ * reset flow record it in the audit log, where it is queryable, instead of
+ * only reaching error_log() on a host whose log UI may be hard to reach.
+ */
+function auth_last_mail_error(): string
+{
+    return $GLOBALS['auth_mail_error'] ?? '';
+}
+
+function auth_record_mail_error(string $message): void
+{
+    // A relay response can echo the recipient or a login address back at us.
+    // Redact anything address-shaped before it can reach the audit table.
+    $redacted = preg_replace('/\S+@\S+/', '[email]', $message) ?? '';
+    $GLOBALS['auth_mail_error'] = substr(trim($redacted), 0, 300);
+}
+
+/**
  * Normalises an address that was pasted out of a provider UI.
  *
  * Bracketed forms such as "<someone@example.com>" are common copy artefacts,
@@ -74,14 +95,16 @@ function auth_normalise_email_address(string $address): string
 function auth_send_mail(string $to, string $subject, string $html, string $text): bool
 {
     if (!auth_mail_configured()) {
-        error_log('EduPortal mail skipped: mail is not configured. Check MAIL_ENABLED, SMTP_HOST and the PHPMailer dependency.');
+        auth_record_mail_error('mail is not configured: check MAIL_ENABLED, SMTP_HOST and the Composer install');
+        error_log('EduPortal mail skipped: ' . auth_last_mail_error());
         return false;
     }
 
     $to = auth_normalise_email_address($to);
 
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-        error_log('EduPortal mail skipped: invalid recipient address.');
+        auth_record_mail_error('invalid recipient address: ' . $to);
+        error_log('EduPortal mail skipped: ' . auth_last_mail_error());
         return false;
     }
 
@@ -141,7 +164,8 @@ function auth_send_mail(string $to, string $subject, string $html, string $text)
             ? (string) $mail->ErrorInfo
             : $exception->getMessage();
 
-        error_log('EduPortal mail send failed: ' . $detail);
+        auth_record_mail_error($detail);
+        error_log('EduPortal mail send failed: ' . auth_last_mail_error());
         return false;
     }
 }
