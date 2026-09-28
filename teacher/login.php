@@ -124,6 +124,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="button" id="passkey-login-button" class="premium-btn premium-btn-outline" style="width: 100%; justify-content: center;">
                 <i class="fas fa-fingerprint"></i> Sign in with a passkey
             </button>
+            <p style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.6rem;">
+                Teaching more than one subject? Fill in the subject above first, and your
+                passkey will sign you in as that subject.
+            </p>
             <p id="passkey-login-status" role="status" aria-live="polite" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;"></p>
         </div>
 

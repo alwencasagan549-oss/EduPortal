@@ -43,7 +43,7 @@ if (strlen($credentialJson) > 16384) {
     exit();
 }
 
-$result = webauthn_finish_authentication($conn, $credentialJson);
+$result = webauthn_finish_authentication($conn, $credentialJson, (string) ($_POST['subject'] ?? ''));
 
 if (!$result['ok']) {
     auth_record_event($conn, 'login', 'passkey_failure', [

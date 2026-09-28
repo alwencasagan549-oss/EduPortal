@@ -62,7 +62,7 @@ const WEBAUTHN_CREDENTIAL_LABEL_MAX = 64;
  * returning user kept the copy their browser first cached and no change to it
  * ever reached them. Bump this whenever the file's behaviour changes.
  */
-const WEBAUTHN_JS_VERSION = '20260928-4';
+const WEBAUTHN_JS_VERSION = '20260928-5';
 
 /**
  * Signature counter policy.
@@ -932,7 +932,14 @@ function webauthn_begin_authentication($conn, ?string $role, ?array $account): ?
  *
  * @return array{ok: bool, error: string, user_role: string, user_id: int, account: ?array, sign_count: int}
  */
-function webauthn_finish_authentication($conn, string $clientJson): array
+/**
+ * @param string $subject For teachers, chooses which of their subject rows to
+ *                       sign in as. A teacher who teaches two subjects has two
+ *                       rows sharing an email and a password; the passkey
+ *                       proves who they are, the subject picks which of their
+ *                       roles to enter. Empty keeps the enrolled row.
+ */
+function webauthn_finish_authentication($conn, string $clientJson, string $subject = ''): array
 {
     $failure = [
         'ok' => false,
@@ -1057,6 +1064,43 @@ function webauthn_finish_authentication($conn, string $clientJson): array
                 'account' => null,
                 'sign_count' => 0,
             ];
+        }
+
+        // A teacher who teaches several subjects has one row per subject, all
+        // sharing an email and a password. The passkey has already proved who
+        // they are, so the subject is only used to pick which of their own
+        // roles to sign in as. Without this they would land on whichever row
+        // they happened to enrol from.
+        $subject = trim($subject);
+        if ($subject !== '') {
+            $selected = auth_find_teacher($conn, (string) $account['email'], $subject);
+            if ($selected === null) {
+                return [
+                    'ok' => false,
+                    'error' => 'You do not have an account for that subject. Check the spelling, or sign in with your password.',
+                    'user_role' => $role,
+                    'user_id' => $userId,
+                    'account' => null,
+                    'sign_count' => 0,
+                ];
+            }
+
+            // A different subject row is a different account, so its approval
+            // state is checked independently of the enrolled row's.
+            $selectedStatus = teacher_account_status($conn, (int) $selected['id']);
+            if ($selectedStatus !== 'approved') {
+                return [
+                    'ok' => false,
+                    'error' => teacher_account_status_message($selectedStatus),
+                    'user_role' => $role,
+                    'user_id' => (int) $selected['id'],
+                    'account' => null,
+                    'sign_count' => 0,
+                ];
+            }
+
+            $account = $selected;
+            $userId = (int) $selected['id'];
         }
     }
 
