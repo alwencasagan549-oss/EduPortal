@@ -258,7 +258,13 @@
             }
 
             return post(endpoints.verify, {
-                credential: JSON.stringify(serialise(assertion))
+                credential: JSON.stringify(serialise(assertion)),
+                // For teachers this chooses which of their subject rows to
+                // sign in as. The passkey has already proved who they are; one
+                // teacher teaching two subjects is two rows sharing an email
+                // and a password, and without this they always land on the one
+                // they enrolled from.
+                subject: subject || ''
             });
         },
 
