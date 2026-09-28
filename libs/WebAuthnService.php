@@ -62,7 +62,7 @@ const WEBAUTHN_CREDENTIAL_LABEL_MAX = 64;
  * returning user kept the copy their browser first cached and no change to it
  * ever reached them. Bump this whenever the file's behaviour changes.
  */
-const WEBAUTHN_JS_VERSION = '20260928-1';
+const WEBAUTHN_JS_VERSION = '20260928-2';
 
 /**
  * Signature counter policy.
