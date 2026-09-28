@@ -124,6 +124,13 @@
     let csrfToken = '';
 
     const post = async (url, body) => {
+        // An uninitialised token means the caller forgot init(). Posting an
+        // empty one produces a bare 403 that reads like a security problem
+        // rather than a wiring mistake, which is a waste of everyone's time.
+        if (csrfToken === '') {
+            throw new Error('Security token was not initialised. Reload the page and try again.');
+        }
+
         const response = await fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
