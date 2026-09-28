@@ -91,6 +91,9 @@ if ($started === null) {
     auth_record_event($conn, 'passkey_register', 'options_failure', [
         'user_role' => $role,
         'user_id' => $userId,
+        // Which early return was hit, so this is diagnosable with a query
+        // rather than only from a host log.
+        'detail' => webauthn_last_error(),
     ]);
     http_response_code(503);
     echo json_encode(['error' => 'Passkeys could not be started. Please try again later.']);

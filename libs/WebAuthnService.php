@@ -85,6 +85,25 @@ final class EduPortalSignCounterChecker implements CounterChecker
     }
 }
 
+/**
+ * Why the most recent registration or authentication attempt could not start.
+ *
+ * These ceremonies have several early returns -- missing library, unresolvable
+ * Relying Party ID, no user handle, unissued challenge -- and returning a bare
+ * null turned every one of them into the same "passkeys could not be started"
+ * with nothing recorded anywhere. Kept in the same shape as the mail
+ * diagnostics so the reason lands in the audit trail, not only in a log file.
+ */
+function webauthn_last_error(): string
+{
+    return $GLOBALS['webauthn_error'] ?? '';
+}
+
+function webauthn_record_error(string $message): void
+{
+    $GLOBALS['webauthn_error'] = substr(trim($message), 0, 300);
+}
+
 // ---------------------------------------------------------------------
 // Availability and configuration
 // ---------------------------------------------------------------------
@@ -535,16 +554,26 @@ function webauthn_begin_registration($conn, string $role, $userId, array $accoun
     $serializer = webauthn_serializer();
     $rpId = webauthn_rp_id();
     if ($serializer === null || $rpId === null) {
+        webauthn_record_error('registration cannot start: ' . (
+            $serializer === null
+                ? 'the webauthn serializer is unavailable, so vendor/ may be missing or the autoloader is not loaded'
+                : 'SITE_URL or WEBAUTHN_RP_ID did not yield a Relying Party ID'
+        ));
+        error_log('EduPortal WebAuthn registration blocked: ' . webauthn_last_error());
         return null;
     }
 
     $handle = webauthn_user_handle($conn, $role, $userId);
     if ($handle === null) {
+        webauthn_record_error('registration cannot start: no user handle for this account; the passkey_user_handle column may be missing');
+        error_log('EduPortal WebAuthn registration blocked: ' . webauthn_last_error());
         return null;
     }
 
     $challenge = webauthn_issue_challenge($conn, 'register', $role, (int) $userId);
     if ($challenge === null) {
+        webauthn_record_error('registration cannot start: no challenge issued; the webauthn_challenges table may be missing');
+        error_log('EduPortal WebAuthn registration blocked: ' . webauthn_last_error());
         return null;
     }
 
@@ -565,6 +594,7 @@ function webauthn_begin_registration($conn, string $role, $userId, array $accoun
         return ['options' => $serializer->serialize($options, 'json')];
     } catch (Throwable $exception) {
         error_log('EduPortal WebAuthn registration start failed: ' . $exception->getMessage());
+        webauthn_record_error('registration could not be prepared: ' . $exception->getMessage());
         return null;
     }
 }
