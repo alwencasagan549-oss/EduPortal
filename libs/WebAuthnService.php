@@ -1053,6 +1053,21 @@ function webauthn_finish_authentication($conn, string $clientJson, string $subje
     // that was enrolled while they were still approved.
     if ($role === 'teacher') {
         require_once __DIR__ . '/teacher_account.php';
+
+        $subject = trim($subject);
+        if ($subject === '') {
+            // A teacher holds one row per subject, so without this the
+            // credential alone cannot say which of their roles to enter, and
+            // they would silently land on whichever row they enrolled from.
+            return [
+                'ok' => false,
+                'error' => 'Enter the subject you are signing in as, then use your passkey.',
+                'user_role' => $role,
+                'user_id' => $userId,
+                'account' => null,
+                'sign_count' => 0,
+            ];
+        }
     }
 
     if ($role === 'teacher' && teacher_approval_required()) {
