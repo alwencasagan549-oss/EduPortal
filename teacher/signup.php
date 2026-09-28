@@ -57,7 +57,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         'email' => $email,
         'subject' => $subject,
         'password' => $password,
-        'confirm' => $confirm_password,
+        'confirm_password' => $confirm_password,
     ]);
 
     if ($error === null) {
