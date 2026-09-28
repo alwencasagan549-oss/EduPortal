@@ -43,6 +43,7 @@ function render_passkey_reminder(string $base = '..'): void
     ?>
     <section id="passkey-reminder" hidden
              data-base="<?php echo htmlspecialchars($base); ?>"
+             data-csrf="<?php echo htmlspecialchars(csrf_token()); ?>"
              data-scope="<?php echo htmlspecialchars($role . ':' . $userId); ?>"
              data-snooze-days="<?php echo PASSKEY_REMINDER_SNOOZE_DAYS; ?>"
              aria-labelledby="passkey-reminder-title"
@@ -144,6 +145,11 @@ function render_passkey_reminder(string $base = '..'): void
         };
 
         root.querySelector('[data-passkey-dismiss]').addEventListener('click', snooze);
+
+        // Must happen before mountEnroller: the shared helper posts through
+        // the same module-level token, and without this the dashboard prompt
+        // sent an empty csrf_token and every enrolment returned 403.
+        api.init(root.dataset.csrf);
 
         api.mountEnroller(root, {
             endpoints: {
