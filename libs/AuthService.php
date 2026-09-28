@@ -683,7 +683,9 @@ function auth_attempt_password_login($conn, string $role, array $credentials): a
     // counter, which is no longer necessary now that throttling is persistent.
     if ($role === 'teacher') {
         require_once __DIR__ . '/teacher_account.php';
+    }
 
+    if ($role === 'teacher' && teacher_approval_required()) {
         $status = teacher_account_status($conn, $account['id']);
         if ($status !== 'approved') {
             auth_rate_limit_clear($conn, $buckets);

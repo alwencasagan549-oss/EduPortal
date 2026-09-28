@@ -1053,7 +1053,9 @@ function webauthn_finish_authentication($conn, string $clientJson, string $subje
     // that was enrolled while they were still approved.
     if ($role === 'teacher') {
         require_once __DIR__ . '/teacher_account.php';
+    }
 
+    if ($role === 'teacher' && teacher_approval_required()) {
         $status = teacher_account_status($conn, $userId);
         if ($status !== 'approved') {
             return [

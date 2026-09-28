@@ -81,10 +81,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if ($check->get_result()->num_rows() > 0) {
                 $error = 'A teacher with this email already teaches this subject. Sign in to that account, or choose a different subject.';
             } elseif (teacher_account_column_exists($conn, 'status')) {
-                $stmt = $conn->prepare(
-                    "INSERT INTO teachers (name, email, subject, password, status) VALUES (?, ?, ?, ?, 'pending')"
-                );
-                $stmt->execute([$name, $email, $subject, $hashed_password]);
+            $registrationStatus = teacher_registration_status();
+
+            $stmt = $conn->prepare(
+                "INSERT INTO teachers (name, email, subject, password, status) VALUES (?, ?, ?, ?, ?)"
+            );
+            $stmt->execute([$name, $email, $subject, $hashed_password, $registrationStatus]);
                 $success = teacher_account_status_message('pending')
                     . ' Your requested subject has been reserved.';
             } else {
