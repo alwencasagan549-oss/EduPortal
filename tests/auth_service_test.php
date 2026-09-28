@@ -314,14 +314,17 @@ check(
 // A mis-qualified class name resolves to nothing and fatals on first use, so
 // scan the source for the over-qualified form. This was written wrong twice by
 // hand, which is exactly the kind of slip a grep should own rather than a
-// reviewer's eye.
-foreach (['../libs/Mailer.php', __FILE__] as $relative) {
-    $source = (string) file_get_contents(__DIR__ . '/' . $relative);
-    check(
-        'no over-qualified PHPMailer reference in ' . basename($relative),
-        !str_contains($source, 'PHPMailer\\PHPMailer\\PHPMailer\\PHPMailer')
-    );
-}
+// reviewer's eye. __FILE__ is absolute, so it is used directly for this file.
+$overQualified = 'PHPMailer\\PHPMailer\\PHPMailer\\PHPMailer';
+
+check(
+    'no over-qualified PHPMailer reference in Mailer.php',
+    !str_contains((string) file_get_contents(__DIR__ . '/../libs/Mailer.php'), $overQualified)
+);
+check(
+    'no over-qualified PHPMailer reference in this test',
+    !str_contains((string) file_get_contents(__FILE__), $overQualified)
+);
 
 // Every branch of the encryption switch must resolve to a value PHPMailer
 // accepts, rather than fataling.
@@ -346,6 +349,28 @@ $defaultTimeout = (int) (getenv('SMTP_TIMEOUT') ?: 10);
 check('the SMTP timeout is bounded and short', $defaultTimeout > 0 && $defaultTimeout <= 30);
 check('SMTP keepalive is off by default', $probe->SMTPKeepAlive === false);
 check('the timeout is well under the loader fallback', $defaultTimeout < 30);
+
+// Recipient normalisation. An address pasted out of a provider UI often keeps
+// its display brackets, and filter_var() rejects those outright, which turns
+// one malformed stored email into a password reset that fails for that user
+// with nothing but a generic message on screen.
+same('a plain address is unchanged', 'a@b.com', auth_normalise_email_address('a@b.com'));
+same('surrounding angle brackets are stripped', 'a@b.com', auth_normalise_email_address('<a@b.com>'));
+same('surrounding whitespace is stripped', 'a@b.com', auth_normalise_email_address("  a@b.com \n"));
+same('brackets and whitespace together', 'a@b.com', auth_normalise_email_address(" <a@b.com> "));
+same('case is normalised', 'a@b.com', auth_normalise_email_address('<A@B.COM>'));
+same('interior characters are left alone', 'a+tag@b.com', auth_normalise_email_address('<a+tag@b.com>'));
+
+$normalised = auth_normalise_email_address('<alwencasagann@gmail.com>');
+check('a bracketed address becomes deliverable', filter_var($normalised, FILTER_VALIDATE_EMAIL) !== false);
+check(
+    'an address that is still invalid stays invalid',
+    filter_var(auth_normalise_email_address('not-an-address'), FILTER_VALIDATE_EMAIL) === false
+);
+check(
+    'stripping brackets must not invent a valid address',
+    filter_var(auth_normalise_email_address('<not-an-address>'), FILTER_VALIDATE_EMAIL) === false
+);
 
 // Gating: with no relay configured the mailer must refuse, never report a
 // send it did not perform.

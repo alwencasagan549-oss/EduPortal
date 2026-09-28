@@ -55,6 +55,20 @@ function auth_mail_configured(): bool
 }
 
 /**
+ * Normalises an address that was pasted out of a provider UI.
+ *
+ * Bracketed forms such as "<someone@example.com>" are common copy artefacts,
+ * and filter_var() rejects them outright. Left unhandled, a single teacher
+ * account stored that way makes password reset fail for that user with only a
+ * generic "could not send" on screen. The underlying data should still be
+ * corrected, but the mail path should not be defeated by whitespace.
+ */
+function auth_normalise_email_address(string $address): string
+{
+    return strtolower(trim(trim(trim($address)), '<>'));
+}
+
+/**
  * @return bool true when the message was handed to the relay.
  */
 function auth_send_mail(string $to, string $subject, string $html, string $text): bool
@@ -63,6 +77,8 @@ function auth_send_mail(string $to, string $subject, string $html, string $text)
         error_log('EduPortal mail skipped: mail is not configured. Check MAIL_ENABLED, SMTP_HOST and the PHPMailer dependency.');
         return false;
     }
+
+    $to = auth_normalise_email_address($to);
 
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
         error_log('EduPortal mail skipped: invalid recipient address.');
