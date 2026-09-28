@@ -1,13 +1,13 @@
 -- =====================================================================
 -- EduPortal LMS - Aiven PostgreSQL bootstrap
 -- =====================================================================
--- FIVE RUNS. PG Studio caps a single Run at 10 queries and counts every
+-- SIX RUNS. PG Studio caps a single Run at 10 queries and counts every
 -- semicolon, including ones inside a DO block, so this is written as plain
--- single-statement SQL. Each Run below is at most 9.
+-- single-statement SQL. No Run below exceeds 8 queries.
 --
 -- HOW TO USE
 --   1. Click in the editor, Ctrl+A, Delete, paste this whole file.
---   2. Select ONLY the block between two "RUN n of 5" markers.
+--   2. Select ONLY the block between two "RUN n of 6" markers.
 --   3. Press Run. Wait for a green success.
 --   4. Move to the next block.
 --
@@ -18,7 +18,7 @@
 
 
 -- =====================================================================
--- ==== RUN 1 of 5 - TEACHER APPROVAL GATE + 2 SUBMISSION COLUMNS ====
+-- ==== RUN 1 of 6 - TEACHER APPROVAL GATE + 2 SUBMISSION COLUMNS ====
 -- Self-service teacher signup used to hand out working accounts. Teacher
 -- visibility is scoped by teachers.subject, so claiming an unused subject
 -- exposed every submission filed under it. Existing teachers are set to
@@ -37,7 +37,7 @@ ALTER TABLE submissions ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT 
 
 
 -- =====================================================================
--- ==== RUN 2 of 5 - REMAINING STORAGE COLUMNS + UPLOAD SESSIONS ====
+-- ==== RUN 2 of 6 - REMAINING STORAGE COLUMNS + UPLOAD SESSIONS ====
 -- upload_sessions is queried by every ajax_upload_* endpoint and was absent
 -- from the schema entirely, so resumable uploads were hard-failing.
 -- =====================================================================
@@ -72,7 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_upload_sessions_expires ON upload_sessions (expir
 
 
 -- =====================================================================
--- ==== RUN 3 of 5 - SUBMISSION AND ASSIGNMENT INDEXES ====
+-- ==== RUN 3 of 6 - SUBMISSION AND ASSIGNMENT INDEXES ====
 -- teacher_id had no supporting index at all, so the teacher dashboard and
 -- both download endpoints were a sequential scan plus a sort per request.
 -- =====================================================================
@@ -87,19 +87,10 @@ CREATE INDEX IF NOT EXISTS idx_posted_assignments_target_created ON posted_assig
 
 
 -- =====================================================================
--- ==== RUN 4 of 5 - REMAINING INDEXES + FOREIGN KEYS + JOBS COLUMNS ====
--- The MariaDB schema always had these constraints. PostgreSQL was missing
--- them, so deleted students left dangling submissions and notifications.
--- ON DELETE CASCADE removes a student's notifications with the account.
--- ON DELETE SET NULL keeps a submission but detaches it from a deleted
--- student or teacher. RUN 1 already proved there are no orphan rows.
---
+-- ==== RUN 4 of 6 - REMAINING INDEXES + JOBS COLUMNS ====
 -- The three jobs columns are added because an existing jobs table predates
 -- the current schema and lacks them. Only jobs.status is read by the running
--- code, so this is for schema consistency rather than a live breakage.
---
--- Note: the ADD CONSTRAINT lines are plain and will error if they already
--- exist. Skip those five if you have run this block before.
+-- code, so this is schema consistency rather than a live breakage.
 -- =====================================================================
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications (user_id) WHERE is_read = FALSE;
@@ -108,6 +99,19 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs (status, created_at);
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS type VARCHAR(50) NOT NULL DEFAULT 'unknown';
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS payload TEXT NOT NULL DEFAULT '{}';
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS error_message TEXT;
+
+
+-- =====================================================================
+-- ==== RUN 5 of 6 - FOREIGN KEYS ====
+-- The MariaDB schema always had these constraints. PostgreSQL was missing
+-- them, so deleted students left dangling submissions and notifications.
+-- ON DELETE CASCADE removes a student's notifications with the account.
+-- ON DELETE SET NULL keeps a submission but detaches it from a deleted
+-- student or teacher. The earlier pre-flight proved there are no orphan rows.
+--
+-- Note: these five are plain ADD CONSTRAINT with no IF NOT EXISTS equivalent,
+-- so they will error if they already exist. Skip this block in that case.
+-- =====================================================================
 ALTER TABLE submissions ADD CONSTRAINT submissions_fk_student FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE SET NULL;
 ALTER TABLE submissions ADD CONSTRAINT submissions_fk_teacher FOREIGN KEY (teacher_id) REFERENCES teachers (id) ON DELETE SET NULL;
 ALTER TABLE submissions ADD CONSTRAINT submissions_fk_assignment FOREIGN KEY (assignment_id) REFERENCES posted_assignments (id) ON DELETE SET NULL;
@@ -116,7 +120,7 @@ ALTER TABLE notifications ADD CONSTRAINT notifications_fk_user FOREIGN KEY (user
 
 
 -- =====================================================================
--- ==== RUN 5 of 5 - VERIFICATION ====
+-- ==== RUN 6 of 6 - VERIFICATION ====
 -- Every result must say ok. Then confirm nothing was lost.
 -- =====================================================================
 SELECT 'teachers.status column' AS check, CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'teachers' AND column_name = 'status') THEN 'ok' ELSE 'FAILED' END AS result
