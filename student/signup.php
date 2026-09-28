@@ -34,17 +34,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             $conn = getDBConnection();
-            // OR is correct here: an LRN identifies one student and an email
-            // identifies one student, and they are checked independently. The
-            // email side is normalised, because comparing raw values let
-            // Address@school.com register alongside address@school.com.
-            $check = $conn->prepare(
-                'SELECT id FROM students WHERE lrn = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?))'
-            );
-            $check->execute([$lrn, $email]);
+            // Only the LRN identifies a student. The email is not unique and
+            // must not be: siblings routinely share a family or guardian
+            // mailbox, and checking it here would stop a second child from
+            // ever being registered. Password reset is unaffected -- the token
+            // is bound to the account, not to the address it was mailed to.
+            $check = $conn->prepare('SELECT id FROM students WHERE lrn = ?');
+            $check->execute([$lrn]);
 
             if ($check->get_result()->num_rows() > 0) {
-                $error = "An account with this LRN or email already exists.";
+                $error = "An account with this LRN already exists.";
             } else {
                 $stmt = $conn->prepare("INSERT INTO students (lrn, name, email, grade_level, section, strand, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$lrn, $name, $email, $grade_level, $section, $strand, $hashed_password]);
@@ -59,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sqlState = (string) $exception->getCode();
             $driverCode = isset($exception->errorInfo[1]) ? (int) $exception->errorInfo[1] : 0;
             if ($sqlState === '23505' || $driverCode === 1062) {
-                $error = "An account with this LRN or email already exists.";
+                $error = "An account with this LRN already exists.";
             } else {
                 error_log('Student registration failed: ' . $exception->getMessage());
                 $error = "Registration could not be completed. Please try again.";
