@@ -65,6 +65,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'identifier' => $identifier,
                 ]);
                 $notice = $neutralNotice;
+            } elseif (!auth_mail_configured()) {
+                // Checked before a token is minted, so an unconfigured
+                // deployment does not accumulate single-use tokens nobody can
+                // ever redeem, and does not burn the user's rate-limit budget
+                // on a request that was never going to succeed.
+                auth_rate_limit_failure($conn, $buckets);
+                auth_record_event($conn, 'password_reset_request', 'mail_unconfigured', [
+                    'user_role' => $role,
+                    'user_id' => $account['id'],
+                    'identifier' => $identifier,
+                ]);
+                // Deliberately distinct from a transient send failure further
+                // down. A missing relay cannot be retried away, and telling
+                // the user to "try again later" sends them in circles while
+                // the operator has no idea the feature is switched off.
+                $error = 'Password reset email is not configured on this portal. '
+                    . 'Please contact the portal administrator.';
             } else {
                 $token = auth_issue_token($conn, 'password_reset', $role, $account['id']);
 
@@ -110,6 +127,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'user_id' => $account['id'],
                             'identifier' => $identifier,
                         ]);
+                        // Mail IS configured, so this is a relay-side problem:
+                        // bad credentials, a rejected sender, a rate limit.
+                        // Retrying is genuinely worth suggesting here.
                         $error = 'We could not send the reset email right now. Please try again later, '
                             . 'or contact the portal administrator.';
                     }
