@@ -497,6 +497,34 @@ same(
     count($withoutVerified['params'])
 );
 
+// A teacher holds one row per subject sharing an email, and a password that
+// differed between them would contradict what they were told they had set.
+$teacherScope = auth_password_reset_update('teachers', 'HASH', 3, false, 'Teacher@School.com');
+same(
+    'a teacher reset is scoped across every subject row',
+    'UPDATE teachers SET password = ? WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))',
+    $teacherScope['sql']
+);
+check(
+    'the teacher scope is case-insensitive',
+    str_contains($teacherScope['sql'], 'LOWER(TRIM(email))')
+);
+check('the scope binds the email, not the id', $teacherScope['params'][1] === 'Teacher@School.com');
+same(
+    'placeholder count matches for the scoped variant',
+    substr_count($teacherScope['sql'], '?'),
+    count($teacherScope['params'])
+);
+
+// Students share emails with siblings, so their reset must never be scoped by
+// email or a sibling's password would change as a side effect.
+$studentScope = auth_password_reset_update('students', 'HASH', 3, false, null);
+check(
+    'a student reset is never scoped by email',
+    str_contains($studentScope['sql'], 'WHERE id = ?')
+);
+check('a student reset binds the row id', $studentScope['params'][1] === 3);
+
 // ---------------------------------------------------------------------
 
 if ($failures !== []) {

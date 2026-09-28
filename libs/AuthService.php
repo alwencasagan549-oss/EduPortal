@@ -486,9 +486,18 @@ function auth_password_hash(string $password): string
  * Returning both together, with the id always appended last, makes the
  * mismatch unrepresentable.
  *
+ * A teacher holds one row per subject, all sharing an email and a password,
+ * and thinks of that as a single set of credentials. Resetting on one subject
+ * only would leave the others on the old password, so a teacher reset is
+ * applied across every row with that email.
+ *
+ * Students are deliberately NOT scoped this way. Their emails are explicitly
+ * not unique -- siblings share a family mailbox -- so matching on email would
+ * reset a sibling's password as a side effect.
+ *
  * @return array{sql: string, params: array}
  */
-function auth_password_reset_update(string $table, string $hashed, int $userId, bool $setVerified): array
+function auth_password_reset_update(string $table, string $hashed, int $userId, bool $setVerified, ?string $scopeEmail = null): array
 {
     $assignments = ['password = ?'];
     $params = [$hashed];
@@ -498,10 +507,14 @@ function auth_password_reset_update(string $table, string $hashed, int $userId, 
         $params[] = auth_now();
     }
 
-    $params[] = $userId;
+    $scope = $scopeEmail === null
+        ? 'WHERE id = ?'
+        : 'WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))';
+
+    $params[] = $scopeEmail ?? $userId;
 
     return [
-        'sql' => 'UPDATE ' . $table . ' SET ' . implode(', ', $assignments) . ' WHERE id = ?',
+        'sql' => 'UPDATE ' . $table . ' SET ' . implode(', ', $assignments) . ' ' . $scope,
         'params' => $params,
     ];
 }

@@ -83,7 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $table,
                             $hashed,
                             $userId,
-                            auth_column_exists($conn, $table, 'email_verified_at')
+                            auth_column_exists($conn, $table, 'email_verified_at'),
+                            // Teachers hold one row per subject sharing an
+                            // email, and a password that differed between
+                            // them would contradict what they were told. They
+                            // are reset together. Students share emails with
+                            // siblings, so theirs stay scoped to the row.
+                            $role === 'teacher' ? (string) $account['email'] : null
                         );
 
                         $stmt = $conn->prepare($update['sql']);
