@@ -48,12 +48,13 @@ $genericError = 'No matching passkey was found on this device. Use your password
 // account's credentials. Without it, the authenticator resolves the account
 // from the discoverable credential it already holds, so the user can sign in
 // with a passkey alone.
-$wantsScoped = $identifier !== '' && ($role === 'student' || $subject !== '');
-
-// A teacher is one person holding several subject rows, so the credential
-// alone cannot say which of their roles to enter. Requiring the subject here
-// rejects it before a challenge is minted, rather than after the user has
-// already answered for their fingerprint.
+// Both roles must identify themselves before a credential is accepted:
+//
+//   student  the LRN names the account
+//   teacher  the subject picks which of their subject rows to enter
+//
+// Refusing here means no challenge is minted, so the user is told before
+// reaching for their phone rather than after answering for their fingerprint.
 if ($role === 'teacher' && $subject === '') {
     http_response_code(422);
     echo json_encode([
@@ -62,6 +63,17 @@ if ($role === 'teacher' && $subject === '') {
     ]);
     exit();
 }
+
+if ($role === 'student' && $identifier === '') {
+    http_response_code(422);
+    echo json_encode([
+        'error' => 'Enter your LRN, then use your passkey.',
+        'csrf_token' => csrf_token(),
+    ]);
+    exit();
+}
+
+$wantsScoped = true;
 
 // Unauthenticated endpoint that mints a challenge on every call, so it stays
 // throttled. The IP bucket is always present because the discoverable path has
@@ -80,24 +92,27 @@ if ($lockedFor !== null && $lockedFor > 0) {
     exit();
 }
 
-$account = null;
-if ($wantsScoped) {
-    $account = $role === 'student'
-        ? auth_find_student($conn, $identifier)
-        : auth_find_teacher($conn, $identifier, $subject);
-}
+$account = $role === 'student'
+    ? auth_find_student($conn, $identifier)
+    : auth_find_teacher($conn, $identifier, $subject);
 
-$started = webauthn_begin_authentication($conn, $role, $wantsScoped ? $account : null);
+// An identifier that does not resolve is a failure, not a reason to fall back
+// to a discoverable ceremony. Falling back would let a mistyped LRN silently
+// sign in as whichever account the device happened to hold, which is the one
+// thing requiring the identifier is meant to prevent.
+$started = $account === null
+    ? null
+    : webauthn_begin_authentication($conn, $role, $account);
 
 if ($started === null) {
     auth_rate_limit_failure($conn, $buckets);
     auth_record_event($conn, 'login', 'passkey_unavailable', [
         'user_role' => $role,
-        'identifier' => $wantsScoped ? $identifier : null,
-        'detail' => webauthn_last_error(),
+        'identifier' => $identifier,
+        'detail' => $account === null ? 'the identifier did not resolve to an account' : webauthn_last_error(),
     ]);
-    // Identical whether the account is unknown, has no passkey, or the caller
-    // simply supplied nothing, so this cannot be used to probe for accounts.
+    // Identical for an unknown account and for one with no passkey, so this
+    // cannot be used to probe for accounts.
     http_response_code(404);
     echo json_encode(['error' => $genericError, 'csrf_token' => csrf_token()]);
     exit();
