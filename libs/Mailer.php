@@ -21,6 +21,19 @@
  *   SMTP_FROM         verified sender address
  *   SMTP_FROM_NAME    display name
  *
+ *   MAIL_TRANSPORT    'smtp' (default) or 'api'
+ *   BREVO_API_KEY     Brevo v3 API key, required by the 'api' transport
+ *
+ * Two transports exist because of a hosting constraint, not a preference.
+ * Render's free web services block outbound traffic to SMTP ports 25, 465 and
+ * 587 (changelog, 16 September 2025), so an SMTP relay simply cannot be
+ * reached from a free instance -- the connection fails before any
+ * authentication is attempted. Their REST API is reached over HTTPS on 443,
+ * which is permitted, so the same provider and the same credentials are
+ * reachable by switching transport. SMTP remains the default so nothing
+ * changes for a host that allows it, and a paid Render instance can go back
+ * to it by setting MAIL_TRANSPORT=smtp.
+ *
  * When mail is disabled, auth_send_mail() returns false rather than silently
  * succeeding, and the reset flow reports the failure instead of leaking the
  * token into the response.
@@ -40,18 +53,37 @@ function auth_mail_enabled(): bool
     return strtolower((string) (getenv('MAIL_ENABLED') ?: '0')) === '1';
 }
 
+/**
+ * 'api' or 'smtp'. Anything unrecognised falls back to smtp rather than
+ * silently doing nothing.
+ */
+function auth_mail_transport(): string
+{
+    $transport = strtolower(trim((string) (getenv('MAIL_TRANSPORT') ?: 'smtp')));
+    return $transport === 'api' ? 'api' : 'smtp';
+}
+
 function auth_mail_configured(): bool
 {
     if (!auth_mail_enabled()) {
         return false;
     }
 
+    $from = (string) (getenv('SMTP_FROM') ?: '');
+    if ($from === '') {
+        return false;
+    }
+
+    if (auth_mail_transport() === 'api') {
+        // No Composer dependency and no relay host: just the API key.
+        return (string) (getenv('BREVO_API_KEY') ?: '') !== '';
+    }
+
     if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
         return false;
     }
 
-    return (string) (getenv('SMTP_HOST') ?: '') !== ''
-        && (string) (getenv('SMTP_FROM') ?: '') !== '';
+    return (string) (getenv('SMTP_HOST') ?: '') !== '';
 }
 
 /**
@@ -95,7 +127,14 @@ function auth_normalise_email_address(string $address): string
 function auth_send_mail(string $to, string $subject, string $html, string $text): bool
 {
     if (!auth_mail_configured()) {
-        auth_record_mail_error('mail is not configured: check MAIL_ENABLED, SMTP_HOST and the Composer install');
+        // Name the variables that actually apply to the selected transport.
+        // Telling an operator to check SMTP_HOST while they are running the
+        // API transport sends them to the wrong place entirely.
+        $hint = auth_mail_transport() === 'api'
+            ? 'mail is not configured: check MAIL_ENABLED, SMTP_FROM and BREVO_API_KEY'
+            : 'mail is not configured: check MAIL_ENABLED, SMTP_HOST, SMTP_FROM and the Composer install';
+
+        auth_record_mail_error($hint);
         error_log('EduPortal mail skipped: ' . auth_last_mail_error());
         return false;
     }
@@ -106,6 +145,10 @@ function auth_send_mail(string $to, string $subject, string $html, string $text)
         auth_record_mail_error('invalid recipient address: ' . $to);
         error_log('EduPortal mail skipped: ' . auth_last_mail_error());
         return false;
+    }
+
+    if (auth_mail_transport() === 'api') {
+        return auth_send_mail_via_api($to, $subject, $html, $text);
     }
 
     try {
@@ -168,4 +211,75 @@ function auth_send_mail(string $to, string $subject, string $html, string $text)
         error_log('EduPortal mail send failed: ' . auth_last_mail_error());
         return false;
     }
+}
+
+/**
+ * Sends through Brevo's REST API instead of its SMTP relay.
+ *
+ * Exists because a free Render instance cannot reach SMTP ports at all, and
+ * the same failure looks identical to a credential problem from the outside.
+ * The API is plain HTTPS on 443, so it is reachable, and it reports errors
+ * in a JSON body rather than an SMTP reply line.
+ */
+function auth_send_mail_via_api(string $to, string $subject, string $html, string $text): bool
+{
+    $apiKey = trim((string) (getenv('BREVO_API_KEY') ?: ''));
+    if ($apiKey === '') {
+        auth_record_mail_error('MAIL_TRANSPORT=api but BREVO_API_KEY is not set');
+        error_log('EduPortal mail skipped: ' . auth_last_mail_error());
+        return false;
+    }
+
+    if (!function_exists('curl_init')) {
+        auth_record_mail_error('the curl extension is not available for the API transport');
+        error_log('EduPortal mail skipped: ' . auth_last_mail_error());
+        return false;
+    }
+
+    $payload = [
+        'sender' => [
+            'name' => (string) (getenv('SMTP_FROM_NAME') ?: 'EduPortal LMS'),
+            'email' => (string) getenv('SMTP_FROM'),
+        ],
+        'to' => [['email' => $to]],
+        'subject' => $subject,
+        'htmlContent' => $html,
+        'textContent' => $text,
+    ];
+
+    $handle = curl_init('https://api.brevo.com/v3/smtp/email');
+    curl_setopt_array($handle, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'accept: application/json',
+            'api-key: ' . $apiKey,
+        ],
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 20,
+    ]);
+
+    $body = curl_exec($handle);
+    $transportError = curl_error($handle);
+    $status = (int) curl_getinfo($handle, CURLINFO_HTTP_CODE);
+    curl_close($handle);
+
+    if ($body === false) {
+        auth_record_mail_error('Brevo API unreachable: ' . $transportError);
+        error_log('EduPortal mail send failed: ' . auth_last_mail_error());
+        return false;
+    }
+
+    if ($status < 200 || $status >= 300) {
+        // The body names the field that failed, which is far more useful than
+        // a bare status code: "unauthorized" and "sender not verified" look
+        // identical from the outside.
+        auth_record_mail_error('Brevo API returned ' . $status . ': ' . (string) $body);
+        error_log('EduPortal mail send failed: ' . auth_last_mail_error());
+        return false;
+    }
+
+    return true;
 }

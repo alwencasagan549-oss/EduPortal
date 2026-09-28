@@ -387,6 +387,51 @@ check(
 auth_record_mail_error(str_repeat('x', 900));
 check('the recorded error is length bounded', strlen(auth_last_mail_error()) <= 300);
 
+// Transport selection. A free Render instance cannot reach SMTP ports 25, 465
+// or 587 at all, so the API transport exists to go over HTTPS instead. The
+// default must stay 'smtp' so a host that allows it is unaffected.
+putenv('MAIL_TRANSPORT');
+putenv('BREVO_API_KEY');
+same('the default transport is smtp', 'smtp', auth_mail_transport());
+
+putenv('MAIL_TRANSPORT=api');
+same('api is selected explicitly', 'api', auth_mail_transport());
+
+putenv('MAIL_TRANSPORT=API');
+same('transport matching is case insensitive', 'api', auth_mail_transport());
+
+putenv('MAIL_TRANSPORT=carrier-pigeon');
+same('an unknown transport falls back to smtp', 'smtp', auth_mail_transport());
+
+putenv('MAIL_TRANSPORT=');
+same('an empty transport falls back to smtp', 'smtp', auth_mail_transport());
+
+// The API transport must not depend on the SMTP host or the Composer package.
+putenv('MAIL_ENABLED=1');
+putenv('MAIL_TRANSPORT=api');
+putenv('SMTP_FROM=noreply@reesnhs.l.cd');
+putenv('SMTP_HOST=');
+
+putenv('BREVO_API_KEY=');
+same('the api transport without a key is not configured', false, auth_mail_configured());
+
+putenv('BREVO_API_KEY=xkeysib-not-a-real-key');
+same('the api transport needs no relay host', true, auth_mail_configured());
+
+// A missing key is a configuration error, not a silent no-op.
+putenv('BREVO_API_KEY=');
+auth_send_mail('a@b.com', 'subject', '<p>x</p>', 'x');
+check(
+    'a missing API key is reported rather than ignored',
+    str_contains(auth_last_mail_error(), 'BREVO_API_KEY')
+);
+
+putenv('MAIL_TRANSPORT');
+putenv('MAIL_ENABLED');
+putenv('BREVO_API_KEY');
+putenv('SMTP_HOST');
+putenv('SMTP_FROM');
+
 // Gating: with no relay configured the mailer must refuse, never report a
 // send it did not perform.
 same('an unconfigured relay reports unavailable', false, auth_mail_configured());
