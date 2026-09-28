@@ -134,8 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <i class="fas fa-fingerprint"></i> Sign in with a passkey
             </button>
             <p style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.6rem;">
-                Teaching more than one subject? Fill in the subject above first, and your
-                passkey will sign you in as that subject.
+                Enter the subject above first. You teach more than one subject, so
+                your passkey needs to know which one you are signing in as.
             </p>
             <p id="passkey-login-status" role="status" aria-live="polite" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;"></p>
         </div>
@@ -177,11 +177,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // is a first-class sign-in method, not something that appears only
         // once the identifier happens to be typed.
         //
-        // Fields are used when present, because scoping the ceremony to the
-        // account is more precise and also works for credentials that are not
-        // discoverable. Left empty, the passkey identifies the account on its
-        // own, which is how passkey sign-in is normally experienced.
+        // The subject is required. A teacher is one person holding several
+        // subject rows, so the credential cannot say which of their roles to
+        // enter; without it they would land on whichever row they enrolled
+        // from. The server enforces this too -- this is only to say so before
+        // the user reaches for their phone.
         button.addEventListener('click', async () => {
+            if (subject.value.trim() === '') {
+                status.textContent = 'Enter the subject you are signing in as, then use your passkey.';
+                subject.focus();
+                return;
+            }
+
             button.disabled = true;
             status.textContent = 'Follow your device prompt...';
 

@@ -50,6 +50,19 @@ $genericError = 'No matching passkey was found on this device. Use your password
 // with a passkey alone.
 $wantsScoped = $identifier !== '' && ($role === 'student' || $subject !== '');
 
+// A teacher is one person holding several subject rows, so the credential
+// alone cannot say which of their roles to enter. Requiring the subject here
+// rejects it before a challenge is minted, rather than after the user has
+// already answered for their fingerprint.
+if ($role === 'teacher' && $subject === '') {
+    http_response_code(422);
+    echo json_encode([
+        'error' => 'Enter the subject you are signing in as, then use your passkey.',
+        'csrf_token' => csrf_token(),
+    ]);
+    exit();
+}
+
 // Unauthenticated endpoint that mints a challenge on every call, so it stays
 // throttled. The IP bucket is always present because the discoverable path has
 // no account to key on; it is deliberately loose, since a campus shares one
