@@ -9,6 +9,15 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $error = '';
 
+// Someone already signed in has no use for this form, and leaving it on screen
+// invites exactly the confusion the passkey endpoint guards against: clicking
+// sign in with a passkey while holding a session for a different account.
+// Send them where they actually belong.
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && isLoggedIn()) {
+    header('Location: dashboard.php');
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $conn = getDBConnection();
 
