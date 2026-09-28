@@ -51,8 +51,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $errors[] = "Essential fields are required.";
     }
 
-    // Check email uniqueness but allow same email for different subject (per previous requirements)
-    $stmt = $conn->prepare("SELECT id FROM teachers WHERE email = ? AND subject = ? AND id != ?");
+    // Unique per (email, subject), which is what lets one teacher hold several
+    // rows sharing an email. Normalised so a case or whitespace variant of an
+    // existing combination is caught rather than slipping past.
+    $stmt = $conn->prepare(
+        "SELECT id FROM teachers
+         WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+           AND LOWER(TRIM(subject)) = LOWER(TRIM(?))
+           AND id != ?"
+    );
     $stmt->execute([$email, $subject, $teacher_id]);
     if ($stmt->get_result()->num_rows() > 0) {
         $errors[] = "An account with this email for this subject already exists.";

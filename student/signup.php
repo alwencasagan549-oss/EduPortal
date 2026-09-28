@@ -34,7 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             $conn = getDBConnection();
-            $check = $conn->prepare("SELECT id FROM students WHERE lrn = ? OR email = ?");
+            // OR is correct here: an LRN identifies one student and an email
+            // identifies one student, and they are checked independently. The
+            // email side is normalised, because comparing raw values let
+            // Address@school.com register alongside address@school.com.
+            $check = $conn->prepare(
+                'SELECT id FROM students WHERE lrn = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?))'
+            );
             $check->execute([$lrn, $email]);
 
             if ($check->get_result()->num_rows() > 0) {
