@@ -370,6 +370,8 @@ function webauthn_user_handle($conn, string $role, $userId): ?string
 function webauthn_issue_challenge($conn, string $purpose, ?string $role, ?int $userId): ?string
 {
     if (!auth_table_exists($conn, 'webauthn_challenges')) {
+        webauthn_record_error('the webauthn_challenges table is not present in the database');
+        error_log('EduPortal WebAuthn challenge blocked: ' . webauthn_last_error());
         return null;
     }
 
@@ -396,7 +398,10 @@ function webauthn_issue_challenge($conn, string $purpose, ?string $role, ?int $u
             gmdate('Y-m-d H:i:s', $now + WEBAUTHN_CHALLENGE_TTL),
         ]);
     } catch (Throwable $exception) {
+        // The insert failing is a different problem from the table being
+        // absent, and reporting them as one thing sent the diagnosis nowhere.
         error_log('EduPortal WebAuthn challenge issue failed: ' . $exception->getMessage());
+        webauthn_record_error('the challenge could not be stored: ' . $exception->getMessage());
         return null;
     }
 
@@ -572,7 +577,6 @@ function webauthn_begin_registration($conn, string $role, $userId, array $accoun
 
     $challenge = webauthn_issue_challenge($conn, 'register', $role, (int) $userId);
     if ($challenge === null) {
-        webauthn_record_error('registration cannot start: no challenge issued; the webauthn_challenges table may be missing');
         error_log('EduPortal WebAuthn registration blocked: ' . webauthn_last_error());
         return null;
     }
