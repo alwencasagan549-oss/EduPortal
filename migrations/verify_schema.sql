@@ -137,6 +137,8 @@ SELECT tablename, indexname, pg_size_pretty(pg_relation_size(indexname::regclass
                       'students','teachers','jobs','upload_sessions',
                       'auth_events','auth_rate_limits','auth_tokens',
                       'passkeys','webauthn_challenges')
+    AND (indexname ILIKE '%unique%' OR indexname LIKE 'idx_passkeys%'
+         OR indexname LIKE 'idx_webauthn%' OR indexname LIKE 'idx_auth%')
  ORDER BY tablename, indexname;
 
 -- 2b. Foreign keys. Expect 3 on submissions, 1 on posted_assignments,
