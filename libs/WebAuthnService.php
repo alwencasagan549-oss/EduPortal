@@ -81,7 +81,20 @@ final class EduPortalSignCounterChecker implements CounterChecker
 {
     public function check(CredentialRecord $credentialRecord, int $currentCounter): void
     {
+        // Synced passkey, WebAuthn L3 6.1.3: a multi-device credential
+        // reports a permanently zero counter, and iCloud Keychain and Google
+        // Password Manager both do.
         if ($credentialRecord->backupStatus === true) {
+            return;
+        }
+
+        // A zero counter carries no information. It is indistinguishable from
+        // an authenticator that simply does not maintain one, and several
+        // platform authenticators never increment it. Rejecting on a
+        // non-increasing pair of zeros would lock those users out of their own
+        // accounts, which is why the library's default checker skips
+        // enforcement whenever either side is zero.
+        if ($credentialRecord->counter === 0 || $currentCounter === 0) {
             return;
         }
 
