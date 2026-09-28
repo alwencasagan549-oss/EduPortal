@@ -90,8 +90,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     if (empty($errors)) {
         if (!empty($new_password)) {
             $hashed = auth_password_hash($new_password);
-            $stmt = $conn->prepare("UPDATE teachers SET name = ?, email = ?, subject = ?, password = ? WHERE id = ?");
-            $stmt->execute([$name, $email, $subject, $hashed, $teacher_id]);
+
+            // A teacher holds one row per subject, all sharing an email and a
+            // password, and a password that differed between subjects would
+            // contradict what they were just told they had set. The change is
+            // applied across every row under the account's existing email.
+            //
+            // The name, email and subject edits stay scoped to this row: a
+            // teacher may legitimately hold several subjects, and changing
+            // one must not rename the others.
+            $stmt = $conn->prepare(
+                "UPDATE teachers SET name = ?, email = ?, subject = ?, password = ?
+                 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))"
+            );
+            $stmt->execute([$name, $email, $subject, $hashed, $teacher['email'] ?? $email]);
         } else {
             $stmt = $conn->prepare("UPDATE teachers SET name = ?, email = ?, subject = ? WHERE id = ?");
             $stmt->execute([$name, $email, $subject, $teacher_id]);
