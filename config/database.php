@@ -282,6 +282,30 @@ class EduPortalResult {
         return $this->stmt->fetchAll($style);
     }
 
+    /**
+     * Single-column read, mirroring EduPortalStmt::fetchColumn() so callers
+     * can reach for either the statement or its result wrapper.
+     *
+     * This method was missing, and the omission was invisible: every call
+     * threw "Call to undefined method", which is an Error and therefore a
+     * Throwable, so the surrounding catch (Throwable) in the passkey code
+     * swallowed it and every caller fell through with a zero value. The step-up
+     * password check then rejected the correct password with a 403, and every
+     * ceremony reported itself expired. Any method the application calls on
+     * this wrapper has to exist here, not just on the statement.
+     */
+    public function fetchColumn($column = 0) {
+        if ($this->cached_rows !== null) {
+            $row = $this->cached_rows[$this->cursor] ?? null;
+            $this->cursor++;
+            if ($row === null) {
+                return false;
+            }
+            return $row[is_int($column) ? $column : (string) $column] ?? false;
+        }
+        return $this->stmt->fetchColumn($column);
+    }
+
     public function num_rows() {
         if ($this->cached_rows === null) {
             $this->cached_rows = $this->stmt->fetchAll(PDO::FETCH_ASSOC);

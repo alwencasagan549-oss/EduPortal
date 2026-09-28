@@ -217,6 +217,96 @@
             });
         },
 
+        /**
+         * Wires step-up password confirmation plus passkey creation to a
+         * container, so the enrolment ceremony is implemented once and shared
+         * by the profile panel and the dashboard reminder.
+         *
+         * Expects these data attributes inside root:
+         *   data-passkey-start    button that reveals the step-up
+         *   data-passkey-stepup   container revealed for the password
+         *   data-passkey-password password input
+         *   data-passkey-confirm  button that runs the ceremony (optional)
+         *   data-passkey-cancel   button that closes the step-up (optional)
+         *   data-passkey-status   live region for feedback
+         */
+        mountEnroller(root, { endpoints, onDone }) {
+            const query = selector => root.querySelector(selector);
+            const status = query('[data-passkey-status]');
+            const stepup = query('[data-passkey-stepup]');
+            const password = query('[data-passkey-password]');
+            const start = query('[data-passkey-start]');
+            const confirm = query('[data-passkey-confirm]');
+            const cancel = query('[data-passkey-cancel]');
+
+            if (!window.EduPortalWebAuthn.isSupported() || !status || !stepup || !password || !start) {
+                return null;
+            }
+
+            let busy = false;
+
+            const say = (message, kind) => {
+                status.textContent = message;
+                status.style.display = message ? 'block' : 'none';
+                status.className = 'alert alert-' + (kind || 'info');
+            };
+
+            const open = () => {
+                say('');
+                password.value = '';
+                stepup.hidden = false;
+                start.disabled = true;
+                if (typeof password.focus === 'function') {
+                    password.focus();
+                }
+            };
+
+            const close = () => {
+                stepup.hidden = true;
+                start.disabled = false;
+                password.value = '';
+            };
+
+            start.addEventListener('click', open);
+            if (cancel) {
+                cancel.addEventListener('click', close);
+            }
+
+            if (confirm) {
+                confirm.addEventListener('click', async () => {
+                    // Guarded because a double click would otherwise start two
+                    // concurrent ceremonies, and the second would fail on a
+                    // challenge the first already consumed.
+                    if (busy) {
+                        return;
+                    }
+                    busy = true;
+                    confirm.disabled = true;
+                    say('Waiting for your device...', 'info');
+
+                    try {
+                        const result = await window.EduPortalWebAuthn.register({
+                            password: password.value,
+                            label: '',
+                            endpoints: endpoints
+                        });
+                        close();
+                        say('Passkey added. You can sign in with it from now on.', 'success');
+                        if (typeof onDone === 'function') {
+                            onDone(result);
+                        }
+                    } catch (error) {
+                        say(error.message || window.EduPortalWebAuthn.explain(error), 'danger');
+                    } finally {
+                        busy = false;
+                        confirm.disabled = false;
+                    }
+                });
+            }
+
+            return { open, close, say };
+        },
+
         async rename({ passkeyId, label, endpoints }) {
             return post(endpoints.rename, {
                 passkey_id: passkeyId,

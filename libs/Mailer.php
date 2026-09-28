@@ -76,6 +76,13 @@ function auth_send_mail(string $to, string $subject, string $html, string $text)
         $mail->Host = (string) getenv('SMTP_HOST');
         $mail->Port = (int) (getenv('SMTP_PORT') ?: 587);
 
+        // PHPMailer defaults to a 300 second timeout. If the host's outbound
+        // path to the relay stalls -- a blocked port 587 is the usual cause on
+        // a PaaS -- the request hangs for five minutes with the form's loader
+        // spinning. A password reset must fail fast and say so instead.
+        $mail->Timeout = (int) (getenv('SMTP_TIMEOUT') ?: 10);
+        $mail->SMTPKeepAlive = false;
+
         // PHPMailer 6.12 folded the ENCRYPTION_* constants onto the PHPMailer
         // class itself; there is no PHPMailer\SMTPSecure class in that release.
         // Written the old way this fatals inside the catch below, which

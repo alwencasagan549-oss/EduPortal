@@ -705,8 +705,18 @@ function webauthn_store_passkey($conn, string $role, $userId, CredentialRecord $
     $idStmt = $conn->prepare('SELECT id FROM passkeys WHERE credential_id = ? AND user_role = ? AND user_id = ?');
     $idStmt->execute([$credentialId, $role, (int) $userId]);
     $passkeyId = (int) ($idStmt->get_result()->fetchColumn() ?: 0);
+
     if ($passkeyId === 0) {
-        $passkeyId = (int) $conn->lastInsertId();
+        // The INSERT above succeeded, so the row exists; this only recovers the
+        // id when the lookup missed it. EduPortalDB exposes no lastInsertId(),
+        // and PDO's PostgreSQL driver cannot infer the sequence from an INSERT,
+        // so the sequence is named explicitly. Guarded because a miss here must
+        // not replace a successful enrolment with a fatal undefined-method call.
+        try {
+            $passkeyId = (int) $conn->getPDO()->lastInsertId('passkeys_id_seq');
+        } catch (Throwable $exception) {
+            error_log('EduPortal WebAuthn passkey id recovery failed: ' . $exception->getMessage());
+        }
     }
 
     return ['ok' => true, 'error' => '', 'passkey_id' => $passkeyId];
