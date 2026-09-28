@@ -372,6 +372,21 @@ check(
     filter_var(auth_normalise_email_address('<not-an-address>'), FILTER_VALIDATE_EMAIL) === false
 );
 
+// The relay's response is recorded so an operator can query it. It must never
+// carry an address back into the audit table.
+auth_record_mail_error('535 5.7.8 Authentication failed for alwencasagann@gmail.com');
+check('the last mail error is captured', auth_last_mail_error() !== '');
+check(
+    'addresses are redacted out of the recorded error',
+    !str_contains(auth_last_mail_error(), '@')
+);
+check(
+    'the diagnostic reason survives redaction',
+    str_contains(auth_last_mail_error(), '535')
+);
+auth_record_mail_error(str_repeat('x', 900));
+check('the recorded error is length bounded', strlen(auth_last_mail_error()) <= 300);
+
 // Gating: with no relay configured the mailer must refuse, never report a
 // send it did not perform.
 same('an unconfigured relay reports unavailable', false, auth_mail_configured());

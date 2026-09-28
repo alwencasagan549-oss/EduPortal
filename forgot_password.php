@@ -126,6 +126,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'user_role' => $role,
                             'user_id' => $account['id'],
                             'identifier' => $identifier,
+                            // The relay's own response, so an operator can read
+                            // why a send failed with a query instead of hunting
+                            // through a host log viewer. Credentials are
+                            // redacted before it ever gets here.
+                            'detail' => auth_last_mail_error(),
                         ]);
                         // Mail IS configured, so this is a relay-side problem:
                         // bad credentials, a rejected sender, a rate limit.
