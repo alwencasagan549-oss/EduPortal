@@ -59,7 +59,7 @@ AddType image/avif .avif
     Header always set X-Content-Type-Options nosniff
     Header always set X-Frame-Options DENY
     Header always set Referrer-Policy strict-origin-when-cross-origin
-    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), publickey-credentials-get=(self)"
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
     Header always set Cross-Origin-Opener-Policy "same-origin"
     Header always set Cross-Origin-Resource-Policy "same-site"

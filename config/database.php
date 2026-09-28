@@ -84,12 +84,59 @@ function bindSession(): void
     $_SESSION['_ip_fingerprint'] = session_fingerprint();
 }
 
+/**
+ * Session lifetime policy.
+ *
+ * session_expired.php tells users their session "expires after 30 minutes of
+ * inactivity", but nothing enforced that. The only bound was
+ * session.gc_maxlifetime (86400) in the Dockerfile, so a captured session
+ * cookie remained usable for 24 hours. These constants are the authoritative
+ * policy and are applied on every guarded request.
+ */
+define('AUTH_IDLE_TIMEOUT', 1800);      // 30 minutes without activity
+define('AUTH_ABSOLUTE_TIMEOUT', 43200); // 12 hours regardless of activity
+
+function auth_session_clear(): void
+{
+    $_SESSION = [];
+    session_regenerate_id(true);
+}
+
+/**
+ * Enforces the idle and absolute timeouts, then refreshes the activity stamp.
+ *
+ * Sessions created before this check existed carry no stamps; they are adopted
+ * as active now rather than treated as expired, so deploying this does not
+ * sign out everyone mid-lesson.
+ */
+function auth_session_active(): bool
+{
+    if (empty($_SESSION['user_id'])) {
+        return true;
+    }
+
+    $now = time();
+    $created = isset($_SESSION['_created_at']) ? (int) $_SESSION['_created_at'] : $now;
+    $lastActivity = isset($_SESSION['_last_activity']) ? (int) $_SESSION['_last_activity'] : $now;
+
+    if (($now - $lastActivity) >= AUTH_IDLE_TIMEOUT || ($now - $created) >= AUTH_ABSOLUTE_TIMEOUT) {
+        auth_session_clear();
+        return false;
+    }
+
+    $_SESSION['_last_activity'] = $now;
+
+    return true;
+}
+
 // Send HTTP security headers
 if (!headers_sent()) {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    // publickey-credentials-get is scoped to this origin so passkey ceremonies
+    // cannot be embedded or triggered from a third-party frame.
+    header('Permissions-Policy: geolocation=(), microphone=(), camera=(), publickey-credentials-get=(self)');
     header('Cache-Control: no-store, max-age=0');
     header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
     header('Cross-Origin-Opener-Policy: same-origin');
@@ -252,7 +299,13 @@ function getDBConnection() {
 }
 
 function isLoggedIn() {
-    return isset($_SESSION['user_id']) && verifySessionBinding();
+    if (empty($_SESSION['user_id'])) {
+        return false;
+    }
+    if (!auth_session_active()) {
+        return false;
+    }
+    return verifySessionBinding();
 }
 
 function requireLogin() {

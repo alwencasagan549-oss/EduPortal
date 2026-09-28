@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../libs/AuthService.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -25,7 +26,8 @@ $teacher = $stmt->get_result()->fetch_assoc();
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
-    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+    $csrf_valid = validate_csrf($_POST['csrf_token'] ?? '');
+    if (!$csrf_valid) {
         $error_msg = 'Invalid security token.';
     }
     $name = trim($_POST['name']);
@@ -34,13 +36,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
-    
+
     $errors = [];
-    
+
+    // A failed CSRF check must abort the write, not merely set a banner. The
+    // check used to set $error_msg and then fall through to the UPDATE below,
+    // so a cross-site POST still rewrote the account's name, email, subject
+    // and password.
+    if (!$csrf_valid) {
+        $errors[] = 'Invalid security token.';
+    }
+
     if (empty($name) || empty($email) || empty($subject)) {
         $errors[] = "Essential fields are required.";
     }
-    
+
     // Check email uniqueness but allow same email for different subject (per previous requirements)
     $stmt = $conn->prepare("SELECT id FROM teachers WHERE email = ? AND subject = ? AND id != ?");
     $stmt->execute([$email, $subject, $teacher_id]);
@@ -48,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $errors[] = "An account with this email for this subject already exists.";
     }
     $stmt->close();
-    
+
     if (!empty($new_password)) {
         if (empty($current_password)) {
             $errors[] = "Current password is required to set a new one.";
@@ -56,20 +66,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             $stmt = $conn->prepare("SELECT password FROM teachers WHERE id = ?");
             $stmt->execute([$teacher_id]);
             $stored_pass = $stmt->get_result()->fetch_assoc()['password'];
-            
+
             if (!password_verify($current_password, $stored_pass)) {
                 $errors[] = "Current password verification failed.";
             } elseif ($new_password !== $confirm_password) {
                 $errors[] = "New passwords do not match.";
-            } elseif (strlen($new_password) < 6) {
-                $errors[] = "Password must be at least 6 characters.";
+            } elseif (($policy_problem = auth_password_problem($new_password)) !== null) {
+                // Previously a bare 6-character minimum with no complexity,
+                // which was the only password path in the portal that skipped
+                // the signup rules.
+                $errors[] = $policy_problem;
             }
         }
     }
-    
+
     if (empty($errors)) {
         if (!empty($new_password)) {
-            $hashed = password_hash($new_password, PASSWORD_BCRYPT);
+            $hashed = auth_password_hash($new_password);
             $stmt = $conn->prepare("UPDATE teachers SET name = ?, email = ?, subject = ?, password = ? WHERE id = ?");
             $stmt->execute([$name, $email, $subject, $hashed, $teacher_id]);
         } else {
@@ -81,6 +94,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             $_SESSION['user_name'] = $name;
             $_SESSION['user_subject'] = $subject;
             $success_msg = "Account security and profile updated successfully.";
+
+            if (!empty($new_password)) {
+                // Any outstanding reset links are worthless once the owner has
+                // chosen a new password.
+                auth_revoke_tokens($conn, 'password_reset', 'teacher', $teacher_id);
+                auth_record_event($conn, 'password_changed', 'success', [
+                    'user_role' => 'teacher',
+                    'user_id' => $teacher_id,
+                ]);
+            }
 
             $teacher['name'] = $name;
             $teacher['email'] = $email;
@@ -94,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 }
 
 require_once __DIR__ . '/nav.php';
+require_once __DIR__ . '/../libs/passkey_panel.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -204,6 +228,8 @@ require_once __DIR__ . '/nav.php';
                             </a>
                         </div>
                     </form>
+
+                    <?php render_passkey_panel('..'); ?>
                 </div>
 
                 <!-- Profile Sidebar -->

@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../libs/AuthService.php';
 require_once '../libs/teacher_account.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -8,69 +9,25 @@ if (session_status() === PHP_SESSION_NONE) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Auth Shield: Throttling Logic
-    if (isset($_SESSION['login_timeout']) && time() < $_SESSION['login_timeout']) {
-        $wait = $_SESSION['login_timeout'] - time();
-        $error = "Too many failed attempts. Please wait $wait seconds.";
+    $conn = getDBConnection();
+
+    if (!validate_csrf($_POST['csrf_token'] ?? '')) {
+        auth_record_event($conn, 'login', 'csrf_failure', ['user_role' => 'teacher']);
+        $error = 'Invalid security token.';
     } else {
-        if (!validate_csrf($_POST['csrf_token'] ?? '')) {
-            $error = 'Invalid security token.';
-        } else {
-        $email = trim($_POST['email'] ?? '');
-        $subject = normalize_teacher_subject($_POST['subject'] ?? $_POST['teacher_type'] ?? '');
-        $password = $_POST['password'] ?? '';
+        $result = auth_attempt_password_login($conn, 'teacher', [
+            'identifier' => trim($_POST['email'] ?? ''),
+            'subject' => normalize_teacher_subject($_POST['subject'] ?? $_POST['teacher_type'] ?? ''),
+            'password' => $_POST['password'] ?? '',
+        ]);
 
-        $conn = getDBConnection();
-        $stmt = $conn->prepare("SELECT id, name, email, subject, password FROM teachers WHERE email = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?))");
-        $stmt->execute([$email, $subject]);
-        $result = $stmt->get_result();
-
-        $login_success = false;
-        $pending_status = null;
-        if ($result->num_rows() === 1) {
-            $teacher = $result->fetch_assoc();
-            if (password_verify($password, $teacher['password'])) {
-                $accountStatus = teacher_account_status($conn, $teacher['id']);
-                if ($accountStatus === 'approved') {
-                    $login_success = true;
-
-                    // Auth Shield: Regenerate Session for Security
-                    session_regenerate_id(true);
-                    bindSession();
-
-                    $_SESSION['user_id'] = $teacher['id'];
-                    $_SESSION['user_name'] = $teacher['name'];
-                    $_SESSION['user_email'] = $teacher['email'];
-                    $_SESSION['user_subject'] = $teacher['subject'];
-                    $_SESSION['user_role'] = 'teacher';
-
-                    // Clear attempts on success
-                    unset($_SESSION['login_attempts']);
-                    unset($_SESSION['login_timeout']);
-
-                    header('Location: dashboard.php');
-                    exit();
-                }
-
-                $pending_status = $accountStatus;
-            }
+        if ($result['ok']) {
+            auth_establish_session($result['account'], 'teacher');
+            header('Location: dashboard.php');
+            exit();
         }
 
-        if (!$login_success) {
-            // Auth Shield: 5-Strike Throttling
-            $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
-            if ($pending_status !== null) {
-                // Credentials were correct; do not consume a strike for an approval hold.
-                $_SESSION['login_attempts']--;
-                $error = teacher_account_status_message($pending_status);
-            } elseif ($_SESSION['login_attempts'] >= 5) {
-                $_SESSION['login_timeout'] = time() + 60; // 60-second cooldown
-                $error = "Too many failed attempts. Please wait 60 seconds.";
-            } else {
-                $error = "Invalid Email or Password."; // Generic Error
-            }
-        }
-        }
+        $error = $result['error'];
     }
 }
 ?>
@@ -103,6 +60,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h1 class="auth-title">Teacher Portal</h1>
             <p class="auth-subtitle">Welcome back, educator!</p>
         </div>
+
+        <?php if (isset($_GET['reset']) && $_GET['reset'] === '1'): ?>
+            <div class="alert alert-success">
+                <i class="fas fa-circle-check"></i>
+                <div>Your password has been updated. Sign in with your new password.</div>
+            </div>
+            <?php if (isset($_GET['passkeys']) && (int) $_GET['passkeys'] > 0): ?>
+                <div class="alert alert-warning">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <div>
+                        For your security, <?php echo (int) $_GET['passkeys']; ?>
+                        passkey<?php echo (int) $_GET['passkeys'] === 1 ? ' was' : 's were'; ?> removed.
+                        Sign in and add a passkey again from your profile page.
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
 
         <?php if ($error): ?>
             <div class="alert alert-danger">
@@ -137,7 +111,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="premium-btn" style="width: 100%; justify-content: center; padding: 1rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
                 <i class="fas fa-right-to-bracket"></i> Login to Dashboard
             </button>
+
+            <p style="text-align: center; margin-top: 1rem;">
+                <a href="../forgot_password.php?role=teacher" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">
+                    <i class="fas fa-key"></i> Forgot your password?
+                </a>
+            </p>
         </form>
+
+        <div id="passkey-login" hidden style="margin-top: 1.25rem; text-align: center;">
+            <button type="button" id="passkey-login-button" class="premium-btn premium-btn-outline" style="width: 100%; justify-content: center;">
+                <i class="fas fa-fingerprint"></i> Sign in with a passkey
+            </button>
+            <p id="passkey-login-status" role="status" aria-live="polite" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;"></p>
+        </div>
 
         <div style="margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem; text-align: center;">
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">New faculty member?</p>
@@ -155,6 +142,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="../assets/js/trusted_types.js"></script>
     <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
+    <script src="../assets/js/webauthn.js"></script>
     <script src="../assets/js/pwa.js"></script>
+    <script>
+    (() => {
+        const wrapper = document.getElementById('passkey-login');
+        const button = document.getElementById('passkey-login-button');
+        const status = document.getElementById('passkey-login-status');
+        const email = document.getElementById('email');
+        const subject = document.getElementById('subject');
+
+        if (!wrapper || typeof window.EduPortalWebAuthn === 'undefined' || !window.EduPortalWebAuthn.isSupported()) {
+            return;
+        }
+
+        const api = window.EduPortalWebAuthn;
+        api.init(<?php echo json_encode(csrf_token()); ?>);
+
+        // Teachers sign in by email AND subject, so both are needed before a
+        // passkey lookup is meaningful.
+        const sync = () => {
+            wrapper.hidden = email.value.trim() === '' || subject.value.trim() === '';
+        };
+        email.addEventListener('input', sync);
+        subject.addEventListener('input', sync);
+        sync();
+
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            status.textContent = 'Follow your device prompt...';
+
+            try {
+                const result = await api.authenticate({
+                    role: 'teacher',
+                    identifier: email.value.trim(),
+                    subject: subject.value.trim(),
+                    endpoints: {
+                        options: '../controllers/webauthn_login_options.php',
+                        verify: '../controllers/webauthn_login_verify.php'
+                    }
+                });
+                window.location.href = result.redirect;
+            } catch (error) {
+                status.textContent = error.message || api.explain(error);
+                button.disabled = false;
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
