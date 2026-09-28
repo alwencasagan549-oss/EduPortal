@@ -62,7 +62,7 @@ const WEBAUTHN_CREDENTIAL_LABEL_MAX = 64;
  * returning user kept the copy their browser first cached and no change to it
  * ever reached them. Bump this whenever the file's behaviour changes.
  */
-const WEBAUTHN_JS_VERSION = '20260928-3';
+const WEBAUTHN_JS_VERSION = '20260928-4';
 
 /**
  * Signature counter policy.
@@ -844,40 +844,72 @@ function webauthn_has_passkeys($conn, string $role, $userId): bool
     return webauthn_passkey_descriptors($conn, $role, $userId) !== [];
 }
 
-function webauthn_begin_authentication($conn, string $role, $userId): ?array
+/**
+ * Starts an authentication ceremony.
+ *
+ * With an account, the options are scoped to that account's credentials, which
+ * is more precise and also works for credentials that are not discoverable.
+ *
+ * With a null account the options carry no allowCredentials, and the platform
+ * authenticator resolves the account from the discoverable credential it holds.
+ * Enrolment requires residentKey, so every passkey issued here is discoverable
+ * and this path is available to every user -- the user handle in the assertion
+ * identifies the account, and verification checks it against the stored one.
+ *
+ * @param array|null $account null to authenticate without an identifier
+ * @return array{options: string, passkey_ids: int[], scoped: bool}|null
+ */
+function webauthn_begin_authentication($conn, ?string $role, ?array $account): ?array
 {
     $serializer = webauthn_serializer();
     $rpId = webauthn_rp_id();
     if ($serializer === null || $rpId === null) {
+        webauthn_record_error('authentication cannot start: ' . (
+            $serializer === null
+                ? 'the webauthn serializer is unavailable, so vendor/ may be missing or the autoloader is not loaded'
+                : 'SITE_URL or WEBAUTHN_RP_ID did not yield a Relying Party ID'
+        ));
+        error_log('EduPortal WebAuthn authentication blocked: ' . webauthn_last_error());
         return null;
     }
 
-    $descriptors = webauthn_passkey_descriptors($conn, $role, $userId);
-    if ($descriptors === []) {
+    $userId = is_array($account) ? (int) ($account['id'] ?? 0) : 0;
+    $scoped = $userId > 0 && $role !== null;
+
+    $descriptors = $scoped ? webauthn_passkey_descriptors($conn, $role, $userId) : [];
+
+    if ($scoped && $descriptors === []) {
+        // Confirming that a known account has no passkey would leak that the
+        // account exists, so this reports the same generic outcome the
+        // discoverable path gives when no credential is presented.
+        webauthn_record_error('no passkey is registered for this account');
         return null;
     }
 
-    // The challenge is deliberately not bound to an account: at this point the
-    // user has not proved anything. Binding happens at verification, against
-    // the credential that is actually presented.
-    $challenge = webauthn_issue_challenge($conn, 'assert', $role, (int) $userId);
+    // Deliberately not bound to an account: in the discoverable path nothing
+    // has been proved yet. Binding happens at verification, against the
+    // credential that is actually presented.
+    $challenge = webauthn_issue_challenge($conn, 'assert', $scoped ? $role : null, $scoped ? $userId : null);
     if ($challenge === null) {
+        error_log('EduPortal WebAuthn authentication blocked: ' . webauthn_last_error());
         return null;
     }
 
     try {
         $options = webauthn_request_options(
             $rpId,
-            $challenge['raw'],
+            $challenge,
             array_map(static fn (array $row): PublicKeyCredentialDescriptor => $row['descriptor'], $descriptors)
         );
 
         return [
             'options' => $serializer->serialize($options, 'json'),
             'passkey_ids' => array_map(static fn (array $row): int => $row['id'], $descriptors),
+            'scoped' => $scoped,
         ];
     } catch (Throwable $exception) {
         error_log('EduPortal WebAuthn authentication start failed: ' . $exception->getMessage());
+        webauthn_record_error('authentication could not be prepared: ' . $exception->getMessage());
         return null;
     }
 }

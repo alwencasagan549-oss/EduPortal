@@ -160,17 +160,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const api = window.EduPortalWebAuthn;
         api.init(<?php echo json_encode(csrf_token()); ?>);
 
-        // The passkey option stays visible rather than appearing only once the
-        // credentials are typed. Teachers sign in with email AND subject, and
-        // hiding the button until both are filled means someone who has a
-        // passkey cannot use it unless they remember both exactly -- leaving
-        // them with no route to sign in at all.
+        // Always visible, for the same reason as the teacher form: a passkey
+        // is a first-class sign-in method, not something that appears only
+        // once the identifier happens to be typed.
+        //
+        // Fields are used when present, because scoping the ceremony to the
+        // account is more precise and also works for credentials that are not
+        // discoverable. Left empty, the passkey identifies the account on its
+        // own, which is how passkey sign-in is normally experienced.
         button.addEventListener('click', async () => {
-            if (email.value.trim() === '' || subject.value.trim() === '') {
-                status.textContent = 'Enter your email and subject first, then use your passkey.';
-                return;
-            }
-
             button.disabled = true;
             status.textContent = 'Follow your device prompt...';
 
