@@ -30,8 +30,28 @@ rotate_csrf();
 $conn = getDBConnection();
 
 if (isLoggedIn()) {
+    // Refusing here is deliberate: silently swapping the account under an
+    // existing session is exactly the surprise a passkey must not cause. The
+    // message has to say so and name the account, because "you are already
+    // signed in" reads as a failure rather than as "sign out first".
+    $currentRole = getUserRole();
+    $currentName = (string) ($_SESSION['user_name'] ?? '');
+    $currentDetail = $currentRole === 'teacher'
+        ? (string) ($_SESSION['user_email'] ?? '')
+        : 'LRN ' . (string) ($_SESSION['user_lrn'] ?? '');
+    $current = trim($currentName . ' (' . $currentDetail . ')');
+
+    auth_record_event(getDBConnection(), 'login', 'passkey_while_signed_in', [
+        'user_role' => $currentRole,
+        'user_id' => $_SESSION['user_id'] ?? null,
+    ]);
+
     http_response_code(409);
-    echo json_encode(['error' => 'You are already signed in.']);
+    echo json_encode([
+        'error' => 'You are already signed in as ' . $current . '. '
+            . 'Sign out first if you want to use a different account\'s passkey.',
+        'csrf_token' => csrf_token(),
+    ]);
     exit();
 }
 
