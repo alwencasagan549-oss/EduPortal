@@ -42,20 +42,22 @@ $role = ((string) ($_POST['role'] ?? 'student')) === 'teacher' ? 'teacher' : 'st
 $identifier = trim((string) ($_POST['identifier'] ?? ''));
 $subject = trim((string) ($_POST['subject'] ?? ''));
 
-if ($identifier === '' || ($role === 'teacher' && $subject === '')) {
-    http_response_code(422);
-    echo json_encode(['error' => 'Enter your details first.', 'csrf_token' => csrf_token()]);
-    exit();
+$genericError = 'No matching passkey was found on this device. Use your password instead.';
+
+// The identifier is optional. With it, the options are scoped to that
+// account's credentials. Without it, the authenticator resolves the account
+// from the discoverable credential it already holds, so the user can sign in
+// with a passkey alone.
+$wantsScoped = $identifier !== '' && ($role === 'student' || $subject !== '');
+
+// Unauthenticated endpoint that mints a challenge on every call, so it stays
+// throttled. The IP bucket is always present because the discoverable path has
+// no account to key on; it is deliberately loose, since a campus shares one
+// NAT address and a tight limit would lock out a whole class.
+$buckets = [auth_rate_limit_bucket_key('ip', auth_client_ip())];
+if ($wantsScoped) {
+    $buckets[] = auth_rate_limit_bucket_key($role, strtolower($identifier . '|' . $subject));
 }
-
-$genericError = 'Passkey sign-in is not available for this account. Use your password instead.';
-
-// Unauthenticated database-touching endpoint, so it gets the same persistent
-// throttling as a password guess.
-$buckets = [
-    auth_rate_limit_bucket_key('ip', auth_client_ip()),
-    auth_rate_limit_bucket_key($role, strtolower($identifier . '|' . $subject)),
-];
 
 $lockedFor = auth_rate_limit_check($conn, $buckets);
 if ($lockedFor !== null && $lockedFor > 0) {
@@ -65,21 +67,31 @@ if ($lockedFor !== null && $lockedFor > 0) {
     exit();
 }
 
-$account = $role === 'student'
-    ? auth_find_student($conn, $identifier)
-    : auth_find_teacher($conn, $identifier, $subject);
+$account = null;
+if ($wantsScoped) {
+    $account = $role === 'student'
+        ? auth_find_student($conn, $identifier)
+        : auth_find_teacher($conn, $identifier, $subject);
+}
 
-$started = $account === null ? null : webauthn_begin_authentication($conn, $role, (int) $account['id']);
+$started = webauthn_begin_authentication($conn, $role, $wantsScoped ? $account : null);
 
 if ($started === null) {
     auth_rate_limit_failure($conn, $buckets);
     auth_record_event($conn, 'login', 'passkey_unavailable', [
         'user_role' => $role,
-        'identifier' => $identifier,
+        'identifier' => $wantsScoped ? $identifier : null,
+        'detail' => webauthn_last_error(),
     ]);
+    // Identical whether the account is unknown, has no passkey, or the caller
+    // simply supplied nothing, so this cannot be used to probe for accounts.
     http_response_code(404);
     echo json_encode(['error' => $genericError, 'csrf_token' => csrf_token()]);
     exit();
 }
 
-echo json_encode(['publicKey' => json_decode($started['options'], true), 'csrf_token' => csrf_token()]);
+echo json_encode([
+    'publicKey' => json_decode($started['options'], true),
+    'csrf_token' => csrf_token(),
+    'scoped' => $started['scoped'],
+]);

@@ -26,6 +26,7 @@ use Symfony\Component\Uid\Uuid;
 use Webauthn\CredentialRecord;
 use Webauthn\Exception\CounterException;
 use Webauthn\PublicKeyCredential;
+use Webauthn\PublicKeyCredentialDescriptor;
 use Webauthn\TrustPath\EmptyTrustPath;
 
 $failures = [];
@@ -246,6 +247,33 @@ check(
     'no descriptor type is a numeric string',
     !in_array('-7', array_column($params, 'type'), true)
 );
+
+// Identifier-free ("discoverable") authentication. Enrolment requires
+// residentKey, so every issued passkey can be found by the authenticator
+// without being told which account is signing in.
+$discoverable = webauthn_request_options('portal.example', random_bytes(32));
+$discoverableWire = json_decode($optionsSerializer->serialize($discoverable, 'json'), true);
+
+same('a discoverable request omits allowCredentials', [], $discoverableWire['allowCredentials'] ?? null);
+same('a discoverable request still carries the RP ID', 'portal.example', $discoverableWire['rpId'] ?? null);
+same(
+    'a discoverable request still demands user verification',
+    'required',
+    $discoverableWire['userVerification'] ?? null
+);
+
+// Scoping is the fallback for credentials that are not discoverable.
+$scoped = webauthn_request_options(
+    'portal.example',
+    random_bytes(32),
+    [PublicKeyCredentialDescriptor::create(
+        PublicKeyCredentialDescriptor::CREDENTIAL_TYPE_PUBLIC_KEY,
+        random_bytes(32),
+        ['internal']
+    )]
+);
+$scopedWire = json_decode($optionsSerializer->serialize($scoped, 'json'), true);
+same('a scoped request carries one credential', 1, count($scopedWire['allowCredentials'] ?? []));
 
 // ---------------------------------------------------------------------
 // End-to-end ceremony against a software authenticator

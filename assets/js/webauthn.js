@@ -221,16 +221,33 @@
             });
         },
 
+        /**
+         * Identifier is optional. Supplied, the server scopes the ceremony to
+         * that account's credentials, which is more precise and also works for
+         * credentials that are not discoverable. Omitted, the authenticator
+         * resolves the account from the discoverable credential it already
+         * holds, and the user signs in with the passkey alone.
+         */
         async authenticate({ role, identifier, subject, endpoints }) {
             if (!window.EduPortalWebAuthn.isSupported()) {
                 throw new Error('This browser does not support passkeys.');
             }
 
+            const scoped = Boolean(identifier);
+
             const started = await post(endpoints.options, {
                 role: role,
-                identifier: identifier,
+                identifier: identifier || '',
                 subject: subject || ''
             });
+
+            if (!started || !started.publicKey) {
+                throw new Error('The server did not return passkey options. Try again.');
+            }
+
+            if (scoped && started.scoped === false) {
+                throw new Error('The server could not scope this sign-in to that account.');
+            }
 
             const assertion = await navigator.credentials.get({
                 publicKey: toPublicKey(started.publicKey)
