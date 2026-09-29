@@ -47,9 +47,10 @@ define('RECAPTCHA_TOKEN_MAX', 4096);
 // Bump whenever recaptcha.js or human_gate.js changes behaviour, so a
 // returning visitor whose browser cached the old copy is not silently running
 // the previous version against a newly deployed server. assets/ is served
-// cache-first by the service worker, so without this a fix would not reach
-// anyone until the cache name itself changed.
-define('RECAPTCHA_JS_VERSION', '20260929-1');
+// cache-first by the service worker, so without this a fix does not reach
+// anyone until the shell cache name itself changes -- and the symptom is a
+// fix that appears to do nothing, because the browser never fetched it.
+define('RECAPTCHA_JS_VERSION', '20260929-2');
 
 // Google documents a score of 0.0 (very likely a bot) to 1.0 (very likely a
 // human). 0.5 is the commonly cited midpoint.

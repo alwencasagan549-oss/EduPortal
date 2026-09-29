@@ -57,6 +57,25 @@
     // watching a spinner. Whichever fires first, the site opens.
     const TOTAL_TIMEOUT = 15000;
 
+    // How long the screen stays up once the verdict is in.
+    //
+    // A gate that appears and vanishes inside a third of a second does not read
+    // as a check at all -- the first deployment of this verified in well under
+    // that, and the report was that there was "no pop up". The verification
+    // was working the whole time; it was simply faster than a person can
+    // notice. Held long enough to be legible, and long enough that the
+    // difference between a check that ran and a page that never checked is
+    // visible to anyone looking.
+    const MIN_VISIBLE_MS = 1500;
+    const SHOWN_AT = Date.now();
+
+    // Waits out the remainder of the minimum, so a fast verdict is not
+    // replaced by a jarring cut.
+    const settle = () => new Promise(resolve => {
+        const remaining = MIN_VISIBLE_MS - (Date.now() - SHOWN_AT);
+        window.setTimeout(resolve, remaining > 0 ? remaining : 0);
+    });
+
     const COLORS = {
         background: '#0a0b10',
         surface: '#14161e',
@@ -301,9 +320,9 @@
             .then(result => {
                 if (result && result.ok) {
                     setStatus('Verified. Taking you through…', COLORS.success, 'ok');
-                    // A beat of the success state so the transition is legible
-                    // rather than a hard cut.
-                    window.setTimeout(dismiss, 350);
+                    // Held for a beat even when the verdict was instant, so the
+                    // screen reads as a deliberate check rather than a flicker.
+                    settle().then(dismiss);
                     return;
                 }
 
