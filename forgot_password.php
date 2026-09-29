@@ -14,6 +14,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/libs/AuthService.php';
+require_once __DIR__ . '/libs/RecaptchaService.php';
 require_once __DIR__ . '/libs/Mailer.php';
 
 $role = ((string) ($_GET['role'] ?? $_POST['role'] ?? 'student')) === 'teacher' ? 'teacher' : 'student';
@@ -36,6 +37,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? 'Enter the email address and subject for your teaching account.'
             : 'Enter your Learner Reference Number.';
     } else {
+        // Ahead of the account lookup, and it has to stay that way. A refusal
+        // here says nothing about whether the account exists, so the neutral
+        // response below is not weakened by adding the check; what it does
+        // stop is the request ever reaching auth_find_student() or the
+        // throttler, which is what turns this page into a mail-bomb primitive
+        // aimed at whatever address is on file.
+        $recaptcha = recaptcha_check($_POST, 'password_reset_request', [
+            'conn' => $conn,
+            'user_role' => $role,
+            'identifier' => $identifier,
+        ]);
+
+        if (!$recaptcha['ok']) {
+            $error = $recaptcha['error'];
+        } else {
         // Throttled harder than a password guess: every accepted request
         // sends mail, so this endpoint can be aimed at a victim's inbox.
         $buckets = [
@@ -141,6 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+        }
     }
 }
 ?>
@@ -149,6 +166,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo human_gate_head(); ?>
+    <?php echo google_analytics_tag(); ?>
     <title>Password Reset | EduPortal LMS</title>
     <link rel="icon" href="assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="manifest.webmanifest">
@@ -190,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <form method="POST" data-loader="true">
+        <form method="POST" data-loader="true" data-recaptcha-action="password_reset_request">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="role" value="<?php echo htmlspecialchars($role); ?>">
 
@@ -231,6 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
     <script src="assets/js/trusted_types.js"></script>
+    <?php echo recaptcha_script_tag(); ?>
     <script src="assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="assets/js/responsive_ui.js"></script>
     <script src="assets/js/pwa.js"></script>

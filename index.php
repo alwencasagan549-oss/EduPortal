@@ -2,6 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 require_once 'config/database.php';
+require_once 'libs/RecaptchaService.php';
 
 
 ?>
@@ -11,6 +12,9 @@ require_once 'config/database.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php /* First-visit human check. Emitted here, before anything renders. */ ?>
+    <?php echo human_gate_head(); ?>
+    <?php echo google_analytics_tag(); ?>
     <meta name="description" content="EduPortal LMS for Ruben E. Ecleo Sr. National High School. Manage assignments, grading, and classroom workflows online.">
     <title>EduPortal LMS | Ruben E. Ecleo Sr. National High School</title>
     <link rel="canonical" href="https://reesnhs.l.cd/">

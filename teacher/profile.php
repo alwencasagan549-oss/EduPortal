@@ -150,6 +150,7 @@ require_once __DIR__ . '/../libs/passkey_panel.php';
     <link rel="apple-touch-icon" href="../assets/pwa-icon-192.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo google_analytics_tag(); ?>
     <title>Teacher Profile | EduPortal LMS</title>
     <link rel="stylesheet" href="../assets/style.min.css?v=20260924">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>

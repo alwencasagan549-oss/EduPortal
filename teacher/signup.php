@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../libs/AuthService.php';
+require_once '../libs/RecaptchaService.php';
 require_once '../libs/teacher_account.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -55,6 +56,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         'confirm_password' => $confirm_password,
     ]);
 
+    // Checked after the field validation and before the uniqueness probe, so
+    // a bot farm is refused on shape errors without ever reaching the
+    // database. The (email, subject) probe is the part worth protecting: it
+    // is a two-field existence oracle over the staff list, and a school that
+    // approves registrations gets a queue an attacker could otherwise fill.
+    if ($error === null) {
+        $recaptcha = recaptcha_check($_POST, 'signup', [
+            'user_role' => 'teacher',
+            'identifier' => $email,
+        ]);
+
+        if (!$recaptcha['ok']) {
+            $error = $recaptcha['error'];
+        }
+    }
+
     if ($error === null) {
         $hashed_password = auth_password_hash($password);
 
@@ -81,12 +98,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if ($check->get_result()->num_rows() > 0) {
                 $error = 'A teacher with this email already teaches this subject. Sign in to that account, or choose a different subject.';
             } elseif (teacher_account_column_exists($conn, 'status')) {
-            $registrationStatus = teacher_registration_status();
+                $registrationStatus = teacher_registration_status();
 
-            $stmt = $conn->prepare(
-                "INSERT INTO teachers (name, email, subject, password, status) VALUES (?, ?, ?, ?, ?)"
-            );
-            $stmt->execute([$name, $email, $subject, $hashed_password, $registrationStatus]);
+                $stmt = $conn->prepare(
+                    "INSERT INTO teachers (name, email, subject, password, status) VALUES (?, ?, ?, ?, ?)"
+                );
+                $stmt->execute([$name, $email, $subject, $hashed_password, $registrationStatus]);
                 $success = teacher_account_status_message('pending')
                     . ' Your requested subject has been reserved.';
             } else {
@@ -118,6 +135,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo human_gate_head(); ?>
+    <?php echo google_analytics_tag(); ?>
     <title>Teacher Registration | EduPortal LMS</title>
     <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="../manifest.webmanifest">
@@ -151,7 +170,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             <div class="alert alert-success"><i class="fas fa-circle-check"></i> <div><?php echo htmlspecialchars($success); ?></div></div>
         <?php endif; ?>
 
-        <form method="POST" data-loader="true">
+        <form method="POST" data-loader="true" data-recaptcha-action="signup">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                 <div>
@@ -202,6 +221,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </div>
     </main>
     <script src="../assets/js/trusted_types.js"></script>
+    <?php echo recaptcha_script_tag(); ?>
     <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>
