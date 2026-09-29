@@ -254,6 +254,60 @@ check('the gate opens on observe mode', str_contains($gateScriptSource, "setting
 check('the gate has a hard deadline that opens the site', str_contains($gateScriptSource, 'TOTAL_TIMEOUT'));
 check('the gate clears the pending class on dismissal', str_contains($gateScriptSource, "classList.remove('eduportal-gate-pending')"));
 
+// A gate that verifies in a third of a second is indistinguishable from a gate
+// that never ran, and the report is "there is no pop up". The screen has to
+// stay up long enough to be seen.
+check('the gate is held visible for a minimum time', str_contains($gateScriptSource, 'MIN_VISIBLE_MS'));
+check('the minimum is at least a second and a half', (bool) preg_match('/MIN_VISIBLE_MS\s*=\s*(\d+)/', $gateScriptSource, $ms) && (int) $ms[1] >= 1500);
+check('success waits for the minimum before dismissing', str_contains($gateScriptSource, 'settle().then(dismiss)'));
+
+$formScriptSource = (string) file_get_contents(dirname(__DIR__) . '/assets/js/recaptcha.js');
+
+// The failure that prompted these checks: the form submitted with an empty
+// token once the wait expired, so the server refused it and told the user
+// "we could not verify that you are human" for what was really a slow
+// download of Google's script. A request already known to be unusable must
+// never be sent.
+check(
+    'the form is not submitted when no token arrives',
+    !str_contains($formScriptSource, ".catch(() => '')")
+        && str_contains($formScriptSource, "typeof token !== 'string'")
+);
+check('the form explains the failure on the page itself', str_contains($formScriptSource, 'showFailure'));
+check('the failure banner is announced', str_contains($formScriptSource, "setAttribute('role', 'alert')"));
+check('the loader is taken down on failure so the form is usable again', str_contains($formScriptSource, 'delete form.dataset.recaptchaPending'));
+check('the banner is cleared on the next attempt', str_contains($formScriptSource, 'clearFailure(form)'));
+
+// Six seconds was not enough for a cold load of api.js, which is over 100KB
+// and has to finish before execute() can return anything.
+check('the token wait is at least ten seconds', (bool) preg_match('/EXECUTE_TIMEOUT\s*=\s*(\d+)/', $formScriptSource, $timeout) && (int) $timeout[1] >= 10000);
+check('the gate wait is the longer of the two', (bool) preg_match('/TOTAL_TIMEOUT\s*=\s*(\d+)/', $gateScriptSource, $total) && (int) $total[1] >= 10000);
+
+// assets/ is served cache-first by the service worker, so the query string is
+// the only thing that delivers a JS fix to a returning visitor. Bumping it is
+// part of the fix, not a nicety.
+$serviceSource = (string) file_get_contents(dirname(__DIR__) . '/libs/RecaptchaService.php');
+preg_match("/RECAPTCHA_JS_VERSION',\s*'([^']+)'/", $serviceSource, $version);
+check('the JS version constant exists', isset($version[1]));
+check('the cache-buster is a dated version', isset($version[1]) && (bool) preg_match('/^\d{8}-\d+$/', $version[1]));
+// Asserted on the emitted paths rather than on the exact source expression, so
+// that reading the constant into a local first is not a failure. What matters
+// is that both tags carry a version and that the version comes from the one
+// constant.
+check('the gate script is cache-busted', str_contains($serviceSource, '/assets/js/human_gate.js?v='));
+check('the form script is cache-busted', str_contains($serviceSource, '/assets/js/recaptcha.js?v='));
+check('the gate version comes from the constant', (bool) preg_match('/\$version\s*=\s*RECAPTCHA_JS_VERSION/', $serviceSource));
+check('the form version comes from the constant', (bool) preg_match('/recaptcha\.js\?v=\' \. RECAPTCHA_JS_VERSION/', $serviceSource));
+
+// A rejected promise stays rejected, so caching one would make a single
+// transient network fault permanent for the life of the page: every retry
+// would fail instantly with the original error, and the visitor's only escape
+// would be the reload the failure message tells them not to need.
+check(
+    'a failed load is not cached permanently',
+    str_contains($formScriptSource, 'apiPromise.catch(() => { apiPromise = null; })')
+);
+
 // Every refusal carries the same message. Distinguishing "score too low" from
 // "token missing" tells an attacker which half of the defence to work on and
 // tells a real user nothing they can act on beyond retrying.

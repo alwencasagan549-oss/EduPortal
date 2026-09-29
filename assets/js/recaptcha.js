@@ -30,13 +30,20 @@
 
     const FORM_ATTRIBUTE = 'data-recaptcha-action';
     const TOKEN_FIELD = 'g-recaptcha-response';
+    const FAILURE_FIELD = 'recaptcha-failure';
 
-    // Long enough for a slow connection to finish the round trip, short
-    // enough that a visitor who cannot reach Google is not left staring at a
-    // button that does nothing. On timeout the form is submitted anyway and
-    // the server renders the refusal, which is the same message a user would
-    // have seen had the script never loaded at all.
-    const EXECUTE_TIMEOUT = 6000;
+    // How long to wait for a token before giving up on this attempt.
+    //
+    // This is not a round trip to our own server, it is a cold load of Google's
+    // api.js on a first visit, which is well over 100KB and has to complete
+    // before execute() can produce anything. Six seconds was not enough on a
+    // cold cache, and being too short here was not a cosmetic problem: the old
+    // behaviour submitted the form with an empty token, so the server correctly
+    // refused it and the user was shown "we could not verify that you are
+    // human" with no way to tell that the real cause was a slow download on
+    // their connection. Ten seconds covers a cold load on a slow link, and a
+    // failure now says what it is instead of becoming an unexplained refusal.
+    const EXECUTE_TIMEOUT = 10000;
 
     const nativeSubmit = HTMLFormElement.prototype.submit;
 
@@ -88,6 +95,15 @@
             document.head.appendChild(script);
         });
 
+        // The cache is cleared on failure, not just on success. A rejected
+        // promise stays rejected, so holding on to it would make one transient
+        // network fault permanent for the life of the page: every subsequent
+        // retry would fail instantly with the original error, and the visitor's
+        // only escape would be a reload -- which is exactly what the inline
+        // failure message tells them to do not. Recovering here is what makes
+        // "try again" mean something.
+        apiPromise.catch(() => { apiPromise = null; });
+
         return apiPromise;
     };
 
@@ -137,6 +153,65 @@
         }
     };
 
+    const hideLoader = () => {
+        if (window.EduPortal && typeof window.EduPortal.hideLoader === 'function') {
+            window.EduPortal.hideLoader();
+        }
+    };
+
+    /**
+     * Explains a failure on the form itself, in the user's own terms.
+     *
+     * The alternative is submitting anyway and letting the server refuse, which
+     * is what this used to do. It produced "we could not verify that you are
+     * human" for what was really a slow download of Google's script, and the
+     * user's next move -- reload, retype -- loses the credentials they had
+     * already entered. Saying what happened keeps the form intact and the
+     * retry cheap.
+     */
+    const showFailure = (form, message) => {
+        let banner = form.querySelector('.' + FAILURE_FIELD);
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.className = FAILURE_FIELD;
+            // role="alert" so the message is announced rather than appearing
+            // silently above a button the user is still looking at.
+            banner.setAttribute('role', 'alert');
+            // Matches the portal's own alert treatment via the same custom
+            // properties, so it does not look like a different product.
+            banner.style.cssText = [
+                'display:flex',
+                'align-items:flex-start',
+                'gap:.6rem',
+                'margin-bottom:1rem',
+                'padding:.9rem 1.1rem',
+                'border:1px solid rgba(239,68,68,.28)',
+                'border-radius:12px',
+                'background:rgba(239,68,68,.10)',
+                'color:var(--danger-color,#ef4444)',
+                'font-size:.9rem',
+                'line-height:1.5'
+            ].join(';');
+
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-circle-exclamation';
+            icon.setAttribute('aria-hidden', 'true');
+            const text = document.createElement('div');
+            text.textContent = message;
+            banner.append(icon, text);
+
+            // Above the submit button, which is where the eye already is.
+            const button = form.querySelector('button[type="submit"]');
+            form.insertBefore(banner, button || null);
+        }
+
+        banner.querySelector('div').textContent = message;
+    };
+
+    const clearFailure = form => {
+        form.querySelector('.' + FAILURE_FIELD)?.remove();
+    };
+
     /**
      * Intercepts submit on one form. Returns false when the form carries no
      * action, so callers can tell "nothing to do" from "already bound".
@@ -174,17 +249,35 @@
             event.stopImmediatePropagation();
 
             form.dataset.recaptchaPending = 'true';
+            clearFailure(form);
             showLoader();
 
             withTimeout(execute(action), EXECUTE_TIMEOUT)
-                // A failure here is not fatal: the form goes out without a
-                // token and the server refuses it with a message the user can
-                // act on. Inventing a token or retrying silently would hide a
-                // network fault behind a login failure.
-                .catch(() => '')
                 .then(token => {
-                    tokenField(form).value = typeof token === 'string' ? token : '';
+                    // Google resolves with null when it declines to score, for
+                    // example before it has seen enough of the session. An
+                    // empty token is not a token: submitting one produces a
+                    // refusal the user cannot interpret, so it is treated as
+                    // the failure it is.
+                    if (typeof token !== 'string' || token === '') {
+                        throw new Error('reCAPTCHA returned no token');
+                    }
+
+                    tokenField(form).value = token;
                     nativeSubmit.call(form);
+                })
+                .catch(error => {
+                    // Never submit a request that is already known to be
+                    // unusable. The form keeps everything the user typed, so
+                    // retrying is one click rather than retyping a password.
+                    hideLoader();
+                    delete form.dataset.recaptchaPending;
+                    showFailure(
+                        form,
+                        'The human check did not finish. This is usually a slow connection on the first '
+                        + 'visit. Please try again.'
+                    );
+                    console.warn('EduPortal: reCAPTCHA failed for action "' + action + '" (' + error.message + ').');
                 });
         });
 
