@@ -47,4 +47,25 @@
         <priority>0.7</priority>
     </url>
 
+    <url>
+        <loc>https://reesnhs.l.cd/privacy.php</loc>
+        <lastmod>2026-09-29</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.5</priority>
+    </url>
+
+    <url>
+        <loc>https://reesnhs.l.cd/terms.php</loc>
+        <lastmod>2026-09-29</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.5</priority>
+    </url>
+
+    <url>
+        <loc>https://reesnhs.l.cd/contact.php</loc>
+        <lastmod>2026-09-29</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.5</priority>
+    </url>
+
 </urlset>
