@@ -50,7 +50,7 @@ define('RECAPTCHA_TOKEN_MAX', 4096);
 // cache-first by the service worker, so without this a fix does not reach
 // anyone until the shell cache name itself changes -- and the symptom is a
 // fix that appears to do nothing, because the browser never fetched it.
-define('RECAPTCHA_JS_VERSION', '20260929-2');
+define('RECAPTCHA_JS_VERSION', '20260929-3');
 
 // Google documents a score of 0.0 (very likely a bot) to 1.0 (very likely a
 // human). 0.5 is the commonly cited midpoint.
