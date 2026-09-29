@@ -201,26 +201,39 @@ the only account-recovery path is a bad trade.
 
 ### First-visit gate — a friction control, not an access control
 
-A brand new browser sees a branded "verifying you are human" screen before the
-site opens, then is marked verified and never asked again (for the session, or
-for 30 days when `HUMAN_GATE_SECRET` is set — the receipt is an HttpOnly
-cookie signed with that secret, because a cookie written by script proves
-nothing).
+A brand new browser sees a **"Tap below to confirm you are human"** screen with a
+**Verify you're human** button before the site opens, then is marked verified
+and never asked again (for the session, or for 30 days when `HUMAN_GATE_SECRET`
+is set — the receipt is an HttpOnly cookie signed with that secret, because a
+cookie written by script proves nothing).
 
-Be clear about what this is: it costs an attacker one verified round trip to
-Google per cold browser, which is what makes a scripted signup farm expensive
-to operate. It is **not** access control — anyone can clear or forge a cookie,
-and with JavaScript disabled there is no gate at all. The controls that have
-to hold are the server-side token checks above, which run whether or not
+**There is no reCAPTCHA checkbox or image challenge, and there cannot be.** Those
+exist only in v2. v3 returns a score and renders nothing of its own — its badge
+sits quietly in the bottom-right corner. The button above is our own: it gives
+the visit a visible, deliberate "are you human" moment, but it is not a puzzle
+and nobody has to prove anything. The automatic first version verified so fast
+that it read as a flicker, and the result was a report that there was "no pop
+up" when in fact it had been working the whole time.
+
+Be clear about what this gate is: it costs an attacker one verified round trip
+to Google per cold browser, which is what makes a scripted signup farm
+expensive to operate. It is **not** access control — anyone can clear or forge a
+cookie, and with JavaScript disabled there is no gate at all. The controls that
+have to hold are the server-side token checks above, which run whether or not
 anything in this gate ever executed.
 
 It is also built so it can never take the portal down:
 
-- A hard 15-second client deadline opens the site whatever happened.
-- Only a **low score** is treated as a judgement about the visitor. Every
-  other refusal — Google unreachable, key and secret mismatched, hostname not
-  registered in the reCAPTCHA console — is a fault, and the site opens rather
-  than showing a whole school a "you are not human" screen.
+- **Two timeouts, because they guard different failures.** A visitor who never
+  presses the button is released after 30s; a check that starts and never
+  finishes is released after 15s, re-armed per attempt. A gate that waits
+  forever for a click is worse than no gate — someone who wandered away would
+  be held at a dead screen.
+- Only a **low score** is treated as a judgement about the visitor, and that
+  is the one refusal that offers a retry. Every other one — Google unreachable,
+  key and secret mismatched, hostname not registered in the console — is a
+  fault, and the site opens rather than showing a whole school a "you are not
+  human" screen.
 - `RECAPTCHA_GATE_MODE=observe` downgrades the gate to a logged no-op without a
   redeploy, which is the move if a shared campus NAT address starts producing
   false positives.

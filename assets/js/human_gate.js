@@ -10,18 +10,20 @@
  *     there is no body yet and hiding the body must not hide the overlay.
  *
  * The check is reCAPTCHA v3, which is invisible: it returns a score, not a
- * checkbox, so the branded screen below stands in for the "are you human"
- * moment that v2's widget used to provide. The token is verified server-side
- * by /controllers/human_gate.php, and the browser is marked as verified
- * afterwards so this screen is a once-per-browser event rather than a wall in
- * front of every page.
+ * checkbox, so there is nothing for Google to render. A screen that verified
+ * and vanished on its own was therefore indistinguishable from a page with no
+ * gate at all -- the first report of this feature was "there is no pop up",
+ * when it had in fact been working the whole time. The visitor now presses a
+ * button. That is the honest shape for v3: no one is asked to prove anything,
+ * the click is not a challenge, and the site is released either way.
  *
  * Two properties are load-bearing:
  *
- *   1. The site is never permanently unreachable from this file. A hard
- *      timeout dismisses the overlay whatever happened, so a failed
- *      verification, a dead endpoint or a blocked google.com degrades to "no
- *      gate" instead of "no portal" for every user on the network at once.
+ *   1. The site is never permanently unreachable from this file. Two timeouts
+ *      dismiss the overlay whatever happened -- one for a visitor who never
+ *      presses the button, one for a check that starts and never finishes --
+ *      so a refused score, a dead endpoint or a blocked google.com degrades to
+ *      "no gate" instead of "no portal" for every user on the network at once.
  *   2. Without JavaScript there is no gate at all, because the overlay is
  *      created by script. That is deliberate. This is a friction control, not
  *      an access control -- a cookie is clearable by anyone, so treating a
@@ -52,21 +54,23 @@
         return;
     }
 
-    // Generous enough to cover a slow round trip on a school connection, and
-    // short enough that a visitor who is being blocked is told so rather than
-    // watching a spinner. Whichever fires first, the site opens.
-    const TOTAL_TIMEOUT = 15000;
-
-    // How long the screen stays up once the verdict is in.
+    // Two timeouts, and they guard different failures.
     //
-    // A gate that appears and vanishes inside a third of a second does not read
-    // as a check at all -- the first deployment of this verified in well under
-    // that, and the report was that there was "no pop up". The verification
-    // was working the whole time; it was simply faster than a person can
-    // notice. Held long enough to be legible, and long enough that the
-    // difference between a check that ran and a page that never checked is
-    // visible to anyone looking.
-    const MIN_VISIBLE_MS = 1500;
+    // IDLE_TIMEOUT covers "the visitor never pressed the button". Generous,
+    // because a human has to notice the screen and then move the mouse, and
+    // short enough that someone who walked away is not left looking at a dead
+    // page. The site opens when it expires: losing the gate is a far smaller
+    // outcome than losing the portal, and the server-side checks on the login
+    // and signup forms are what actually hold.
+    const IDLE_TIMEOUT = 30000;
+
+    // ATTEMPT_TIMEOUT covers "the check started and never finished" -- Google
+    // unreachable, the endpoint hanging. Re-armed per attempt.
+    const ATTEMPT_TIMEOUT = 15000;
+
+    // How long the screen stays up once a verdict is in, so a fast check still
+    // reads as a deliberate one.
+    const MIN_VISIBLE_MS = 700;
     const SHOWN_AT = Date.now();
 
     // Waits out the remainder of the minimum, so a fast verdict is not
@@ -155,37 +159,41 @@
     status.style.cssText = 'margin:0; color:' + COLORS.muted + '; font-size:.95rem; line-height:1.6';
     status.textContent = 'Verifying you are human…';
 
+    // Visible from the start. This used to hold only the retry button, which
+    // appeared after a failure, so the container started hidden -- and when
+    // the verify button moved in, the screen rendered its prompt with no way
+    // to answer it. A gate the visitor cannot act on is a dead end.
     const actions = document.createElement('div');
-    actions.style.cssText = 'margin-top:1.75rem; display:none; justify-content:center';
+    actions.style.cssText = 'margin-top:1.75rem; display:flex; justify-content:center';
 
-    const retry = document.createElement('button');
-    retry.type = 'button';
-    retry.style.cssText = [
+    const verify = document.createElement('button');
+    verify.type = 'button';
+    verify.id = 'eduportal-gate-verify';
+    verify.style.cssText = [
         'display:inline-flex',
         'align-items:center',
         'justify-content:center',
-        'min-height:44px',
-        'padding:.8rem 1.6rem',
+        'gap:.6rem',
+        'width:100%',
+        'min-height:48px',
+        'padding:.9rem 1.6rem',
         'border:1px solid transparent',
         'border-radius:12px',
         'background:linear-gradient(135deg,' + COLORS.primary + ' 0%,#224abe 100%)',
         'color:#fff',
         'font:inherit',
         'font-weight:600',
-        'cursor:pointer'
+        'cursor:pointer',
+        'box-shadow:0 8px 24px rgba(78,115,223,.28)'
     ].join(';');
-    retry.textContent = 'Try again';
-    retry.addEventListener('click', () => {
-        actions.style.display = 'none';
-        setStatus('Verifying you are human…', COLORS.muted, null);
-        run();
-    });
+    verify.textContent = "Verify you're human";
+    verify.addEventListener('click', () => start());
 
     const note = document.createElement('p');
     note.style.cssText = 'margin:2rem 0 0; color:' + COLORS.muted + '; font-size:.78rem';
     note.textContent = 'Protected by Google reCAPTCHA';
 
-    actions.appendChild(retry);
+    actions.appendChild(verify);
     card.append(logo, title, status, actions, note);
     overlay.appendChild(card);
 
@@ -214,6 +222,16 @@
         + '.eduportal-gate-spinner{animation:none}'
         + '}';
 
+    // Focus moves to the button once it exists. Without this a keyboard or
+    // screen-reader user lands on a page that is entirely covered and has no
+    // announced way out, and the idle timer would release them only by
+    // accident.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => verify.focus(), { once: true });
+    } else {
+        verify.focus();
+    }
+
     function setStatus(message, color, tone) {
         status.textContent = message;
         status.style.color = color || COLORS.muted;
@@ -232,18 +250,37 @@
     }
 
     function dismiss() {
-        window.clearTimeout(deadline);
+        window.clearTimeout(idleTimer);
+        window.clearTimeout(attemptTimer);
         document.documentElement.classList.remove('eduportal-gate-pending');
         overlay.remove();
     }
 
-    // Last line of defence. Whatever happened above -- a rejected score, a
-    // hung request, a third-party script that never arrived -- the portal
-    // opens. Losing the gate is a lesser outcome than losing the portal.
-    const deadline = window.setTimeout(() => {
-        console.warn('EduPortal: human check did not complete in time; continuing without it.');
+    // Two timers, because they guard two different things.
+    //
+    // The idle one covers "the visitor never acted". A gate that waits forever
+    // for a click is worse than no gate: someone who wandered away, or who
+    // never saw it, would be held at a dead screen. It is long enough to
+    // notice and click, then the site opens -- losing the gate being a far
+    // smaller outcome than losing the portal.
+    let idleTimer = window.setTimeout(() => {
+        console.warn('EduPortal: human check was never attempted; continuing without it.');
         dismiss();
-    }, TOTAL_TIMEOUT);
+    }, IDLE_TIMEOUT);
+
+    // The attempt one covers "the check was started and never finished" --
+    // Google unreachable, endpoint hanging. Re-armed on each attempt so a
+    // retry is not cut short by the time the first one took.
+    let attemptTimer = null;
+
+    function armAttemptTimer() {
+        window.clearTimeout(idleTimer);
+        window.clearTimeout(attemptTimer);
+        attemptTimer = window.setTimeout(() => {
+            console.warn('EduPortal: human check did not complete in time; continuing without it.');
+            dismiss();
+        }, ATTEMPT_TIMEOUT);
+    }
 
     function loadApi() {
         return new Promise((resolve, reject) => {
@@ -311,6 +348,11 @@
     }
 
     function run() {
+        armAttemptTimer();
+        setStatus('Verifying you are human…', COLORS.muted, 'working');
+        actions.style.display = 'none';
+        verify.disabled = true;
+
         tokenForGate()
             // A null token means reCAPTCHA declined to issue one, which in
             // practice means this host is not registered for the key. Sending
@@ -341,12 +383,14 @@
                     return;
                 }
 
+                // A genuine low score is the one refusal that is about the
+                // visitor, so it is the one worth asking again about.
                 setStatus(
                     (result && result.error) || 'We could not verify that you are human. Please try again.',
                     COLORS.danger
                 );
-                actions.style.display = 'flex';
-                retry.focus();
+                reset();
+                verify.focus();
             })
             .catch(error => {
                 console.warn('EduPortal: human check could not run (' + error.message + ').');
@@ -354,11 +398,34 @@
             });
     }
 
-    window.EduPortalHumanGate = { dismiss, mode: settings.mode };
+    /** Back to the button, ready for another attempt. */
+    function reset() {
+        window.clearTimeout(attemptTimer);
+        setStatus('Tap below to confirm you are human.', COLORS.muted, null);
+        actions.style.display = 'flex';
+        verify.disabled = false;
+        verify.textContent = "Try again";
+    }
+
+    function start() {
+        if (verify.disabled) {
+            return;
+        }
+        run();
+    }
+
+    window.EduPortalHumanGate = { dismiss, start, mode: settings.mode };
+
+    // The first attempt is no longer automatic. reCAPTCHA v3 is invisible by
+    // design and produces a score rather than a widget, so a screen that
+    // verified and vanished on its own was indistinguishable from a page with
+    // no gate at all -- the first report of this feature was "there is no pop
+    // up", when in fact it had been working. The click is what makes the check
+    // legible as a check. It is also the honest shape for v3: no user is asked
+    // to prove anything, and the site is released either way.
+    setStatus('Tap below to confirm you are human.', COLORS.muted, null);
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', run, { once: true });
-    } else {
-        run();
+        document.addEventListener('DOMContentLoaded', () => { /* button is already live */ }, { once: true });
     }
 })();

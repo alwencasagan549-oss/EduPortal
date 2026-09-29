@@ -251,15 +251,42 @@ $gateScriptSource = (string) file_get_contents(dirname(__DIR__) . '/assets/js/hu
 check('the gate only blocks on a score judgement', str_contains($gateScriptSource, "reason !== 'low_score'"));
 check('the gate opens on observe mode', str_contains($gateScriptSource, "settings.mode === 'observe'"));
 // Either way the site has to open eventually, or a fault becomes an outage.
-check('the gate has a hard deadline that opens the site', str_contains($gateScriptSource, 'TOTAL_TIMEOUT'));
+check('the gate has a hard deadline that opens the site', str_contains($gateScriptSource, 'IDLE_TIMEOUT'));
 check('the gate clears the pending class on dismissal', str_contains($gateScriptSource, "classList.remove('eduportal-gate-pending')"));
 
-// A gate that verifies in a third of a second is indistinguishable from a gate
-// that never ran, and the report is "there is no pop up". The screen has to
-// stay up long enough to be seen.
-check('the gate is held visible for a minimum time', str_contains($gateScriptSource, 'MIN_VISIBLE_MS'));
-check('the minimum is at least a second and a half', (bool) preg_match('/MIN_VISIBLE_MS\s*=\s*(\d+)/', $gateScriptSource, $ms) && (int) $ms[1] >= 1500);
-check('success waits for the minimum before dismissing', str_contains($gateScriptSource, 'settle().then(dismiss)'));
+// reCAPTCHA v3 has no widget to render, so a screen that verified and vanished
+// on its own was indistinguishable from a page with no gate -- the first report
+// of this feature was "there is no pop up", when it had been working. The
+// visitor now presses a button, which is the honest shape for v3: no challenge,
+// no proof, but unmistakably a check.
+check('the gate asks for a deliberate click', str_contains($gateScriptSource, 'Verify you'));
+check('the verify button is a real button', str_contains($gateScriptSource, "verify.type = 'button'"));
+check('the verify button has an id for styling and tests', str_contains($gateScriptSource, 'eduportal-gate-verify'));
+check('the first attempt is not automatic', !str_contains($gateScriptSource, "addEventListener('DOMContentLoaded', run"));
+check('the first attempt is not automatic (else branch)', !str_contains($gateScriptSource, "readyState === 'loading') {\n        run();"));
+check('the visitor is told what the button does', str_contains($gateScriptSource, 'Tap below to confirm you are human'));
+check('a double click cannot start two attempts', str_contains($gateScriptSource, 'verify.disabled = true'));
+check('the button is focused so keyboard users are not stranded', str_contains($gateScriptSource, 'verify.focus()'));
+check('the button is reachable for styling', (bool) preg_match('/min-height:\s*4[48]px/', $gateScriptSource));
+// The container holding the button used to start hidden, because it only ever
+// held the retry button shown after a failure. Moving the verify button in
+// left the screen rendering its prompt with no way to answer it -- a gate the
+// visitor cannot act on. Asserted because nothing else catches it: the
+// JavaScript is valid, the endpoint works, and the failure is a dead end.
+check(
+    'the button container is visible from the start',
+    !str_contains($gateScriptSource, "margin-top:1.75rem; display:none")
+        && str_contains($gateScriptSource, "margin-top:1.75rem; display:flex")
+);
+check('a genuine low score offers another attempt', str_contains($gateScriptSource, 'Try again'));
+check('a genuine low score returns to the button', str_contains($gateScriptSource, 'reset()'));
+
+// Two failures need two guards: a visitor who never acts, and a check that
+// starts and never finishes. One shared timer either releases a visitor who was
+// about to click, or cuts short a slow but legitimate check.
+check('idle and attempt windows are separate', str_contains($gateScriptSource, 'IDLE_TIMEOUT = 30000') && str_contains($gateScriptSource, 'ATTEMPT_TIMEOUT = 15000'));
+check('the attempt timer is re-armed per attempt', str_contains($gateScriptSource, 'armAttemptTimer()'));
+check('a fast verdict is still held briefly on screen', str_contains($gateScriptSource, 'settle().then(dismiss)'));
 
 $formScriptSource = (string) file_get_contents(dirname(__DIR__) . '/assets/js/recaptcha.js');
 
@@ -281,7 +308,7 @@ check('the banner is cleared on the next attempt', str_contains($formScriptSourc
 // Six seconds was not enough for a cold load of api.js, which is over 100KB
 // and has to finish before execute() can return anything.
 check('the token wait is at least ten seconds', (bool) preg_match('/EXECUTE_TIMEOUT\s*=\s*(\d+)/', $formScriptSource, $timeout) && (int) $timeout[1] >= 10000);
-check('the gate wait is the longer of the two', (bool) preg_match('/TOTAL_TIMEOUT\s*=\s*(\d+)/', $gateScriptSource, $total) && (int) $total[1] >= 10000);
+check('the gate attempt window is the longer of the two', (bool) preg_match('/ATTEMPT_TIMEOUT\s*=\s*(\d+)/', $gateScriptSource, $total) && (int) $total[1] >= 10000);
 
 // assets/ is served cache-first by the service worker, so the query string is
 // the only thing that delivers a JS fix to a returning visitor. Bumping it is
