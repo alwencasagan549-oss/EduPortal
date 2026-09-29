@@ -242,6 +242,39 @@ false positive at the gate denies someone the entire portal, not one retry.
 4. Optionally set `HUMAN_GATE_SECRET` to
    `bin2hex(random_bytes(32))`.
 
+**Step 3 is a deployment setting, not a code change.** `.env` is gitignored, so
+the keys in it never reach the host — a `git push` will not turn reCAPTCHA on.
+On Render they go in the service's Environment tab, and the service has to be
+redeployed to pick them up. Nothing in the code needs to change.
+
+The failure mode is quiet, which is why `recaptcha_setup_problem()` exists:
+with either key missing the feature switches itself off and serves a
+completely ordinary-looking site with no tag and no gate. "Off" and
+"mislabelled" are indistinguishable from outside, so check that the page
+actually contains `human_gate.js` before assuming it is armed:
+
+```bash
+curl -s https://reesnhs.l.cd/ | grep -c human_gate.js   # 1 = armed
+```
+
+### `RECAPTCHA_EXPECTED_HOSTNAME`
+
+The token's hostname is checked, because the site key is public and a token can
+be minted for any action from any site. The expected host defaults to the host
+of `SITE_URL`.
+
+If `SITE_URL` is not set on the deployment, it falls back to
+`http://localhost/Eduportal`, and enforcing a hostname of `localhost` against
+real visitors would fail every login on the portal. Rather than do that, the
+check steps aside and logs the fact — a security control must never be the
+reason a school cannot sign in. Setting `RECAPTCHA_EXPECTED_HOSTNAME` removes
+the dependency on `SITE_URL` entirely and is the better configuration for a
+production host:
+
+```
+RECAPTCHA_EXPECTED_HOSTNAME=reesnhs.l.cd
+```
+
 `.env.example` documents every knob, including the per-action score overrides
 (`RECAPTCHA_MIN_SCORE_SIGNUP=0.4`) and the HTTP timeout. The Content-Security-
 Policy in `config/database.php` and `pwa-apache.conf` already permits Google's

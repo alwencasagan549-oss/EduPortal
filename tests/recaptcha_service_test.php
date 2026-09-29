@@ -380,6 +380,49 @@ check(
     with_recaptcha_env(['RECAPTCHA_EXPECTED_HOSTNAME' => 'portal.example.edu'], 'recaptcha_expected_hostname') === 'portal.example.edu'
 );
 
+// An unconfigured SITE_URL cannot be exercised through a constant here -- the
+// 'localhost' fallback in config/database.php is what a deployment actually
+// sees, and a test process has no way to undefine it -- so the policy is
+// asserted directly instead. This matters: enforcing a hostname of "localhost"
+// against real visitors would fail every login on the portal, and a security
+// control must never be the reason a school cannot sign in.
+check('a known hostname is enforceable', recaptcha_hostname_check_usable('portal.example.edu') === true);
+check('an unknown hostname is not enforceable', recaptcha_hostname_check_usable('') === false);
+// The exact string config/database.php falls back to.
+check('the localhost fallback is not enforceable', recaptcha_hostname_check_usable('localhost') === false);
+check(
+    'a real hostname is enforceable even with SITE_URL unset',
+    with_recaptcha_env(['RECAPTCHA_EXPECTED_HOSTNAME' => 'reesnhs.l.cd', 'SITE_URL' => ''], fn() => recaptcha_hostname_check_usable()) === true
+);
+check(
+    'the setup problem names both keys when nothing is set',
+    str_contains(with_recaptcha_env([], 'recaptcha_setup_problem'), 'RECAPTCHA_SITE_KEY')
+        && str_contains(with_recaptcha_env([], 'recaptcha_setup_problem'), 'RECAPTCHA_SECRET_KEY')
+);
+check(
+    'the setup problem names the missing half',
+    str_contains(
+        with_recaptcha_env(configured_env(['RECAPTCHA_SECRET_KEY' => '']), 'recaptcha_setup_problem'),
+        'RECAPTCHA_SECRET_KEY'
+    )
+);
+check(
+    'a deliberate disable reads as deliberate',
+    str_contains(with_recaptcha_env(configured_env(['RECAPTCHA_ENABLED' => '0']), 'recaptcha_setup_problem'), 'RECAPTCHA_ENABLED=0')
+);
+check(
+    'a working deployment reports no problem',
+    with_recaptcha_env(configured_env(), 'recaptcha_setup_problem') === ''
+);
+// The gate markup is empty on an unconfigured deployment, which is what makes
+// "no reCAPTCHA on the site" indistinguishable from "reCAPTCHA on the site but
+// switched off". This is the actual failure that prompted the helper above.
+same('an unconfigured deployment emits no gate markup', with_recaptcha_env([], 'human_gate_head'), '');
+check(
+    'the gate endpoint answers fine when the feature is off, so no visitor is stranded',
+    str_contains((string) file_get_contents(dirname(__DIR__) . '/controllers/human_gate.php'), "'ok' => true")
+);
+
 // ---------------------------------------------------------------------
 // HTTP timeout
 // ---------------------------------------------------------------------

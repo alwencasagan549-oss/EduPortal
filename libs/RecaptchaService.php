@@ -110,6 +110,41 @@ function recaptcha_secret_key(): string
 }
 
 /**
+ * Why reCAPTCHA is not running, in a sentence an operator can act on. Returns
+ * '' when it is running.
+ *
+ * This exists because "reCAPTCHA is not working" and "reCAPTCHA is switched
+ * off" look identical from outside: both serve a site with no tag and no
+ * gate, no error, and no failed request to notice. On a deployment where the
+ * feature is simply unconfigured that is correct and intended -- but it is also
+ * exactly what a forgotten environment variable looks like, and there is no
+ * other signal that the difference exists.
+ *
+ * Kept out of any response body. It names configuration, not data, but a
+ * public endpoint has no business describing its own deployment.
+ */
+function recaptcha_setup_problem(): string
+{
+    if (recaptcha_enabled()) {
+        return '';
+    }
+
+    if (recaptcha_setting('RECAPTCHA_ENABLED', '1') === '0') {
+        return 'reCAPTCHA is disabled by RECAPTCHA_ENABLED=0.';
+    }
+
+    if (recaptcha_site_key() === '' && recaptcha_secret_key() === '') {
+        return 'reCAPTCHA is not configured: neither RECAPTCHA_SITE_KEY nor RECAPTCHA_SECRET_KEY is set. '
+            . 'Set both in the deployment environment, or set RECAPTCHA_ENABLED=0 to make the absence deliberate.';
+    }
+
+    return 'reCAPTCHA is not configured: '
+        . (recaptcha_site_key() === '' ? 'RECAPTCHA_SITE_KEY' : 'RECAPTCHA_SECRET_KEY')
+        . ' is missing. Both halves of the key pair are required; with either one absent the feature '
+        . 'switches itself off rather than rendering a badge that verifies against no secret.';
+}
+
+/**
  * reCAPTCHA is active only when both halves of the key pair are present.
  * A site key without a secret would render a badge that verifies nothing; a
  * secret without a site key is a credential the server has no way to use.
@@ -195,6 +230,24 @@ function recaptcha_expected_hostname(): string
     }
 
     return strtolower(trim($host));
+}
+
+/**
+ * Whether a hostname check can be enforced at all.
+ *
+ * False when this deployment's own host is unknown, which is what a missing
+ * SITE_URL looks like: config/database.php falls back to
+ * 'http://localhost/Eduportal', so the derived hostname is 'localhost' on a
+ * host that is plainly not localhost. Enforcing that would fail every login
+ * on the portal. A security control must never be the reason a school cannot
+ * sign in, so the check steps aside and says so in the log rather than
+ * quietly protecting nothing.
+ */
+function recaptcha_hostname_check_usable(?string $expected = null): bool
+{
+    $expected = $expected ?? recaptcha_expected_hostname();
+
+    return $expected !== '' && $expected !== 'localhost';
 }
 
 function recaptcha_client_ip(): string
@@ -381,12 +434,17 @@ function recaptcha_verify(string $token, string $action): array
     // The site key is public, so a token can be minted for any action from any
     // site. The hostname is the only binding back to this deployment, so a
     // mismatch is treated as a rejection rather than a warning.
-    $expected = recaptcha_expected_hostname();
-    if ($expected !== '') {
+    if (recaptcha_hostname_check_usable()) {
+        $expected = recaptcha_expected_hostname();
         $hostname = isset($data['hostname']) && is_string($data['hostname']) ? strtolower($data['hostname']) : '';
         if ($hostname !== $expected) {
             return recaptcha_result(false, 'hostname_mismatch', null, $action, recaptcha_user_error());
         }
+    } elseif (recaptcha_setting('RECAPTCHA_EXPECTED_HOSTNAME') === '') {
+        error_log(
+            'EduPortal reCAPTCHA hostname check skipped for ' . $action . ': this deployment\'s own host is '
+            . 'not known. Set RECAPTCHA_EXPECTED_HOSTNAME, or SITE_URL, so tokens can be bound to it.'
+        );
     }
 
     $rawScore = $data['score'] ?? null;

@@ -500,6 +500,30 @@ require_once 'libs/RecaptchaService.php';
                             style="margin-right: 8px; color: #f7df1e;"></i> Vanilla JS Streams</li>
                 </ul>
             </div>
+            <div>
+                <h2 style="margin-bottom: 1.2rem; font-weight: 700; font-size: 1rem;">Legal</h2>
+                <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.8rem;">
+                    <?php
+                    /* A privacy notice and terms that exist but are unreachable
+                       are not published, so these links are part of the notice
+                       rather than decoration on it. */
+                    $legal_links = [
+                        'privacy.php' => ['Privacy Policy', 'fa-shield-halved', '#91a8ff'],
+                        'terms.php' => ['Terms of Service', 'fa-file-contract', '#c084fc'],
+                        'contact.php' => ['Contact', 'fa-envelope', '#10b981'],
+                    ];
+                    foreach ($legal_links as $legal_href => [$legal_label, $legal_icon, $legal_color]): ?>
+                        <li>
+                            <a href="<?php echo $legal_href; ?>"
+                                style="color: var(--text-muted); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; min-height: 32px; transition: color 0.2s;"
+                                onmouseover="this.style.color='<?php echo $legal_color; ?>'"
+                                onmouseout="this.style.color='var(--text-muted)'">
+                                <i class="fas <?php echo $legal_icon; ?>"></i> <?php echo $legal_label; ?>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
         </div>
         <div
             style="max-width: 1200px; margin: 3rem auto 0; padding-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
@@ -509,6 +533,16 @@ require_once 'libs/RecaptchaService.php';
                     onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwin T.
                     Casagan</a>.</p>
             <div style="display: flex; gap: 2rem; color: var(--text-muted); font-size: 0.85rem;">
+                <nav aria-label="Legal" style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                    <a href="privacy.php" style="color: inherit; transition: color 0.2s;"
+                        onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Privacy
+                        Policy</a>
+                    <a href="terms.php" style="color: inherit; transition: color 0.2s;"
+                        onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Terms of
+                        Service</a>
+                    <a href="contact.php" style="color: inherit; transition: color 0.2s;"
+                        onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Contact</a>
+                </nav>
                 <span style="opacity: 0.8;"><i class="fas fa-code" style="margin-right: 8px;"></i> Web Developer: <a href="https://casagan.vercel.app/" target="_blank" id="_sys_v_auth" style="color: inherit; text-decoration: none; font-weight: 700; transition: color 0.2s;" onmouseover="this.style.color='#4e73df'" onmouseout="this.style.color='inherit'">Alwin T. Casagan</a></span>
                 <span>System Status: <span
                         style="color: var(--success-color); font-weight: 600;">Operational</span></span>
