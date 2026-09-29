@@ -20,6 +20,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/libs/AuthService.php';
+require_once __DIR__ . '/libs/RecaptchaService.php';
 require_once __DIR__ . '/libs/WebAuthnService.php';
 
 $conn = getDBConnection();
@@ -149,6 +150,9 @@ if ($success) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php /* Gate only. The form below deliberately carries no reCAPTCHA action: reaching this page already required a single-use token that was mailed to the account holder, and adding a second failure mode to the portal's only account-recovery path is a bad trade. */ ?>
+    <?php echo human_gate_head(); ?>
+    <?php echo google_analytics_tag(); ?>
     <title>Choose New Password | EduPortal LMS</title>
     <link rel="icon" href="assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="manifest.webmanifest">

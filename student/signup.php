@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../libs/AuthService.php';
+require_once '../libs/RecaptchaService.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -13,57 +14,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Invalid security token.';
     } else {
         $lrn = trim($_POST['lrn'] ?? '');
-        $name = trim($_POST['name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $confirm_password = $_POST['confirm_password'] ?? '';
 
-        if ($password !== $confirm_password) {
-            $error = "Passwords do not match";
-        } elseif (strlen($lrn) !== 12) {
-            $error = "LRN must be exactly 12 digits";
-        } elseif (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $error = "Please provide a valid email address";
-        } elseif (($policyProblem = auth_password_problem($password)) !== null) {
-            $error = $policyProblem;
+        // Ahead of every field check below, and of the uniqueness probe in
+        // particular. A registration form is the cheapest way to turn this
+        // portal into a spam sink and an LRN-guessing oracle, and both of
+        // those need the request to reach the database to happen.
+        $recaptcha = recaptcha_check($_POST, 'signup', [
+            'user_role' => 'student',
+            'identifier' => $lrn,
+        ]);
+
+        if (!$recaptcha['ok']) {
+            $error = $recaptcha['error'];
         } else {
-        $section = trim($_POST['section'] ?? '');
-        $grade_level = trim($_POST['grade_level'] ?? 'Grade 11');
-        $strand = trim($_POST['strand'] ?? 'Academic');
-        $hashed_password = auth_password_hash($password);
+            $name = trim($_POST['name'] ?? '');
+            $email = trim($_POST['email'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $confirm_password = $_POST['confirm_password'] ?? '';
 
-        try {
-            $conn = getDBConnection();
-            // Only the LRN identifies a student. The email is not unique and
-            // must not be: siblings routinely share a family or guardian
-            // mailbox, and checking it here would stop a second child from
-            // ever being registered. Password reset is unaffected -- the token
-            // is bound to the account, not to the address it was mailed to.
-            $check = $conn->prepare('SELECT id FROM students WHERE lrn = ?');
-            $check->execute([$lrn]);
-
-            if ($check->get_result()->num_rows() > 0) {
-                $error = "An account with this LRN already exists.";
+            if ($password !== $confirm_password) {
+                $error = "Passwords do not match";
+            } elseif (strlen($lrn) !== 12) {
+                $error = "LRN must be exactly 12 digits";
+            } elseif (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $error = "Please provide a valid email address";
+            } elseif (($policyProblem = auth_password_problem($password)) !== null) {
+                $error = $policyProblem;
             } else {
-                $stmt = $conn->prepare("INSERT INTO students (lrn, name, email, grade_level, section, strand, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$lrn, $name, $email, $grade_level, $section, $strand, $hashed_password]);
+                $section = trim($_POST['section'] ?? '');
+                $grade_level = trim($_POST['grade_level'] ?? 'Grade 11');
+                $strand = trim($_POST['strand'] ?? 'Academic');
+                $hashed_password = auth_password_hash($password);
 
-                if ($stmt->rowCount() > 0) {
-                    $success = "Registration successful! You can now login.";
-                } else {
-                    $error = "Registration failed";
+                try {
+                    $conn = getDBConnection();
+                    // Only the LRN identifies a student. The email is not
+                    // unique and must not be: siblings routinely share a
+                    // family or guardian mailbox, and checking it here would
+                    // stop a second child from ever being registered.
+                    // Password reset is unaffected -- the token is bound to
+                    // the account, not to the address it was mailed to.
+                    $check = $conn->prepare('SELECT id FROM students WHERE lrn = ?');
+                    $check->execute([$lrn]);
+
+                    if ($check->get_result()->num_rows() > 0) {
+                        $error = "An account with this LRN already exists.";
+                    } else {
+                        $stmt = $conn->prepare("INSERT INTO students (lrn, name, email, grade_level, section, strand, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$lrn, $name, $email, $grade_level, $section, $strand, $hashed_password]);
+
+                        if ($stmt->rowCount() > 0) {
+                            $success = "Registration successful! You can now login.";
+                        } else {
+                            $error = "Registration failed";
+                        }
+                    }
+                } catch (PDOException $exception) {
+                    $sqlState = (string) $exception->getCode();
+                    $driverCode = isset($exception->errorInfo[1]) ? (int) $exception->errorInfo[1] : 0;
+                    if ($sqlState === '23505' || $driverCode === 1062) {
+                        $error = "An account with this LRN already exists.";
+                    } else {
+                        error_log('Student registration failed: ' . $exception->getMessage());
+                        $error = "Registration could not be completed. Please try again.";
+                    }
                 }
             }
-        } catch (PDOException $exception) {
-            $sqlState = (string) $exception->getCode();
-            $driverCode = isset($exception->errorInfo[1]) ? (int) $exception->errorInfo[1] : 0;
-            if ($sqlState === '23505' || $driverCode === 1062) {
-                $error = "An account with this LRN already exists.";
-            } else {
-                error_log('Student registration failed: ' . $exception->getMessage());
-                $error = "Registration could not be completed. Please try again.";
-            }
-        }
         }
     }
 }
@@ -73,6 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo human_gate_head(); ?>
+    <?php echo google_analytics_tag(); ?>
     <title>Student Registration | EduPortal LMS</title>
     <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="../manifest.webmanifest">
@@ -106,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="alert alert-success"><i class="fas fa-circle-check"></i> <div><?php echo htmlspecialchars($success); ?></div></div>
         <?php endif; ?>
 
-        <form method="POST" data-loader="true">
+        <form method="POST" data-loader="true" data-recaptcha-action="signup">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <div class="responsive-grid-stack" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                 <div>
@@ -184,6 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
     <script src="../assets/js/trusted_types.js"></script>
+    <?php echo recaptcha_script_tag(); ?>
     <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/pwa.js"></script>

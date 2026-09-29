@@ -39,6 +39,7 @@ require_once __DIR__ . '/../libs/passkey_panel.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo google_analytics_tag(); ?>
     <title>Student Profile | EduPortal LMS</title>
     <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="../manifest.webmanifest">

@@ -26,6 +26,14 @@ define('DB_NAME', SECURE_DB_NAME);
 define('DB_PORT', SECURE_DB_PORT);
 define('DB_SSL_MODE', SECURE_DB_SSL_MODE);
 
+// Loaded here rather than per page so that "the Google tag is on every page"
+// is structurally true rather than a property of 20 separate files that
+// nobody remembers to update. The file has no side effects -- no network, no
+// database, no output -- so a JSON endpoint that never calls the tag pays
+// only the cost of parsing a small function library, and which pages actually
+// emit the tag stays an explicit, reviewable decision at each call site.
+require_once __DIR__ . '/../libs/Analytics.php';
+
 // Harden Session Security (Auth Shield)
 if (session_status() === PHP_SESSION_NONE) {
     $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'
@@ -142,7 +150,19 @@ if (!headers_sent()) {
     header('Cross-Origin-Opener-Policy: same-origin');
     header('Cross-Origin-Resource-Policy: same-site');
     header('X-XSS-Protection: 0');
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' https://*.r2.cloudflarestorage.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; trusted-types eduportal;");
+    // reCAPTCHA v3 loads its script from www.google.com/recaptcha and its
+    // frames from the same origin, and posts the token to
+    // www.google.com/recaptcha/ over XHR. All three directives are named
+    // explicitly rather than loosened with https:, so enabling reCAPTCHA does
+    // not also permit every other Google and third-party frame.
+    //
+    // Google Analytics needs its own origins: the tag from
+    // googletagmanager.com, and the measurement beacons to
+    // google-analytics.com over both XHR/fetch and the noscript pixel, so
+    // connect-src and img-src both have to name it. The region1 host is
+    // included because GA4 is free to route beacons through it, and a CSP that
+    // only allowed the global host silently drops those hits.
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://www.gstatic.com/recaptcha/ https://www.google-analytics.com https://www.googletagmanager.com; connect-src 'self' https://*.r2.cloudflarestorage.com https://www.google.com/recaptcha/ https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' https://www.google.com/recaptcha/; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; trusted-types eduportal;");
 }
 
 if (empty($_SESSION['csrf_token'])) {

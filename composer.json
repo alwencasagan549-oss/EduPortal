@@ -12,7 +12,9 @@
       "@php tests/assignment_management_test.php",
       "@php tests/upload_helpers_test.php",
       "@php tests/auth_service_test.php",
-      "@php tests/webauthn_service_test.php"
+      "@php tests/webauthn_service_test.php",
+      "@php tests/recaptcha_service_test.php",
+      "@php tests/analytics_test.php"
     ]
   },
   "autoload": {

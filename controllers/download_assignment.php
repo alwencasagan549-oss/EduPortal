@@ -24,6 +24,7 @@ function renderDownloadError(string $title, string $message, string $backUrl, st
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo google_analytics_tag(); ?>
     <title><?= $safeTitle ?> | EduPortal</title>
     <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="stylesheet" href="../assets/style.min.css?v=20260924">

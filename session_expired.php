@@ -9,6 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo google_analytics_tag(); ?>
     <title>Session Expired | EduPortal LMS</title>
     <link rel="icon" href="assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="manifest.webmanifest">

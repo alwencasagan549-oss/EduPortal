@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../libs/AuthService.php';
+require_once '../libs/RecaptchaService.php';
 require_once '../libs/teacher_account.php';
 require_once '../libs/WebAuthnService.php';
 if (session_status() === PHP_SESSION_NONE) {
@@ -25,19 +26,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         auth_record_event($conn, 'login', 'csrf_failure', ['user_role' => 'teacher']);
         $error = 'Invalid security token.';
     } else {
-        $result = auth_attempt_password_login($conn, 'teacher', [
-            'identifier' => trim($_POST['email'] ?? ''),
-            'subject' => normalize_teacher_subject($_POST['subject'] ?? $_POST['teacher_type'] ?? ''),
-            'password' => $_POST['password'] ?? '',
+        $email = trim($_POST['email'] ?? '');
+        $subject = normalize_teacher_subject($_POST['subject'] ?? $_POST['teacher_type'] ?? '');
+
+        // Ahead of the credential check, not after it. See student/login.php:
+        // the identifier here is an email and a subject, so an unverified
+        // request would otherwise be a two-field account-existence oracle
+        // before throttling even started counting.
+        $recaptcha = recaptcha_check($_POST, 'login', [
+            'conn' => $conn,
+            'user_role' => 'teacher',
+            'identifier' => $email,
         ]);
 
-        if ($result['ok']) {
-            auth_establish_session($result['account'], 'teacher');
-            header('Location: dashboard.php');
-            exit();
-        }
+        if (!$recaptcha['ok']) {
+            $error = $recaptcha['error'];
+        } else {
+            $result = auth_attempt_password_login($conn, 'teacher', [
+                'identifier' => $email,
+                'subject' => $subject,
+                'password' => $_POST['password'] ?? '',
+            ]);
 
-        $error = $result['error'];
+            if ($result['ok']) {
+                auth_establish_session($result['account'], 'teacher');
+                header('Location: dashboard.php');
+                exit();
+            }
+
+            $error = $result['error'];
+        }
     }
 }
 ?>
@@ -46,6 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo human_gate_head(); ?>
+    <?php echo google_analytics_tag(); ?>
     <title>Teacher Login | EduPortal LMS</title>
     <link rel="icon" href="../assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <link rel="manifest" href="../manifest.webmanifest">
@@ -95,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <form method="POST" data-loader="true">
+        <form method="POST" data-loader="true" data-recaptcha-action="login">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <div style="margin-bottom: 1.5rem;">
                 <label for="email" style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
@@ -154,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
     <script src="../assets/js/trusted_types.js"></script>
+    <?php echo recaptcha_script_tag(); ?>
     <script src="../assets/js/system_loader.js?v=20260924-loader4"></script>
     <script src="../assets/js/responsive_ui.js"></script>
     <script src="../assets/js/webauthn.js?v=<?php echo WEBAUTHN_JS_VERSION; ?>"></script>

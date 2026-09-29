@@ -2,6 +2,17 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <!-- Google tag (gtag.js). Static file, so the snippet is inlined instead of
+         emitted by libs/Analytics.php. Kept identical to the PHP output; if you
+         change one, change the other, and tests/analytics_test.php compares
+         them so they cannot drift silently. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JZ0E3M8PPD"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-JZ0E3M8PPD');
+    </script>
     <link rel="icon" href="assets/favicon.ico?v=20260924-ico" type="image/x-icon">
     <title>Eduportal - Teacher & Student User Guide</title>
     <style>

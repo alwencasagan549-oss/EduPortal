@@ -3,6 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Google tag (gtag.js). Inlined rather than emitted by libs/Analytics.php
+         because this file is served straight from the service worker cache and
+         is never executed by PHP. Kept identical to the PHP output; if you
+         change one, change the other, and tests/analytics_test.php compares
+         them so they cannot drift silently. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JZ0E3M8PPD"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-JZ0E3M8PPD');
+    </script>
     <meta name="theme-color" content="#0a0b10">
     <meta name="description" content="EduPortal offline page">
     <link rel="manifest" href="manifest.webmanifest">
